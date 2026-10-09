@@ -74,7 +74,7 @@ Method: same model and prompts for both; the bare agent holds a direct wallet to
 4. **Mock counterparties.** The insurer and lender are labelled simulations, not real products.
 5. **Testnet only.** No real funds; the dollar token is a mock.
 6. **Model output quality.** Wrong extraction can propose a wrong amount to a registered payee, bounded by the per-payment cap and visible in the decision log.
-7. **Guard risk.** A faulty Safe guard can lock a Safe; ours was tested on a throwaway Safe first. **TODO [Contracts]:** confirm, or state that the guard was not deployed (not written yet as of the first iteration). Without the guard, two human owners acting together can change modules or owners at once; the agent alone cannot.
+7. **Guard risk.** A faulty Safe guard can lock a Safe, so ours goes on a throwaway Safe first. `PlanGuard` is written and unit-tested against the Safe v1.4.1 guard interface but not yet set on any Safe. **TODO [Contracts]:** set it on a throwaway Safe on Base Sepolia, then on the demo Safe, or state here that it was not set. Without the guard, two human owners acting together can change modules or owners at once; the agent alone cannot.
 8. **Replay mode.** In the Ragasa and Yagi replays the relayers sign with the current time and keep the 2025 official time as `sourceTime`, and each run salts the GDACS event id so the cover and credit cap reset per run. Live mode uses the real event id and signs as soon as the source changes.
 9. **Tightening changes are timelocked too.** Removing a payee or lowering a cap waits 24 h like any other change; the owner pauses the module in the meantime.
 10. **Agent can pause itself.** A stolen agent key can stop the agent (denial of service) but cannot move money outside the plan.
