@@ -19,12 +19,11 @@ jobs:
       - name: Fetch libraries
         run: |
           git clone --depth 1 --branch v4.9.6 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
-          git clone --depth 1 https://github.com/foundry-rs/forge-std lib/forge-std
+          git clone --depth 1 --branch v1.9.7 https://github.com/foundry-rs/forge-std lib/forge-std
       - name: Build
         run: forge build --sizes
       - name: Test
-        run: |
-          if ls test/*.t.sol >/dev/null 2>&1; then forge test -vv; else echo "no tests yet"; fi
+        run: forge test -vv
 
   agent:
     # Windows too: the team develops on Windows, and path handling breaks there first.
@@ -50,3 +49,20 @@ jobs:
       - name: Replay dry run
         # grep fails the step if the runner exits without printing the storm window
         run: npx tsx src/replay/runner.ts --event ragasa-2025 --speed 1000000 --dry-run | tee replay.log && grep -q "STORM MODE ON" replay.log
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # no deployments file in CI: the build must still pass and render "not connected"
+      - run: npm run build

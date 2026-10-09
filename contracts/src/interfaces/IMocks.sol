@@ -16,6 +16,8 @@ interface IFlowCreditLine {
     function limit() external view returns (uint256);
 
     function drawn() external view returns (uint256);
+
+    function borrower() external view returns (address);
 }
 
 /// @notice Clients pay invoices here; a share is swept to the lender unless storm mode is on.
@@ -38,6 +40,8 @@ interface IMockSignalCover {
     function claim() external;
 
     function payout() external view returns (uint256);
+
+    function claimed(bytes32 eventId) external view returns (bool);
 }
 
 /// @notice Stores hashes of pre-storm evidence, daily reports and the attack log.

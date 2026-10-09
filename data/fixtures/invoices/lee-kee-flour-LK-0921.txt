@@ -1,0 +1,9 @@
+From: accounts@leekeeflour.example (fictional)
+Subject: Invoice LK-0921
+
+INVOICE LK-0921, Lee Kee Flour.
+Golden Lotus Dim Sum, Sheung Wan (fictional)
+50 kg high-gluten flour and 20 kg rice flour, delivered 19 Sep 2025.
+Amount due: 1,250.50
+Due 23 Sep 2025.
+Thank you for your business.

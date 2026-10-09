@@ -10,10 +10,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "hko:now": "tsx src/relayers/hko.ts",
+    "gdacs:now": "tsx src/relayers/gdacs.ts",
     "replay": "tsx src/replay/runner.ts",
-    "plan:hash": "tsx src/plan.ts"
+    "plan:hash": "tsx src/plan.ts",
+    "serve": "tsx src/server.ts",
+    "evidence": "tsx src/evidence.ts",
+    "keys:new": "tsx src/keys.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "dotenv": "^16.4.5",
     "viem": "^2.21.0",
     "zod": "^3.23.8"

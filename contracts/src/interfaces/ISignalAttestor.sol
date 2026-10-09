@@ -32,6 +32,10 @@ interface ISignalAttestor {
     error FutureAttestation();
     error UnexpectedEventId();
     error BadLevel();
+    error NotOwner();
+    error NotSelf();
+    error NotQueued();
+    error TooEarly();
 
     function attest(SignalAttestation calldata a, bytes calldata signature) external;
 
@@ -39,4 +43,19 @@ interface ISignalAttestor {
 
     /// @return eventId latest GDACS event id for the region; hkoLevel latest HKO/NCHMF level
     function currentEvent(bytes32 region) external view returns (bytes32 eventId, uint8 hkoLevel);
+
+    /// @notice Latest attestation stored for a source and region (zeros if none).
+    function latest(bytes32 source, bytes32 region)
+        external
+        view
+        returns (
+            uint8 level,
+            bytes32 eventId,
+            uint64 sourceTime,
+            uint64 issuedAt
+        );
+
+    function relayers(bytes32 source) external view returns (address);
+
+    function lastNonce(address relayer) external view returns (uint64);
 }

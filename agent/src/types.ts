@@ -54,6 +54,8 @@ export const Decision = z.object({
   outcome: z.enum(["executed", "refused", "proposed"]),
   reason: z.string().optional(),
   tx: bytes32.optional(),
+  action: z.string().max(40).optional(), // action type, e.g. "pay"
+  summary: z.string().max(280).optional(), // one plain-language line for the dashboard
 });
 export type Decision = z.infer<typeof Decision>;
 

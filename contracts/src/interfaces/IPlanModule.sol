@@ -60,6 +60,7 @@ interface IPlanModule {
     error ExecFailed();
     error NotQueued();
     error TooEarly();
+    error UnknownPlan();
 
     // ---- agent ----
     function pay(uint8 planId, address to, uint256 amount, bytes32 ref) external;
