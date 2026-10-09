@@ -1,19 +1,31 @@
 // Pure display helpers, safe to import from client components.
 import { formatUnits } from "viem";
 
-/** "12,345.5" from raw token units (decimal string or bigint). */
+/** "12,345.50" from raw token units (decimal string or bigint). */
 export function fmtUnits(raw: string | bigint | null | undefined, decimals = 6): string {
   if (raw === null || raw === undefined) return "–";
   const s = formatUnits(BigInt(raw), decimals);
   return fmtDecimal(s);
 }
 
-/** "12,345.5" from a decimal string in token units (as written in the plan book). */
+/**
+ * "12,345.50" from a decimal string in token units (as written in the plan book), rounded half up to
+ * 2 decimals on the digits themselves (no float). Whole amounts stay whole: "20,000", "5.10", "0.01".
+ */
 export function fmtDecimal(s: string): string {
-  const [int, frac] = s.split(".");
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const f = (frac ?? "").replace(/0+$/, "").slice(0, 2);
-  return f ? `${grouped}.${f}` : grouped;
+  const m = /^(-?)(\d+)(?:\.(\d*))?$/.exec(s.trim());
+  if (!m) return s;
+  const frac = (m[3] ?? "").padEnd(3, "0");
+  const cents = BigInt(m[2] + frac.slice(0, 2)) + (frac[2] >= "5" ? 1n : 0n);
+  const int = (cents / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const f = cents % 100n;
+  const sign = m[1] && cents > 0n ? "-" : "";
+  return f > 0n ? `${sign}${int}.${f.toString().padStart(2, "0")}` : `${sign}${int}`;
+}
+
+/** 0x1234…abcd */
+export function shortTx(h: string): string {
+  return h.length > 12 ? `${h.slice(0, 6)}…${h.slice(-4)}` : h;
 }
 
 export function shortAddr(a: string | null | undefined): string {

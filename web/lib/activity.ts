@@ -500,8 +500,9 @@ export function buildActivity(logs: ChainLog[], decisions: Decision[], ctx: Ctx)
     g.items.push(clean);
   }
 
-  // Needs you: proposals waiting for the owners (holds are information, not a request).
-  const proposals = decisions.filter((d) => d.outcome === "proposed" && d.action !== "hold");
+  // Needs you: proposals waiting for the owners (holds are information, not a request), minus those a later
+  // line shows as handled.
+  const proposals = decisions.filter((d) => d.outcome === "proposed" && d.action !== "hold" && !laterHandled(d, decisions));
   // Newest first; drafts from one run become a single "review the drafts" line.
   const needsAll: NeedsYouItem[] = [];
   const drafts: { d: Decision; name: string }[] = [];
@@ -554,6 +555,27 @@ export function buildActivity(logs: ChainLog[], decisions: Decision[], ctx: Ctx)
     stormEnded,
     lastCoverPaid,
   };
+}
+
+/** "Wing On Meats under the base plan" → "Wing On Meats". */
+const payeeOf = (who: string | null) => (who ? who.replace(/ under the (base|storm) plan$/i, "") : null);
+
+/**
+ * Best effort: a proposal is no longer waiting when a later line (executed or refused) is about the same payment
+ * (same payee and reference), or, for proposals that name neither, about the same input and action.
+ */
+function laterHandled(p: Decision, decisions: Decision[]): boolean {
+  const t = Date.parse(p.ts);
+  if (!Number.isFinite(t)) return false;
+  const a = parseProposal(p.summary);
+  if (a.draft) return false;
+  const who = payeeOf(a.who);
+  return decisions.some((q) => {
+    if (q.outcome === "proposed" || !(Date.parse(q.ts) > t)) return false;
+    if (!a.ref && !who) return q.input === p.input && q.action === p.action;
+    const b = parseProposal(q.summary);
+    return (!a.ref || b.ref === a.ref) && (!who || payeeOf(b.who) === who);
+  });
 }
 
 /**

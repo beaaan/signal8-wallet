@@ -2,8 +2,8 @@
 // Each source (deployment file, chain, agent API) fails on its own. Server only.
 import { buildActivity, agoLabel, whenLabel, type ActivityGroup, type NeedsYouItem, type StormStrip } from "./activity";
 import { fetchDecisions, type Decision } from "./agentApi";
-import { readLogs, readSnapshot, SOURCES, type ChainLog, type ChainSnapshot } from "./chain";
-import { config } from "./config";
+import { readLogs, readSnapshot, readStart, SOURCES, type ChainLog, type ChainSnapshot } from "./chain";
+import { config, hostOf } from "./config";
 import { loadDeployment } from "./deployments";
 import { fmtUnits } from "./format";
 import { loadPlanBook } from "./plan";
@@ -58,6 +58,8 @@ export interface DashboardData {
     creditMeter: Meter | null;
     allowed: string[];
     active: boolean;
+    /** When "today" starts over for the daily limits, e.g. "Resets 00:00 UTC (08:00 Hong Kong time)". */
+    resetNote: string | null;
   };
   needsYou: { ok: boolean; items: NeedsYouItem[]; total: number };
   activity: { ok: boolean; reason: string | null; groups: ActivityGroup[] };
@@ -67,6 +69,14 @@ export interface DashboardData {
 const msg = (e: unknown) => ((e as Error)?.message ?? String(e)).split("\n")[0].slice(0, 200);
 
 const TIME_ZONES: Record<string, string> = { HK: "Asia/Hong_Kong", "VN-QN-HP": "Asia/Ho_Chi_Minh" };
+const PLACE: Record<string, string> = { HK: "Hong Kong", "VN-QN-HP": "Vietnam" };
+
+/** The contract's day is block.timestamp / (1 days * timeUnit), so it turns over at 00:00 UTC when timeUnit is 1. */
+function resetNote(timeUnit: number, region: string, timeZone: string): string | null {
+  if (timeUnit !== 1) return null;
+  const local = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(Date.UTC(2026, 0, 1));
+  return timeZone === "UTC" ? "Resets 00:00 UTC" : `Resets 00:00 UTC (${local} ${PLACE[region] ?? "local"} time)`;
+}
 
 function meter(used: string | null, cap: string | null, decimals: number): Meter {
   const u = BigInt(used ?? "0");
@@ -82,10 +92,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     loadPlanBook(),
     fetchDecisions(300).then(
       (ds) => ({ ok: true as const, decisions: ds }),
-      (e) => ({ ok: false as const, reason: `Agent API at ${config.agentApiUrl} is not answering (${msg(e)}).` }),
+      (e) => ({ ok: false as const, reason: `Agent API at ${hostOf(config.agentApiUrl)} is not answering (${msg(e)}).` }),
     ),
   ]);
-  const decisions: Decision[] = decisionsRes.ok ? decisionsRes.decisions : [];
   const symbol = pb.ok ? pb.book.token.symbol : "mUSD";
   const region = dep.ok ? dep.deployment.region : pb.ok ? pb.book.region : "HK";
   const timeZone = TIME_ZONES[region] ?? "UTC";
@@ -94,9 +103,14 @@ export async function getDashboardData(): Promise<DashboardData> {
   let chainText = "No deployment to read.";
   let logs: ChainLog[] = [];
   let logsError: string | null = null;
+  let runStart: number | null = null; // unix ms of the deployment's start block
   if (dep.ok) {
     try {
       snap = await readSnapshot(dep.deployment);
+      runStart = await readStart(dep.deployment).then(
+        (s) => s.time * 1000,
+        () => null,
+      );
       chainText = `Chain ${snap.chainId}, block ${snap.blockNumber}`;
       try {
         logs = await readLogs(dep.deployment);
@@ -107,6 +121,11 @@ export async function getDashboardData(): Promise<DashboardData> {
       chainText = msg(e);
     }
   }
+  // Arena attempts belong to the arena page, and lines older than the deployment's start block are from an
+  // earlier run (decisions.jsonl survives an anvil restart and redeploy).
+  const decisions: Decision[] = (decisionsRes.ok ? decisionsRes.decisions : []).filter(
+    (d) => !String(d.input ?? "").startsWith("arena:") && !(runStart !== null && Date.parse(d.ts) < runStart),
+  );
   const decimals = snap?.decimals ?? (pb.ok ? pb.book.token.decimals : 6);
   const payees = new Map<string, { name: string; role: string }>();
   if (pb.ok) for (const p of pb.book.payees) payees.set(p.address.toLowerCase(), { name: p.name, role: p.role });
@@ -144,15 +163,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     const since = activity.stormSince ? `Since ${whenLabel(activity.stormSince, ctx)}` : null;
     const signalChip = hko === null ? "Signal unknown" : hko === 0 ? "No signal" : `Signal ${hko}`;
     const gdacsChip = gdacs ? `GDACS ${gdacsName(gdacs)}` : null;
-    status.title = snap.isStorm ? "Storm plan on" : "Everyday plan";
-    status.chips = [signalChip, gdacsChip, snap.isStorm ? since : (hko ?? 0) >= 8 ? "Waiting for GDACS" : (hko ?? 0) >= 1 ? "Getting ready" : null].filter(
+    status.title = snap.isStorm === null ? "Plan unknown" : snap.isStorm ? "Storm plan on" : "Everyday plan";
+    status.chips = [signalChip, gdacsChip, snap.isStorm === null ? null : snap.isStorm ? since : (hko ?? 0) >= 8 ? "Waiting for GDACS" : (hko ?? 0) >= 1 ? "Getting ready" : null].filter(
       (x): x is string => Boolean(x),
     );
     if (snap.paused) {
       status.title = "Paused";
       status.chips.unshift("Agent can't move money");
     }
-    if (snap.isStorm) {
+    if (snap.isStorm === null) {
+      status.mode = "unknown";
+      status.headline = "Storm status unknown: the signal contract could not be read.";
+    } else if (snap.isStorm) {
       status.mode = "storm";
       status.headline = `Storm mode: ${hkoName(hko)} and GDACS ${gdacsName(gdacs)} confirmed. The storm plan is paying staff; supplier payments wait.`;
     } else if ((hko ?? 0) >= 8) {
@@ -218,6 +240,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       creditMeter: plan.name === "storm" && plan.creditCapPerEvent !== "0" ? meter(snap.drawnInEvent, plan.creditCapPerEvent, decimals) : null,
       allowed: actionWords(plan.actions),
       active: plan.active,
+      resetNote: dep.ok ? resetNote(dep.deployment.timeUnit, region, timeZone) : null,
     };
   }
 

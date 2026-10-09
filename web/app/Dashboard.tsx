@@ -1,44 +1,89 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import type { ActivityGroup, StormStep, StormStrip } from "@/lib/activity";
+import type { ActivityGroup, ActivityItem, StormStep, StormStrip } from "@/lib/activity";
 import type { DashboardData, Meter } from "@/lib/dashboard";
 import { txLink } from "@/lib/format";
+import { ShortHash } from "./components/Copy";
+import { Hint } from "./components/Hint";
 import { Icon } from "./components/Icons";
 import { SignalBadge } from "./components/Signal";
 
 const POLL_MS = 5000;
 const ACTIVITY_ROWS = 10;
 
-export default function Dashboard({ initial }: { initial: DashboardData }) {
+export default function Dashboard({ initial, big: bigAtStart = false }: { initial: DashboardData; big?: boolean }) {
   const [data, setData] = useState(initial);
   const [stale, setStale] = useState(false);
+  const [lastOk, setLastOk] = useState<number | null>(null); // browser time of the last good data
+  const [big, setBig] = useState(bigAtStart);
 
+  // Poll: the next request starts only after the previous one finished, none while the tab is hidden, one right
+  // away when it is shown again. A response older than the data on screen is dropped.
   useEffect(() => {
     let alive = true;
-    const tick = async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let inFlight = false;
+    let newest = Date.parse(initial.generatedAt);
+    setLastOk(Date.now());
+    const schedule = () => {
+      clearTimeout(timer);
+      if (alive && !document.hidden) timer = setTimeout(poll, POLL_MS);
+    };
+    const poll = async () => {
+      if (inFlight || document.hidden) return;
+      inFlight = true;
       try {
         const res = await fetch("/api/dashboard", { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));
         const next = (await res.json()) as DashboardData;
-        if (alive) {
+        const t = Date.parse(next.generatedAt);
+        if (alive && !(t < newest)) {
+          newest = t;
           setData(next);
           setStale(false);
+          setLastOk(Date.now());
         }
       } catch {
         if (alive) setStale(true);
+      } finally {
+        inFlight = false;
+        schedule();
       }
     };
-    const id = setInterval(tick, POLL_MS);
+    const onVisibility = () => {
+      if (document.hidden) clearTimeout(timer);
+      else poll();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    schedule();
     return () => {
       alive = false;
-      clearInterval(id);
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
+  }, [initial.generatedAt]);
+
+  // Presenter mode: ?big=1, or press b.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "b" || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if ((e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]")) return;
+      setBig((b) => {
+        const url = new URL(window.location.href);
+        if (b) url.searchParams.delete("big");
+        else url.searchParams.set("big", "1");
+        window.history.replaceState(null, "", url);
+        return !b;
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
-    <div className="dash">
-      <Status data={data} stale={stale} />
+    <div className={big ? "dash dash-big" : "dash"}>
+      <Status data={data} stale={stale} lastOk={lastOk} />
       <NeedsYou data={data} />
       <Money data={data} />
       <Limits data={data} />
@@ -48,7 +93,28 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
   );
 }
 
-function Status({ data, stale }: { data: DashboardData; stale: boolean }) {
+/** "Live · 4s ago"; on a failed refresh it keeps the time of the last good one. Ticks on its own. */
+function Live({ bad, label, lastOk, title }: { bad: boolean; label: string; lastOk: number | null; title: string }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  let ago = "";
+  if (lastOk !== null && now !== null) {
+    const s = Math.max(0, Math.round((now - lastOk) / 1000));
+    ago = s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago`;
+  }
+  return (
+    <span className={`live ${bad ? "live-bad" : ""}`} title={title}>
+      <span className="live-dot" aria-hidden />
+      {ago ? `${label} · ${ago}` : label}
+    </span>
+  );
+}
+
+function Status({ data, stale, lastOk }: { data: DashboardData; stale: boolean; lastOk: number | null }) {
   const s = data.status;
   const c = data.connection;
   const down = [!c.deployment.ok && "contracts", c.deployment.ok && !c.chain.ok && "chain", !c.agent.ok && "agent"].filter(Boolean) as string[];
@@ -78,10 +144,12 @@ function Status({ data, stale }: { data: DashboardData; stale: boolean }) {
         ) : null}
       </div>
       <div className="status-side">
-        <span className={`live ${down.length || stale ? "live-bad" : ""}`} title={[c.deployment.text, c.chain.text, c.agent.text].join("\n")}>
-          <span className="live-dot" aria-hidden />
-          {stale ? "Refresh failed" : down.length ? `No ${down.join(", ")}` : `Live · ${data.updatedLabel}`}
-        </span>
+        <Live
+          bad={Boolean(down.length) || stale}
+          label={stale ? "Refresh failed" : down.length ? `No ${down.join(", ")}` : "Live"}
+          lastOk={lastOk}
+          title={[c.deployment.text, c.chain.text, c.agent.text].join("\n")}
+        />
       </div>
       {down.length || c.readErrors.length ? (
         <details className="status-why">
@@ -174,8 +242,10 @@ function Money({ data }: { data: DashboardData }) {
       </h2>
       <div className="figures">
         {cells.map((c) => (
-          <div key={c.label} className="figure" title={c.hint}>
-            <span className="figure-label">{c.label}</span>
+          <div key={c.label} className="figure">
+            <Hint text={c.hint} className="figure-label">
+              {c.label}
+            </Hint>
             <span className={`figure-value mono${c.tone ? ` tone-${c.tone}` : ""}`}>{c.value}</span>
           </div>
         ))}
@@ -197,23 +267,27 @@ function Limits({ data }: { data: DashboardData }) {
         </a>
       </h2>
       <div className="bars">
-        <Bar label="Spent today" m={l.planMeter} />
-        <Bar label="All plans today" m={l.allMeter} />
+        <Bar label="Spent today" m={l.planMeter} hint={l.resetNote} />
+        <Bar label="All plans today" m={l.allMeter} hint={l.resetNote} />
         {l.creditMeter ? <Bar label="Borrowed this storm" m={l.creditMeter} /> : null}
       </div>
-      <p className="muted small limits-foot" title={`Right now the agent may: ${l.allowed.join(", ") || "nothing"}. The contract enforces these limits, not the agent.`}>
-        Max <span className="mono">{l.perTx}</span> per payment
+      <p className="muted small limits-foot">
+        <Hint text={`Right now the agent may: ${l.allowed.join(", ") || "nothing"}. The contract enforces these limits, not the agent.`}>
+          Max <span className="mono">{l.perTx}</span> per payment
+        </Hint>
       </p>
     </section>
   );
 }
 
-function Bar({ label, m }: { label: string; m: Meter }) {
+function Bar({ label, m, hint }: { label: string; m: Meter; hint?: string | null }) {
   const tone = m.pct >= 90 ? "hot" : m.pct >= 70 ? "warm" : "ok";
   return (
     <div className="bar">
       <div className="bar-label">
-        <span className="muted">{label}</span>
+        <Hint text={hint} className="muted">
+          {label}
+        </Hint>
         <span className="mono">
           {m.used} / {m.cap}
         </span>
@@ -298,36 +372,79 @@ function Activity({ data }: { data: DashboardData }) {
   );
 }
 
-function Rows({ rows, chainId }: { rows: { g: ActivityGroup; it: ActivityGroup["items"][number]; first: boolean }[]; chainId: number | null }) {
+function Rows({ rows, chainId }: { rows: { g: ActivityGroup; it: ActivityItem; first: boolean }[]; chainId: number | null }) {
   return (
     <ul className="rows">
-      {rows.map(({ g, it, first }) => {
-        const link = txLink(chainId, it.tx);
-        const hover = [it.detail, it.meta, it.children?.map((c) => `${c.title} ${c.amount ?? ""}`).join("\n")].filter(Boolean).join("\n");
-        return (
-          <Fragment key={it.id}>
-            {first ? <li className={`row-group row-group-${g.phase}`}>{g.label}</li> : null}
-            <li className={`row k-${it.kind}`} title={hover || undefined}>
-            <span className="row-time mono">{it.timeLabel}</span>
-            <span className="row-icon" aria-hidden>
-              <Icon name={it.kind} size={15} />
-            </span>
-            <span className="row-title">
-              {it.title}
-              {it.detail ? <span className="sr-only">. {it.detail}</span> : null}
-            </span>
-            <span className="row-amount mono">
-              {it.amount ?? ""}
-              {link ? (
-                <a href={link} target="_blank" rel="noreferrer" className="row-link" aria-label="View on the block explorer">
-                  <Icon name="external" size={12} />
-                </a>
-              ) : null}
-            </span>
-            </li>
-          </Fragment>
-        );
-      })}
+      {rows.map(({ g, it, first }) => (
+        <Fragment key={it.id}>
+          {first ? <li className={`row-group row-group-${g.phase}`}>{g.label}</li> : null}
+          <Row it={it} chainId={chainId} />
+        </Fragment>
+      ))}
     </ul>
+  );
+}
+
+const isTx = (tx: string | undefined): tx is string => Boolean(tx && /^0x[0-9a-fA-F]{64}$/.test(tx));
+
+/** An explorer link where the chain has one; on anvil a short hash with a copy button. */
+function TxRef({ tx, chainId }: { tx: string | undefined; chainId: number | null }) {
+  const link = txLink(chainId, tx);
+  if (link) {
+    return (
+      <a href={link} target="_blank" rel="noreferrer" className="row-link" aria-label="View on the block explorer">
+        <Icon name="external" size={12} />
+      </a>
+    );
+  }
+  return isTx(tx) ? <ShortHash hash={tx} /> : null;
+}
+
+/** One activity line. Details (and a folded payroll run's payments) open on click, tap or Enter. */
+function Row({ it, chainId }: { it: ActivityItem; chainId: number | null }) {
+  const [open, setOpen] = useState(false);
+  const link = txLink(chainId, it.tx);
+  const note = [it.detail, it.meta].filter(Boolean).join(" · ");
+  const more = Boolean(note || it.children?.length || (!link && isTx(it.tx)));
+  return (
+    <li className={`row k-${it.kind}`}>
+      <span className="row-time mono">{it.timeLabel}</span>
+      <span className="row-icon" aria-hidden>
+        <Icon name={it.kind} size={15} />
+      </span>
+      {more ? (
+        <button type="button" className="row-title row-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <span className="row-title-text">{it.title}</span>
+          <span className="row-chevron" aria-hidden>
+            <Icon name="chevron" size={12} />
+          </span>
+        </button>
+      ) : (
+        <span className="row-title">{it.title}</span>
+      )}
+      <span className="row-amount mono">
+        {it.amount ?? ""}
+        {link ? <TxRef tx={it.tx} chainId={chainId} /> : null}
+      </span>
+      {open ? (
+        <div className="row-more">
+          {note ? <p>{note}</p> : null}
+          {!link && isTx(it.tx) ? <ShortHash hash={it.tx} /> : null}
+          {it.children?.length ? (
+            <ul className="row-children">
+              {it.children.map((c, j) => (
+                <li key={j}>
+                  <span>{c.title}</span>
+                  <span className="row-amount mono">
+                    {c.amount ?? ""}
+                    <TxRef tx={c.tx} chainId={chainId} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
   );
 }
