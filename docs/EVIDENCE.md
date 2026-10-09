@@ -19,15 +19,17 @@ Topic F requires real transaction hashes. `npm run evidence` appends rows from t
 
 ## Ragasa replay (Base Sepolia)
 
+Run id: ______ (salts the GDACS event id). Relayers sign with the run's wall-clock time; the 2025 HKO time is in each attestation's `sourceTime`. Every HKO signal change is also an attestation tx; the rows below list the ones that change state.
+
 | # | Replay time (HKT) | Signal | Action | Tx hash | Result |
 | --- | --- | --- | --- | --- | --- |
+| 0 | 2025-09-22 12:20 | No. 1 | GDACS attestation (RAGASA-25, Red) | | |
 | 1 | 2025-09-22 21:40 | No. 3 | Vault withdraw to buffer | | |
 | 2 | 2025-09-22 21:40 | No. 3 | Anchor pre-storm evidence | | |
-| 3 | 2025-09-23 14:20 | No. 8 NW | HKO attestation | | |
-| 4 | 2025-09-23 14:20 | No. 8 NW | GDACS attestation → StormStarted | | |
+| 3 | 2025-09-23 14:20 | No. 8 NW | HKO attestation → StormStarted | | |
 | 5 | 2025-09-23 14:20 | No. 8 NW | Cover claim | | |
 | 6 | 2025-09-24 02:40 | No. 10 | Fake email: refused (no tx; decision log line) | n/a | refused |
-| 7 | 2025-09-24 09:00 | No. 10 | Payroll | | |
+| 7 | 2025-09-24 09:00 | No. 10 | Payroll, 10 staff under the storm plan (one row per tx) | | |
 | 8 | 2025-09-24 09:00 | No. 10 | Credit draw | | |
 | 9 | 2025-09-24 20:20 | No. 3 | HKO attestation → StormEnded | | |
 | 10 | 2025-09-25 11:20 | Cancelled | Client payment via router, sweep resumes | | |
@@ -40,7 +42,7 @@ Topic F requires real transaction hashes. `npm run evidence` appends rows from t
 | 2 | Supplier payment | | |
 | 3 | Vault deposit | | |
 | 4 | Daily report anchor | | |
-| 5 | Over-cap payment proposed → owner co-signed | | |
+| 5 | Over-cap payment proposed by the agent (delegate) → two owners signed | | |
 
 ## Yagi replay (local FISCO BCOS, stretch)
 

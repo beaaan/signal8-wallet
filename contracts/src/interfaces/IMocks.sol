@@ -9,7 +9,7 @@ interface IFlowCreditLine {
     error OverLimit();
     error NotBorrower();
 
-    function draw(uint256 amount) external; // only the borrower (the Safe, via PlanModule.executeCall)
+    function draw(uint256 amount) external; // only the borrower (the Safe, via PlanModule.creditDraw); pays the borrower only
 
     function repay(uint256 amount) external; // called by PaymentRouter
 

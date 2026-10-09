@@ -33,7 +33,7 @@ flowchart LR
     gdacs["GDACS relayer"]
     att["SignalAttestor"]
     plan["PlanModule<br/>(on-chain)"]
-    safe["Business Safe<br/>2-of-3: owner, partner, agent"]
+    safe["Business Safe<br/>2-of-3: owner, partner, backup"]
     payees["Staff and suppliers"]
     cover["MockSignalCover"]
     credit["FlowCreditLine"]
