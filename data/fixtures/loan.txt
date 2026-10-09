@@ -1,0 +1,16 @@
+Harbour Community Bank: flow-based credit line, key terms (fictional)
+Borrower: Golden Lotus Dim Sum (fictional). Currency: mUSD.
+
+1. Facility
+1.1 The credit limit is 50,000.
+
+2. Repayment
+2.1 While any amount is drawn and no typhoon event is declared, 10% of each customer payment received through the payment link is swept to repay the line.
+2.2 The sweep pauses while a typhoon event is declared.
+
+3. Typhoon events
+3.1 A typhoon event is declared while the Hong Kong Observatory has Signal No. 8 or higher in force and GDACS confirms the storm.
+
+4. Drawdowns
+4.1 Outside a declared typhoon event, each drawdown needs the written approval of two owners.
+4.2 During a declared typhoon event the Borrower may draw up to 15,000 per event without further approval. (fictional)

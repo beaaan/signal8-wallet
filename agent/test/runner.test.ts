@@ -50,3 +50,21 @@ describe("buildSteps", () => {
     expect(() => buildSteps(file, 600)).toThrow(/unknown code TC11/);
   });
 });
+
+describe("replay CLI arguments", () => {
+  it("parses flags and switches", async () => {
+    const { parseArgs } = await import("../src/replay/runner.ts");
+    const { opts, switches } = parseArgs(["--event", "yagi-2024", "--speed", "100000", "--dry-run"]);
+    expect(opts).toEqual({ event: "yagi-2024", speed: "100000" });
+    expect([...switches]).toEqual(["dry-run"]);
+  });
+
+  it("rejects typos, missing values and bad speeds, so nothing starts by accident", async () => {
+    const { parseArgs } = await import("../src/replay/runner.ts");
+    expect(() => parseArgs(["--speeed", "4"])).toThrow(/unknown option --speeed/);
+    expect(() => parseArgs(["--event"])).toThrow(/needs a value/);
+    expect(() => parseArgs(["--speed", "0"])).toThrow(/positive/);
+    expect(() => parseArgs(["--speed", "abc"])).toThrow(/positive/);
+    expect(() => parseArgs(["ragasa-2025"])).toThrow(/unexpected argument/);
+  });
+});

@@ -133,3 +133,23 @@ describe("StormLoop", () => {
     expect(sink.runs).toEqual([]);
   });
 });
+
+describe("StormLoop in live mode (no run id)", () => {
+  it("keys the cover claim on the storm's event id, so the next storm is a new ref", async () => {
+    let ev: `0x${string}` = EVENT;
+    const sink = new Recorder();
+    const chain: StormChain = {
+      planHashes: async () => [H, H],
+      balances: async () => ({ safe: units("100000"), vault: 0n, creditDrawn: 0n, creditLimit: units("50000") }),
+      creditRoom: async () => 0n,
+      eventId: async () => ev,
+    };
+    const loop = new StormLoop({ sink, log: new DecisionLog(mkdtempSync(join(tmpdir(), "s8-storm-")), false), chain, payroll, localPlanHash: H });
+    await loop.onSignal(8, "TC8NW", true, at);
+    await loop.onSignal(3, "TC3", false, at);
+    ev = `0x${"ff".repeat(32)}`;
+    await loop.onSignal(8, "TC8NE", true, new Date("2026-08-01T00:00:00Z"));
+    const claims = sink.runs.filter((a) => a.type === "cover_claim").map((a) => ("ref" in a ? a.ref : ""));
+    expect(claims).toEqual([`cover-claim#${"ee".repeat(6)}`, `cover-claim#${"ff".repeat(6)}`]);
+  });
+});

@@ -55,6 +55,8 @@ export interface ChainPlan {
 
 export interface ChainParams {
   planHash: `0x${string}`;
+  /** The deploy script checks it against REGION, so a Yagi plan book cannot be deployed as HK. */
+  region: string;
   dailyCeiling: bigint;
   plans: { base: ChainPlan; storm: ChainPlan };
   payees: Array<{ address: `0x${string}`; planMask: number }>;
@@ -77,6 +79,7 @@ export function toChainParams(book: PlanBook): ChainParams {
   };
   return {
     planHash: hash,
+    region: book.region,
     dailyCeiling: units(book.dailyCeiling),
     plans: { base: plan("base"), storm: plan("storm") },
     payees: book.payees.map((p) => ({

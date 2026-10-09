@@ -23,6 +23,7 @@ import type { Ledger } from "../ledger.ts";
 import { act, rememberPaid, understand, type PipelineDeps } from "../pipeline.ts";
 import { canonicalJson } from "../plan.ts";
 import type { Hex } from "../policy/localCheck.ts";
+import type { Action } from "../types.ts";
 import type { HeldInfo } from "./storm.ts";
 import type { InflowMatch, InflowWatcher } from "./inflows.ts";
 import { closeDay, type CloseDayDeps, type DayClose } from "./reconcile.ts";
@@ -109,18 +110,19 @@ export async function runEveryday(d: EverydayDeps): Promise<EverydayResult> {
       continue;
     }
     // Replays salt the invoice id so a rerun on the same chain is a new ref; live runs use keccak256(invoiceId).
-    const actions = u.actions.map((a) => (a.type === "pay" && d.runId ? { ...a, ref: withRun(a.ref, d.runId) } : a));
+    const salt = (a: PlainAction): PlainAction => (a.type === "pay" && d.runId ? { ...a, ref: withRun(a.ref, d.runId) } : a);
+    const actions: Action[] = u.actions.map((a) => (a.type === "propose_to_owner" ? { ...a, action: salt(a.action) } : salt(a)));
     const due = u.invoice?.dueDate;
-    if (due && daysUntil(d.today, due) > EVERYDAY.dueWithinDays) {
-      for (const a of actions) {
-        if (a.type !== "pay") continue;
-        scheduled.push(a);
-        scheduledInfo.push({ invoiceId: u.invoice?.invoiceId, dueDate: due });
-      }
-      console.log(`  scheduled ${u.invoice?.invoiceId} (due ${due})`);
-      continue;
+    // Only payments wait for their due date; an owner proposal (above its PO, a re-issue, …) goes to the owners now.
+    const later = due && daysUntil(d.today, due) > EVERYDAY.dueWithinDays ? actions.filter((a) => a.type === "pay") : [];
+    for (const a of later) {
+      scheduled.push(a);
+      scheduledInfo.push({ invoiceId: u.invoice?.invoiceId, dueDate: due });
     }
-    const r = await act(actions, input, d.sink, u.invoice);
+    if (later.length) console.log(`  scheduled ${u.invoice?.invoiceId} (due ${due})`);
+    const now = actions.filter((a) => !(later as Action[]).includes(a));
+    if (now.length === 0) continue;
+    const r = await act(now, input, d.sink, u.invoice);
     rememberPaid(r, d, u.invoice);
     results.push({ input, outcome: r.outcome, reason: r.reason, tx: r.tx });
   }

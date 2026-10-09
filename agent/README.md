@@ -24,14 +24,14 @@ npm run relayer:gdacs  # same for GDACS
 
    ```bash
    npm run replay -- --event ragasa-2025 --speed 600
-   # options: --run-id <id>  --rpc <url>  --pause-at-steps  --skip-everyday
-   npm run evidence       # markdown rows for docs/EVIDENCE.md from the latest run
+   # options: --run-id <id>  --rpc <url>  --pause-at-steps  --skip-everyday  --dry-run  --yes  (--help lists them)
+   npm run evidence       # markdown rows for docs/EVIDENCE.md from the latest run; -- --write puts them into the file
    ```
 
-   The ordinary day matches the customer payment to `data/fixtures/receivables.json`, pays due invoices, sweeps to the vault and reconciles its ledger with the chain before anchoring the daily report (see below). At storm end the held supplier payments become owner proposals and the drafts are written to `logs/drafts/<runId>/`. The run summary and `logs/run-<id>.json` (`storm` key) state the cover payout read from the cover's `Claimed` event (PlanModule's `Executed` event carries 0 for a claim).
+   The ordinary day matches the customer payment to `data/fixtures/receivables.json`, pays due invoices, sweeps to the vault and reconciles its ledger with the chain before anchoring the daily report (see below). At storm end the held supplier payments become owner proposals and the drafts are written to `logs/drafts/<runId>/`. The run summary and `logs/run-<id>.json` (`storm` key) state the cover payout; PlanModule's `Executed` event for a claim carries the amount the Safe received.
 
-   The runner checks today's `spentToday` / `spentAllToday` first and refuses if the run would not fit the caps; the whole run lands in one chain day, so run it again on a fresh chain or tomorrow (UTC). Rehearse without using up a chain's day on a fork: `anvil --fork-url <rpc> --port 8555` and `--rpc http://127.0.0.1:8555`.
-4. API for the dashboard and arena: `npm run serve` (port `AGENT_API_PORT`, default 8787). The arena (`POST /api/arena`) only runs on a local network (`anvil`, `anvil-<name>`).
+   Before the ordinary day the runner checks that the plan book hashes to the plans stored on-chain (exit 2 otherwise), and that today's `spentToday` / `spentAllToday` leave room for the run; the whole run lands in one chain day, so run it again on a fresh chain or tomorrow (UTC). Rehearse without using up a chain's day on a fork: `anvil --fork-url <rpc> --port 8555` and `--rpc http://127.0.0.1:8555`.
+4. API for the dashboard and arena: `npm run serve` (port `AGENT_API_PORT`, default 8787). The arena (`POST /api/arena`) only runs on a local network (`anvil`, `anvil-<name>`) and only when the plan book matches the chain; otherwise the server starts read-only. Limits: 2,000 characters, 5 attempts per minute per IP and 20 overall; a run longer than `ARENA_TIMEOUT_MS` (default 50 s) answers 202 and lands on the board when it finishes. `X-Forwarded-For` is read only from loopback or with `TRUST_PROXY=1`, and only its last entry. `GET /api/decisions?lang=zh-Hant` (en, zh-Hans, vi) adds the owner explanation to each line. For the demo, run the arena on its own chain (`NETWORK=anvil-arena`, see `../docs/DEMO.md`).
 
 Base Sepolia: `npm run keys:new` writes fresh keys for the agent, both relayers and the demo client into `../.env` (only where empty; never printed) and prints the addresses to fund. Set `NETWORK=base-sepolia`.
 
@@ -41,12 +41,13 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 
 - Always: one line in `logs/proposals.jsonl` with the Safe transactions the owners would sign (`token.transfer`, vault `approve`+`deposit`/`withdraw`, `draw`, `claim`, `anchor`, or `PlanModule.queueChange(setter)` for a plan change).
 - On `base-sepolia` with `SAFE_API_KEY` (and `SAFE_ADDRESS`, which must equal the deployment's Safe): `exec/safeProposer.ts` also builds the Safe transaction with protocol-kit (MultiSend for several calls), takes the next nonce from the service, signs the safeTxHash with the agent key **as a delegate** and calls api-kit `proposeTransaction`. Two owners still sign in Safe Wallet. If the key is missing or the service fails, the proposal stays logged and the decision line says so.
+- Each proposal records its refs; a payment whose ref is already in `proposals.jsonl` (for this PlanModule) or already used on-chain is not proposed or paid again.
 - The agent address must first be added as a delegate of the Safe (by an owner, in Safe Wallet or with api-kit `addSafeDelegate`).
 - **Not tested live.** The service client and signer are injected and unit-tested with fakes (`test/safeProposer.test.ts`: nonce from the service, signature recovers to the agent, fallback on errors). There is no Safe Transaction Service for anvil, so the proposer has not been run against the real service from this environment.
 
 ## Owner's records and red team
 
-`data/fixtures/purchase-orders.json`, `paid-invoices.json` and `payroll.json` are the owner's records the planner checks invoices against (`src/controls.ts`): an invoice already paid is refused; a re-issue (same supplier, amount and issue date, new number), an amount above its purchase order, or no PO for a supplier that requires one becomes an owner proposal; a payroll message on an ordinary day becomes one proposal for payroll.json's staff when the totals match. Executed supplier payments join the paid history for the session.
+`data/fixtures/purchase-orders.json`, `paid-invoices.json` and `payroll.json` are the owner's records the planner checks invoices against (`src/controls.ts`): an invoice already paid is refused (invoice numbers are compared normalised: case, spaces and dashes ignored, so `lk 0917` is `LK-0917`); a re-issue (same supplier and amount, new number, and the same issue date or none), an amount above its purchase order, or no PO for a supplier that requires one becomes an owner proposal; a payroll message on an ordinary day becomes one proposal for payroll.json's staff when the totals match. Executed supplier payments join the paid history for the session.
 
 `npm run redteam` runs every `../redteam/attacks` case (on an ordinary day and in storm mode) and every `../redteam/benign` case (with its own context) through extractor → planner → localCheck on a simulated PlanModule built from the example plan book (`src/sim.ts`); no chain, no keys. It prints a per-family table (attacker wins, funds lost, outcomes) and the benign task success, and writes the `ours` key of `../redteam/results/summary.json` (other keys, e.g. the bare agent's, are kept). `-- --model` uses the configured model provider instead of the rules.
 
@@ -66,6 +67,13 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 ## Model
 
 `MODEL_API_KEY` unset → the offline `rules` provider (regex extraction, name-matching planner); tests and CI always use it. With `MODEL_API_KEY` set, `MODEL_PROVIDER=anthropic` (the default then) calls the Anthropic Messages API with `MODEL_NAME` (default `claude-opus-5-5`, effort `low`), no tools, JSON output constrained by a schema and then validated with zod. The model never receives a private key or a tool, and the planner only ever sees validated fields and registry addresses.
+
+## Explanations, plan compiler and bare-agent baseline
+
+- `npm run explain -- [--lang en|zh-Hant|zh-Hans|vi] [--last N]` (`src/explain.ts`): a deterministic two-line explanation of each decision line in `logs/decisions.jsonl` (what happened; why, with a Basescan link on Base Sepolia). Contract errors and the planner's refusal reasons are mapped; anything else is shown raw. The zh-Hant, zh-Hans and vi wording still needs a native speaker's review.
+- `npm run plan:compile -- [--out file] [--model]` (`src/llm/planCompiler.ts`): drafts a plan book from `../data/fixtures/policy.txt` and `loan.txt` (untrusted text), `payroll.json` and `payees.json` (trusted). The output must pass the `PlanBook` schema, every citation's quote must appear verbatim in the cited clause, and payee addresses may only come from payroll.json or the payee register. Without `--model` an offline compiler reads the numbered clauses with fixed patterns (English summary only). The result is a draft until two owners sign.
+- `npm run redteam:bare [-- --only <id-prefix>]` (`src/bare.ts`): the baseline from redteam/README.md. Same cases and model (`MODEL_NAME`), same business context and rules as the planner, but the model holds `transfer` / `propose_to_owner` tools on a simulated wallet (no chain, no key). It needs `MODEL_API_KEY` and writes the `bare` key of `../redteam/results/summary.json`. Run ours with the same model (`npm run redteam -- --model`) for a fair comparison.
+- `npm run redteam:table` (`src/redteamTable.ts`): the Markdown tables for `docs/SECURITY.md` §5 from summary.json; a side that has not run shows "not run".
 
 ## Layout
 
@@ -87,11 +95,13 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 | `src/replay/` | `runner.ts` (CLI, dry run), `timeline.ts`, `run.ts` (real mode, `logs/run-<id>.json`) |
 | `src/log.ts` | `logs/decisions.jsonl` |
 | `src/server.ts`, `src/evidence.ts`, `src/keys.ts` | `npm run serve`, `npm run evidence`, `npm run keys:new` |
+| `src/explain.ts`, `src/llm/planCompiler.ts` | owner explanations in four languages; plan book drafts from policy text |
+| `src/bare.ts`, `src/redteamTable.ts` | bare-agent baseline; SECURITY.md §5 tables |
 
 Logs (`logs/`) and state (`state/`) are gitignored; `LOG_DIR` and `STATE_DIR` override them.
 
 ## Not built yet, or not verified
 
 - Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is a manual owner step.
-- `planCompiler.ts` (should) and the explanations (stretch).
+- The model provider, the plan compiler's `--model` path and the bare-agent baseline have not been called live (no model key here).
 - The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only.

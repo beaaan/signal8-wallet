@@ -30,6 +30,16 @@ describe("RateLimiter", () => {
     now = 60_001;
     expect(rl.allow("a")).toBe(true);
   });
+
+  it("forgets idle keys, so many addresses cannot grow the map without bound", () => {
+    let now = 0;
+    const rl = new RateLimiter(5, 60_000, () => now);
+    for (let i = 0; i < 100; i++) rl.allow(`k${i}`);
+    expect(rl.size).toBe(100);
+    now = 120_000;
+    rl.allow("fresh");
+    expect(rl.size).toBe(1);
+  });
 });
 
 describe("POST /api/arena", () => {
@@ -70,6 +80,30 @@ describe("POST /api/arena", () => {
     expect((await handle({ method: "GET", url: "/api/arena", ip: "x" }, d)).status).toBe(405);
   });
 
+  it("caps all IPs together with the global limiter", async () => {
+    const d = deps({ globalLimiter: new RateLimiter(3, 60_000) });
+    for (let i = 0; i < 3; i++) expect((await handle(post({ text: `t${i}` }, `10.0.0.${i}`), d)).status).toBe(200);
+    expect((await handle(post({ text: "t4" }, "10.0.0.9"), d)).status).toBe(429);
+  });
+
+  it("answers 202 when the run is slow, and still puts the attempt on the board when it finishes", async () => {
+    let finish!: () => void;
+    const slow = vi.fn(
+      () => new Promise<{ outcome: "refused"; stage: "planner" }>((done) => (finish = () => done({ outcome: "refused", stage: "planner" }))),
+    );
+    const d = deps({ runArena: slow, timeoutMs: 10 });
+    const r = await handle(post({ text: "slow one" }), d);
+    expect(r).toMatchObject({ status: 202, body: { pending: true } });
+    finish();
+    await new Promise((done) => setTimeout(done, 5));
+    const board = await handle({ method: "GET", url: "/api/arena/board", ip: "x" }, d);
+    expect((board.body as { attempts: ArenaAttempt[] }).attempts).toMatchObject([{ preview: "slow one" }]);
+  });
+
+  it("accepts a JSON null body as a 400, not a crash", async () => {
+    expect((await handle(post("null"), deps())).status).toBe(400);
+  });
+
   it("answers 503 when the agent has no chain", async () => {
     expect((await handle(post({ text: "hi" }), deps({ runArena: undefined }))).status).toBe(503);
   });
@@ -85,6 +119,16 @@ describe("GET endpoints", () => {
     expect((r.body as { decisions: unknown[] }).decisions).toMatchObject([{ input: "b", action: "pay", summary: "second" }]);
   });
 
+  it("adds the owner explanation in the asked language", async () => {
+    const d = deps();
+    d.decisions.write({ input: "fake", stage: "planner", outcome: "refused", reason: "address not in payee registry", summary: 'No payment for "HK Observatory" 0 USD' });
+    const r = await handle({ method: "GET", url: "/api/decisions?lang=vi", ip: "x" }, d);
+    const [line] = (r.body as { decisions: Array<{ explanation?: string[] }> }).decisions;
+    expect(line!.explanation).toHaveLength(2);
+    const plain = await handle({ method: "GET", url: "/api/decisions?lang=xx", ip: "x" }, d);
+    expect((plain.body as { decisions: Array<{ explanation?: string[] }> }).decisions[0]!.explanation).toBeUndefined();
+  });
+
   it("404s unknown paths", async () => {
     expect((await handle({ method: "GET", url: "/nope", ip: "x" }, deps())).status).toBe(404);
   });
@@ -94,7 +138,8 @@ describe("clientIp", () => {
   const req = (remote: string, xff?: string) => ({ socket: { remoteAddress: remote }, headers: xff ? { "x-forwarded-for": xff } : {} }) as never;
 
   it("trusts X-Forwarded-For only from loopback (the website) or with TRUST_PROXY", () => {
-    expect(clientIp(req("127.0.0.1", "9.9.9.9, 10.0.0.1"), false)).toBe("9.9.9.9");
+    // only the last entry, the one the trusted hop appended; the client wrote "9.9.9.9" itself
+    expect(clientIp(req("127.0.0.1", "9.9.9.9, 10.0.0.1"), false)).toBe("10.0.0.1");
     expect(clientIp(req("203.0.113.5", "9.9.9.9"), false)).toBe("203.0.113.5");
     expect(clientIp(req("203.0.113.5", "9.9.9.9"), true)).toBe("9.9.9.9");
   });

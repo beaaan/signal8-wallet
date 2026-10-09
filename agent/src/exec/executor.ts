@@ -15,6 +15,7 @@ import { DecisionLog, JsonlFile } from "../log.ts";
 import { localCheck, type Hex, type PlanCall, type Snapshot } from "../policy/localCheck.ts";
 import type { Action, Decision } from "../types.ts";
 import { describe, fmt, toCall, type PlainAction } from "./calls.ts";
+import { refFor } from "./refs.ts";
 import { ProposalWriter, type PlanChange, type Proposal, type SafeProposer } from "./safeProposer.ts";
 
 export { describe, fmt, plain, toCall, TOKEN_DECIMALS, units, type PlainAction } from "./calls.ts";
@@ -62,7 +63,8 @@ export class Executor implements ActionSink {
 
   private record(input: string, action: Action, r: ExecResult): ExecResult {
     this.log.write({ input, stage: r.stage, outcome: r.outcome, reason: r.reason, tx: r.tx, action: action.type, summary: r.summary });
-    if (r.tx) this.opts.onTx?.(r.summary, r.tx);
+    // a reverted transaction is in the decision log, never in the run's transaction list (EVIDENCE.md)
+    if (r.tx && r.outcome === "executed") this.opts.onTx?.(r.summary, r.tx);
     return r;
   }
 
@@ -70,7 +72,17 @@ export class Executor implements ActionSink {
     return (await this.proposals.write(input, reason, actions, change)).note;
   }
 
+  /** Already proposed to the owners against this PlanModule (see ProposalWriter.proposedRefs). */
+  private proposed(a: PlainAction): boolean {
+    return a.type === "pay" && this.proposals.proposedRefs().has(toRefHex(a));
+  }
+
   async proposeBatch(reason: string, actions: PlainAction[], input: string, summary: string): Promise<ExecResult> {
+    if (actions.length > 0 && actions.every((a) => this.proposed(a))) {
+      const r: ExecResult = { outcome: "refused", stage: "owner", reason: "already proposed to the owners", summary };
+      this.log.write({ input, stage: "owner", outcome: "refused", reason: r.reason, action: "propose_to_owner", summary });
+      return r;
+    }
     const note = await this.writeProposal(input, reason, actions);
     const r: ExecResult = { outcome: "proposed", stage: "owner", reason, summary: `${summary}; ${note}` };
     this.log.write({ input, stage: "owner", outcome: "proposed", reason, action: "propose_to_owner", summary: r.summary });
@@ -91,15 +103,23 @@ export class Executor implements ActionSink {
     if (action.type === "propose_to_owner") {
       const inner = action.action;
       if (inner.type === "pay") {
-        const snap = await readSnapshot(this.c, { payees: [inner.payee] });
+        const ref = toRefHex(inner);
+        const snap = await readSnapshot(this.c, { payees: [inner.payee], refs: [ref] });
         if (!snap.payeePlans[inner.payee.toLowerCase()]) {
           return this.record(input, action, { outcome: "refused", stage: "localCheck", reason: "PayeeNotRegistered", summary: describe(action, names) });
+        }
+        if (snap.refUsed[ref]) return this.record(input, action, { outcome: "refused", stage: "localCheck", reason: "RefUsed", summary: describe(action, names) });
+        if (this.proposed(inner)) {
+          return this.record(input, action, { outcome: "refused", stage: "owner", reason: "already proposed to the owners", summary: describe(action, names) });
         }
       }
       const note = await this.writeProposal(input, action.reason, [inner]);
       return this.record(input, action, { outcome: "proposed", stage: "owner", reason: action.reason, summary: `${describe(action, names)}; ${note}` });
     }
 
+    if (this.proposed(action)) {
+      return this.record(input, action, { outcome: "refused", stage: "owner", reason: "already proposed to the owners", summary: describe(action, names) });
+    }
     const call = toCall(action);
     const snap: Snapshot = await readSnapshot(this.c, {
       payees: call.fn === "pay" ? [call.to] : [],
@@ -187,4 +207,8 @@ export class Executor implements ActionSink {
         return w.writeContract((await sim.simulateContract({ ...base, functionName: "anchor", args: [call.hash, call.kind] })).request);
     }
   }
+}
+
+function toRefHex(a: Extract<PlainAction, { type: "pay" }>): Hex {
+  return refFor(a).toLowerCase() as Hex;
 }

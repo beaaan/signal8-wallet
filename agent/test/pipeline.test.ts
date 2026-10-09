@@ -130,6 +130,28 @@ describe("planner", () => {
     const r = await plan(evil, input());
     expect(r).toMatchObject({ ok: false });
   });
+
+  const steer = (payee: string, amount = "980.00", ref = "WO-2299"): ModelProvider => ({
+    name: "steered",
+    extract: async () => null,
+    plan: async () => ({ actions: [{ type: "pay", plan: "base", payee, amount, ref }] }),
+  });
+
+  it("drops a model payment moved to another registered payee than the invoice names", async () => {
+    const meatInvoice = input({ payeeName: "Wing On Meats", amount: "980.00", invoiceId: "WO-2299" });
+    const r = await plan(steer("0x00000000000000000000000000000000000000b1"), meatInvoice);
+    expect(r).toEqual({ ok: false, reason: "invoice names supplier-meat, not supplier-flour" });
+  });
+
+  it("sends a payee only the model could match to the owners", async () => {
+    const odd = input({ payeeName: "W.O.M. Provisions", amount: "980.00", invoiceId: "WO-2299" });
+    const r = await plan(steer("0x00000000000000000000000000000000000000b1"), odd);
+    expect(r).toMatchObject({ ok: true, actions: [{ type: "propose_to_owner", action: { payee: "0x00000000000000000000000000000000000000b1" } }] });
+  });
+
+  it("refuses an amount that would round to zero token units", async () => {
+    expect(await plan(rules, input({ amount: "0.0000001" }))).toMatchObject({ ok: false });
+  });
 });
 
 describe("red team: nothing reaches an unregistered address", () => {
@@ -141,7 +163,8 @@ describe("red team: nothing reaches an unregistered address", () => {
         for (const a of [...sink.executed, ...sink.proposed]) {
           if (a.type === "pay") expect(registered.has(a.payee.toLowerCase())).toBe(true);
         }
-        if (/dEaD|bEEF/i.test(c.input)) {
+        // An attacker address written out in full must never be paid (encoded-004 hides one with zero-width spaces).
+        if (/0x0{36}(dEaD|bEEF)\b/i.test(c.input)) {
           expect(r.outcome).toBe("refused");
           expect(sink.executed).toEqual([]);
         }

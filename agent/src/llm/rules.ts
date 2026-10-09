@@ -32,12 +32,17 @@ export function extractFields(text: string): ExtractedInvoice {
   const keyed = /\b(?:amount due|total due|balance due|total|amount)\s*[:\-]?\s*(?:HK\$|US\$|\$|USD|HKD)?\s*(\d[\d,]*(?:\.\d{1,2})?)/i.exec(text);
   const marked = /(?:HK\$|US\$|\$|\bUSD|\bHKD)\s*(\d[\d,]*(?:\.\d{1,2})?)/i.exec(text);
   const vnd = /(\d[\d.,]*)\s*(?:đ|₫|VND)/.exec(text);
+  // Last resort: the first number written like money ("for 1,250.50").
+  const cents = /(?<![\w.])(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})(?![\w.])/.exec(text);
   if (keyed) amount = plainAmount(keyed[1]!, currency);
   else if (marked) amount = plainAmount(marked[1]!, currency);
   else if (vnd) amount = plainAmount(vnd[1]!, "VND");
+  else if (cents) amount = plainAmount(cents[1]!, currency);
 
+  // The keyword in any case, the number itself upper case: "invoice no. LK 0917", "INVOICE LK-0917A", "Invoice RL-Q4".
   const invoiceId =
-    /\b(?:invoice|inv|bill)\b[\s#:.]*(?:no\.?\s*)?([A-Z]{1,5}-?\d{2,8})\b/i.exec(text)?.[1] ?? /\b([A-Z]{2,5}-\d{3,8})\b/.exec(text)?.[1];
+    /\b(?:[Ii][Nn][Vv](?:[Oo][Ii][Cc][Ee])?|[Bb][Ii][Ll][Ll])\b[\s#:.]*(?:[Nn][Oo]\.?\s*)?([A-Z]{1,5}(?:-| (?=\d))?(?=[A-Z0-9]*\d)[A-Z0-9]{1,8}(?:-[A-Z0-9]{1,6})?)\b/.exec(text)?.[1] ??
+    /\b([A-Z]{2,5}-\d{3,8}[A-Z]?)\b/.exec(text)?.[1];
 
   const dueRaw = /\bdue(?:\s+date)?\s*(?:on|by|:)?\s*(\d{1,2}\s+[A-Za-z]{3,9}\.?\s+\d{4}|\d{4}-\d{2}-\d{2})/i.exec(text)?.[1];
   const dueDate = dueRaw ? isoDate(dueRaw) : undefined;

@@ -1,9 +1,10 @@
-// npm run evidence [-- <run-file.json>]
+// npm run evidence [-- <run-file.json>] [--write]
 // Turns the latest agent/logs/run-<runId>.json into markdown rows for docs/EVIDENCE.md, printed to stdout.
+// --write also replaces the "Latest run" section of docs/EVIDENCE.md (between the evidence markers).
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadConfig } from "./config.ts";
+import { loadConfig, PATHS } from "./config.ts";
 import { isMain } from "./isMain.ts";
 import type { RunFile } from "./replay/run.ts";
 
@@ -50,11 +51,30 @@ export function evidenceMarkdown(run: RunFile): string {
   return out.join("\n");
 }
 
+const START = "<!-- evidence:start -->";
+const END = "<!-- evidence:end -->";
+
+/** EVIDENCE.md with the text between the evidence markers replaced; throws if the markers are missing. */
+export function withEvidence(doc: string, markdown: string): string {
+  const i = doc.indexOf(START);
+  const j = doc.indexOf(END);
+  if (i < 0 || j < i) throw new Error(`docs/EVIDENCE.md has no ${START} … ${END} section`);
+  return `${doc.slice(0, i + START.length)}\n${markdown}\n${doc.slice(j)}`;
+}
+
 if (isMain(import.meta.url)) {
-  const path = process.argv[2] ? resolve(process.argv[2]) : latestRunFile(loadConfig().logDir);
+  const args = process.argv.slice(2);
+  const file = args.find((a) => !a.startsWith("--"));
+  const path = file ? resolve(file) : latestRunFile(loadConfig().logDir);
   if (!path) {
     console.error("no run file in agent/logs; run npm run replay first");
     process.exit(1);
   }
-  console.log(evidenceMarkdown(JSON.parse(readFileSync(path, "utf8")) as RunFile));
+  const md = evidenceMarkdown(JSON.parse(readFileSync(path, "utf8")) as RunFile);
+  console.log(md);
+  if (args.includes("--write")) {
+    const doc = resolve(PATHS.fixtures, "..", "..", "docs", "EVIDENCE.md");
+    writeFileSync(doc, withEvidence(readFileSync(doc, "utf8"), md));
+    console.log(`\nWrote the Latest run section of ${doc}`);
+  }
 }
