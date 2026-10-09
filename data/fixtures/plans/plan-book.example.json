@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "business": "Golden Lotus Dim Sum, 10 staff (fictional)",
+  "region": "HK",
+  "token": {
+    "symbol": "mUSD",
+    "decimals": 6
+  },
+  "dailyCeiling": "40000",
+  "payees": [
+    {
+      "id": "supplier-flour",
+      "name": "Lee Kee Flour (fictional)",
+      "address": "0x00000000000000000000000000000000000000b1",
+      "role": "supplier",
+      "plans": [
+        "base"
+      ]
+    },
+    {
+      "id": "supplier-meat",
+      "name": "Wing On Meats (fictional)",
+      "address": "0x00000000000000000000000000000000000000b2",
+      "role": "supplier",
+      "plans": [
+        "base"
+      ]
+    },
+    {
+      "id": "supplier-landlord",
+      "name": "Shop landlord (fictional)",
+      "address": "0x00000000000000000000000000000000000000b3",
+      "role": "supplier",
+      "plans": [
+        "base"
+      ]
+    },
+    {
+      "id": "staff-01",
+      "name": "Staff 01 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a1",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-02",
+      "name": "Staff 02 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a2",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-03",
+      "name": "Staff 03 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a3",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-04",
+      "name": "Staff 04 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a4",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-05",
+      "name": "Staff 05 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a5",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-06",
+      "name": "Staff 06 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a6",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-07",
+      "name": "Staff 07 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a7",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-08",
+      "name": "Staff 08 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a8",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-09",
+      "name": "Staff 09 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a9",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    },
+    {
+      "id": "staff-10",
+      "name": "Staff 10 (fictional)",
+      "address": "0x00000000000000000000000000000000000000aa",
+      "role": "staff",
+      "plans": [
+        "storm"
+      ]
+    }
+  ],
+  "plans": {
+    "base": {
+      "perTxCap": "5000",
+      "dailyCap": "15000",
+      "creditCapPerEvent": "0",
+      "actions": [
+        "pay",
+        "vault_deposit",
+        "vault_withdraw"
+      ]
+    },
+    "storm": {
+      "perTxCap": "3000",
+      "dailyCap": "25000",
+      "creditCapPerEvent": "15000",
+      "actions": [
+        "pay",
+        "vault_withdraw",
+        "credit_draw",
+        "cover_claim"
+      ]
+    }
+  },
+  "summary": {
+    "en": "On ordinary days the assistant may pay our three suppliers up to $5,000 each and $15,000 a day, and move spare cash into or out of the money-market fund. Wages need two of us to sign. When the Observatory raises Signal 8 or higher and GDACS confirms the storm, the storm plan lets it pay the 10 staff on schedule (up to $3,000 each, $25,000 a day), claim the typhoon cover, and draw up to $15,000 of the credit line per storm. Supplier payments wait until the storm passes. Nothing on any day can exceed $40,000.",
+    "zh-Hant": "平日，助理可向三間供應商付款，每筆最多 5,000 元、每日最多 15,000 元，並可把多餘現金存入或取出貨幣市場基金。出糧需要我們其中兩人簽署。當天文台發出八號或以上風球、而 GDACS 確認風暴時，風暴計劃容許助理準時向 10 位員工出糧（每人最多 3,000 元、每日最多 25,000 元）、申領颱風保險，並在每次風暴提取最多 15,000 元信貸額。供應商付款會等風暴過後才處理。任何一天的總支出都不會超過 40,000 元。"
+  },
+  "citations": [
+    {
+      "rule": "plans.storm.creditCapPerEvent",
+      "doc": "loan.txt",
+      "clause": "4.2",
+      "quote": "During a declared typhoon event the Borrower may draw up to 15,000 per event without further approval. (fictional)"
+    },
+    {
+      "rule": "plans.storm.actions.cover_claim",
+      "doc": "policy.txt",
+      "clause": "2.1",
+      "quote": "The Insurer pays the Benefit once per event when Tropical Cyclone Warning Signal No. 8 or higher is in force. (fictional)"
+    },
+    {
+      "rule": "plans.storm.dailyCap",
+      "doc": "payroll.json",
+      "clause": "total",
+      "quote": "10 staff, monthly wages totalling 23,000. (fictional)"
+    }
+  ]
+}

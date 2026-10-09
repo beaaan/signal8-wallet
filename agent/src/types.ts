@@ -56,3 +56,81 @@ export const Decision = z.object({
   tx: bytes32.optional(),
 });
 export type Decision = z.infer<typeof Decision>;
+
+/**
+ * The plan book: the human-readable document the owner signs. Both on-chain plans carry its hash.
+ * Spec: docs/specs/plans.md. Drafted by the plan compiler or by hand; nothing changes on-chain until the Safe owners sign.
+ */
+const PlanName = z.enum(["base", "storm"]);
+const PlanAction = z.enum(["pay", "vault_deposit", "vault_withdraw", "credit_draw", "cover_claim"]);
+
+const PlanRules = z
+  .object({
+    perTxCap: amount,
+    dailyCap: amount,
+    creditCapPerEvent: amount,
+    actions: z.array(PlanAction).min(1),
+  })
+  .strict();
+
+export const PlanBook = z
+  .object({
+    version: z.literal(1),
+    business: z.string().max(120),
+    region: z.enum(["HK", "VN-QN-HP"]),
+    token: z.object({ symbol: z.string().max(12), decimals: z.number().int().min(0).max(18) }).strict(),
+    dailyCeiling: amount,
+    payees: z
+      .array(
+        z
+          .object({
+            id: z.string().max(40),
+            name: z.string().max(120),
+            address,
+            role: z.enum(["staff", "supplier", "other"]),
+            plans: z.array(PlanName).min(1),
+          })
+          .strict(),
+      )
+      .max(100),
+    plans: z.object({ base: PlanRules, storm: PlanRules }).strict(),
+    summary: z.record(z.string().max(12), z.string().max(2000)), // language tag → plain-language summary
+    citations: z
+      .array(
+        z
+          .object({
+            rule: z.string().max(80), // e.g. "plans.storm.creditCapPerEvent"
+            doc: z.string().max(80), // e.g. "loan.txt"
+            clause: z.string().max(40),
+            quote: z.string().max(280),
+          })
+          .strict(),
+      )
+      .max(100),
+  })
+  .strict()
+  .superRefine((book, ctx) => {
+    for (const a of ["credit_draw", "cover_claim"] as const) {
+      if (book.plans.base.actions.includes(a)) {
+        ctx.addIssue({ code: "custom", path: ["plans", "base", "actions"], message: `${a} is storm-plan only` });
+      }
+    }
+    for (const p of ["base", "storm"] as const) {
+      const rules = book.plans[p];
+      const hasCredit = rules.actions.includes("credit_draw");
+      if (hasCredit !== (Number(rules.creditCapPerEvent) > 0)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["plans", p, "creditCapPerEvent"],
+          message: "credit_draw needs creditCapPerEvent > 0, and a cap needs credit_draw",
+        });
+      }
+    }
+    const seen = new Set<string>();
+    for (const [i, payee] of book.payees.entries()) {
+      const key = payee.address.toLowerCase();
+      if (seen.has(key)) ctx.addIssue({ code: "custom", path: ["payees", i, "address"], message: "duplicate payee address" });
+      seen.add(key);
+    }
+  });
+export type PlanBook = z.infer<typeof PlanBook>;

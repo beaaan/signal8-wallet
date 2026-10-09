@@ -27,16 +27,26 @@ jobs:
           if ls test/*.t.sol >/dev/null 2>&1; then forge test -vv; else echo "no tests yet"; fi
 
   agent:
-    runs-on: ubuntu-latest
+    # Windows too: the team develops on Windows, and path handling breaks there first.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: agent
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+          cache: npm
+          cache-dependency-path: agent/package-lock.json
+      - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - name: Replay dry run
-        run: npx tsx src/replay/runner.ts --event ragasa-2025 --speed 1000000 --dry-run
+        # grep fails the step if the runner exits without printing the storm window
+        run: npx tsx src/replay/runner.ts --event ragasa-2025 --speed 1000000 --dry-run | tee replay.log && grep -q "STORM MODE ON" replay.log
