@@ -1,6 +1,6 @@
 # Execution evidence
 
-Topic F requires real transaction hashes. `npm run evidence` appends rows from the last replay; check every row before submission.
+Topic F requires real transaction hashes. `npm run evidence` prints the rows from the last replay; `npm run evidence -- --write` puts them in the "Latest run" section below. Only transactions that succeeded are listed; a reverted one stays in the decision log. Check every row before submission.
 
 ## Contract deployments (Base Sepolia, chain 84532)
 
@@ -27,12 +27,12 @@ Run id: ______ (salts the GDACS event id). Relayers sign with the run's wall-clo
 | 1 | 2025-09-22 21:40 | No. 3 | Vault withdraw to buffer | | |
 | 2 | 2025-09-22 21:40 | No. 3 | Anchor pre-storm evidence | | |
 | 3 | 2025-09-23 14:20 | No. 8 NW | HKO attestation → StormStarted | | |
-| 5 | 2025-09-23 14:20 | No. 8 NW | Cover claim | | |
-| 6 | 2025-09-24 02:40 | No. 10 | Fake email: refused (no tx; decision log line) | n/a | refused |
-| 7 | 2025-09-24 09:00 | No. 10 | Payroll, 10 staff under the storm plan (one row per tx) | | |
-| 8 | 2025-09-24 09:00 | No. 10 | Credit draw | | |
-| 9 | 2025-09-24 20:20 | No. 3 | HKO attestation → StormEnded | | |
-| 10 | 2025-09-25 11:20 | Cancelled | Client payment via router, sweep resumes | | |
+| 4 | 2025-09-23 14:20 | No. 8 NW | Cover claim | | |
+| - | 2025-09-24 02:45 | No. 10 | Fake email: refused (no tx; decision log line) | n/a | refused |
+| 5 | 2025-09-24 09:00 | No. 10 | Payroll, 10 staff under the storm plan (one row per tx) | | |
+| 6 | 2025-09-24 09:00 | No. 10 | Credit draw | | |
+| 7 | 2025-09-24 20:20 | No. 3 | HKO attestation → StormEnded | | |
+| 8 | 2025-09-25 11:20 | Cancelled | Client payment via router, sweep resumes | | |
 
 ## Everyday run (Base Sepolia)
 
@@ -43,6 +43,14 @@ Run id: ______ (salts the GDACS event id). Relayers sign with the run's wall-clo
 | 3 | Vault deposit | | |
 | 4 | Daily report anchor | | |
 | 5 | Over-cap payment proposed by the agent (delegate) → two owners signed | | |
+
+## Latest run
+
+Written by `npm run evidence -- --write` from the newest `agent/logs/run-<runId>.json`; everything between the markers is replaced on each write.
+
+<!-- evidence:start -->
+_No run written yet._
+<!-- evidence:end -->
 
 ## Yagi replay (local FISCO BCOS, stretch)
 

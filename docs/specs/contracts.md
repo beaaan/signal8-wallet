@@ -113,7 +113,7 @@ There is **no generic "call any target" function**. An allowlist of target and s
 | `vaultDeposit` | `token.approve(vault, assets)`, then `vault.deposit(assets, safe)`; the allowance must be 0 afterwards | Safe balance; the shares stay with the Safe |
 | `vaultWithdraw` | `vault.withdraw(assets, safe, safe)` | Safe's shares; the money returns to the Safe |
 | `creditDraw` | `creditLine.draw(amount)`; the line pays only its borrower, the Safe | `drawnInEvent[eventId] + amount ≤ creditCapPerEvent`, and the line's own limit |
-| `claimCover` | `cover.claim()`; the cover pays only the insured, the Safe | once per event, enforced by the cover |
+| `claimCover` | `cover.claim()`; the cover pays only the insured, the Safe | once per event, enforced by the cover; `Executed.amount` is the payout the Safe received |
 | `anchor` | `evidence.anchor(hash, kind)` | nothing; moves no money |
 
 Checks, in this order (each a custom error):
@@ -218,12 +218,15 @@ struct SignalAttestation {
   - `a.issuedAt * timeUnit <= block.timestamp` → `FutureAttestation()`
   - `block.timestamp - a.issuedAt * timeUnit <= MAX_AGE * timeUnit` (1 hour) → `StaleAttestation()`
   - `a.eventId == 0` unless `a.source` is GDACS → `UnexpectedEventId()`
+  - a GDACS attestation with `level > 0` carries a non-zero `eventId` → `MissingEventId()` (a zero id would make every storm share one cover claim and one credit cap)
+  - one local source per region: HKO only for `keccak256("HK")`, NCHMF for every other region → `WrongRegion()`, so one local relayer can never switch another region's storm mode
   - `a.level` is valid for the source → `BadLevel()`
 - Store the latest attestation per source and region.
 - `isStorm(region)` is true iff:
   - the latest HKO (or NCHMF) attestation for the region has `level >= 8` and is less than `HKO_TTL` (12 h) old, and
   - the latest GDACS attestation for the region has `level >= 2` and is less than `GDACS_TTL` (24 h) old.
-- `currentEvent(region)` returns the latest GDACS `eventId` and the latest HKO level. `MockSignalCover` and `PlanModule.creditDraw` key "once per event" on this id.
+- `currentEvent(region)` returns the storm's event id while storm mode is on (`stormEvent[region]`, fixed by the attestation that started the storm), otherwise the latest GDACS `eventId`, plus the latest local level. `MockSignalCover` and `PlanModule.creditDraw` key "once per event" on this id, so a GDACS re-attestation with a different id in the middle of a storm cannot reset the credit cap or let the cover pay twice.
+- One address may be the relayer for one source only (constructor and rotation) → `RelayerInUse()`; the deploy script also checks it.
 - An HKO attestation with `level < 8` (e.g., Signal 3 or cancel) ends storm mode at once.
 - The relayers re-attest every 6 hours while their condition holds (HKO signal ≥ 8, GDACS event current), so a long storm keeps storm mode on. A relayer that goes silent lets storm mode expire after its TTL.
 - `attest` emits `StormStarted(region, eventId)` or `StormEnded(region, eventId)` when that attestation changes `isStorm`. Expiry by TTL makes `isStorm` false without an event, so the dashboard reads the view as well.
@@ -237,7 +240,7 @@ In replay mode the relayers sign with `issuedAt = now` and the recorded official
 
 ### Tests
 
-Forged signature; wrong relayer for source; replayed nonce; stale `issuedAt`; future `issuedAt`; HKO attestation with a non-zero `eventId`; invalid level; storm needs both sources; storm ends on HKO level 3; storm expires when the HKO attestation passes 12 h, and separately when the GDACS one passes 24 h; re-attestation extends both; `StormStarted` and `StormEnded` emitted once per transition; chain id 0 and `timeUnit = 1000` work (FISCO).
+Forged signature; wrong relayer for source; replayed nonce; stale `issuedAt`; future `issuedAt`; HKO attestation with a non-zero `eventId`; GDACS alert with a zero `eventId`; HKO outside HK and NCHMF for HK; one key for two sources (constructor and rotation); event id pinned for the storm; invalid level; storm needs both sources; storm ends on HKO level 3; storm expires when the HKO attestation passes 12 h, and separately when the GDACS one passes 24 h; re-attestation extends both; `StormStarted` and `StormEnded` emitted once per transition; chain id 0 and `timeUnit = 1000` work (FISCO).
 
 ---
 
@@ -263,7 +266,7 @@ OpenZeppelin 4.9 `ERC4626` over `MockUSD`, name "Mock Money Market Fund". Deposi
 
 ## PlanGuard (should)
 
-Implements Safe v1.4.1 `Guard` (`checkTransaction`, `checkAfterExecution`, ERC-165 id `0xe6d7a83a`). Reverts `Blocked(selector)` for any Safe transaction whose target is the Safe itself and whose selector is one of `enableModule`, `disableModule`, `addOwnerWithThreshold`, `removeOwner`, `swapOwner`, `changeThreshold`, `setGuard`, `setFallbackHandler`, and for **any delegatecall**, unless that exact transaction (`keccak256(abi.encode(to, keccak256(data), operation))`) was queued in the guard by the Safe (`queue(to, data, operation)`) at least 24 h (× `timeUnit`) earlier. A queue entry is consumed when the transaction executes, so it works once; `cancel` removes it. The guard keeps its own queue rather than reusing `PlanModule`'s, because `PlanModule.applyChange` would try to call the queued data on the module. Because the agent is not a Safe owner, the guard is not what bounds a stolen agent key; it slows down an attacker who has phished two human owners. Recovery: a queued `setGuard(address(0))` passes once matured. Safe v1.4.1 does not run the guard on module transactions; `PlanModule` only reaches its fixed targets. **Deploy to a throwaway Safe first.** The deploy script deploys it but does not set it; the owners do, as a Safe transaction.
+Implements Safe v1.4.1 `Guard` (`checkTransaction`, `checkAfterExecution`, ERC-165 id `0xe6d7a83a`). Reverts `Blocked(selector)` for any Safe transaction whose target is the Safe itself and whose selector is one of `enableModule`, `disableModule`, `addOwnerWithThreshold`, `removeOwner`, `swapOwner`, `changeThreshold`, `setGuard`, `setFallbackHandler`, and for **any delegatecall** except one to MultiSendCallOnly (v1.4.1 canonical `0x9641d764fc13c8B624c04430C7356C1C7C8102e2`, a constructor parameter), whose batch is decoded and checked call by call: a batch is guarded if any call in it is (or is malformed, or is itself a delegatecall). Safe Wallet batches and the agent's multi-call proposals (protocol-kit `onlyCalls`) use MultiSendCallOnly, so payroll proposals pass. All of this applies unless that exact transaction (`keccak256(abi.encode(to, keccak256(data), operation))`) was queued in the guard by the Safe (`queue(to, data, operation)`) at least 24 h (× `timeUnit`) earlier. A queue entry is consumed in `checkAfterExecution` when the transaction succeeds, so it works once (a Safe transaction whose inner call failed keeps it); `cancel` removes it. The guard keeps its own queue rather than reusing `PlanModule`'s, because `PlanModule.applyChange` would try to call the queued data on the module. Because the agent is not a Safe owner, the guard is not what bounds a stolen agent key; it slows down an attacker who has phished two human owners. Recovery: a queued `setGuard(address(0))` passes once matured. Safe v1.4.1 does not run the guard on module transactions; `PlanModule` only reaches its fixed targets. **Deploy to a throwaway Safe first.** The deploy script deploys it but does not set it; the owners do, as a Safe transaction.
 
 ## Deployment
 
