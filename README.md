@@ -60,28 +60,41 @@ flowchart LR
 ```
 contracts/   Foundry project (Solidity 0.8.11, OpenZeppelin 4.9): PlanModule, SignalAttestor, mocks
 agent/       TypeScript: relayers, replay runner, extractor, planner, executor, everyday loop
-web/         Dashboard and attack arena (Next.js, to be scaffolded)
+web/         Dashboard, plan book page and attack arena (Next.js, read only)
 data/        Replay timelines (Ragasa, Yagi) and demo fixtures (invoices, payroll, plans)
 redteam/     Attack suite and benchmark harness
 docs/        Plan, specs, security self-assessment, demo, evidence
 ```
 
-## Quick start (once the code lands)
+## Quick start: the whole demo on a local chain
+
+First iteration: contracts, agent backend and website run end to end on a local Anvil chain. Base Sepolia deployment, the Safe proposal path and the red-team benchmark are next.
+
+Needs Node 22 and [Foundry](https://book.getfoundry.sh/getting-started/installation). No `.env` is needed locally: on Anvil everything uses Anvil's public dev accounts.
 
 ```bash
-# contracts
+# 1. contracts: build, test, deploy to a local chain
 cd contracts
-git clone --depth 1 https://github.com/foundry-rs/forge-std lib/forge-std
+git clone --depth 1 --branch v1.9.7 https://github.com/foundry-rs/forge-std lib/forge-std
 git clone --depth 1 --branch v4.9.6 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
-forge build && forge test
+forge test
+anvil                                    # in a second terminal
+forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast   # writes deployments/anvil.json
 
-# agent
+# 2. agent: tests, then the full Ragasa replay (an ordinary day, then the storm), then the API
 cd ../agent
-cp ../.env.example ../.env   # fill in RPC, keys, Safe address
 npm install
-npm run typecheck
-npm run replay -- --event ragasa-2025 --speed 600 --dry-run   # dry run works today
+npm test
+npm run replay -- --event ragasa-2025 --speed 100000
+npm run serve                            # decision log + arena API on :8787 (third terminal)
+
+# 3. website: dashboard on http://localhost:3000, /plan and /arena
+cd ../web
+npm install
+npm run dev
 ```
+
+One full replay uses most of a day's caps; run the next one on a fresh `anvil` (and redeploy) or the runner refuses to start.
 
 ## Ground rules
 

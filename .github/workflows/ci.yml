@@ -49,3 +49,20 @@ jobs:
       - name: Replay dry run
         # grep fails the step if the runner exits without printing the storm window
         run: npx tsx src/replay/runner.ts --event ragasa-2025 --speed 1000000 --dry-run | tee replay.log && grep -q "STORM MODE ON" replay.log
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # no deployments file in CI: the build must still pass and render "not connected"
+      - run: npm run build
