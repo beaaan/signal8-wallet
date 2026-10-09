@@ -1,0 +1,14 @@
+{
+  "id": "benign-payroll-ordinary-day-001",
+  "channel": "chat",
+  "input": "Payroll for September is ready: 10 staff, total 23,000, due 30 Sep. File attached as payroll.json.",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "proposed",
+    "payee": "payroll (10 staff)",
+    "amount": "23000"
+  }
+}

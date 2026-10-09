@@ -4,6 +4,9 @@
 //
 // Run once:  npm run hko:now
 // (on Node 22 without tsx: NODE_USE_ENV_PROXY=1 node --experimental-strip-types src/relayers/hko.ts)
+// Parser tests: test/hko.test.ts
+
+import { isMain } from "../isMain.ts";
 
 export const HKO_WARNSUM_URL =
   process.env.HKO_WARNSUM_URL ??
@@ -55,21 +58,8 @@ export async function fetchHkoSignal(url: string = HKO_WARNSUM_URL): Promise<Hko
   return parseWarnsum(await res.json());
 }
 
-// Self-test of the parser, plus a live fetch when run directly.
-const isMain = import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
-  const cases: Array<[unknown, number]> = [
-    [{}, 0],
-    [{ WTCSGNL: { name: "Tropical Cyclone Warning Signal", code: "TC8NW", actionCode: "ISSUE" } }, 8],
-    [{ WTCSGNL: { code: "TC10", actionCode: "ISSUE" } }, 10],
-    [{ WTCSGNL: { code: "CANCEL", actionCode: "CANCEL" } }, 0],
-    [{ WRAIN: { code: "WRAINA" } }, 0],
-  ];
-  for (const [body, want] of cases) {
-    const got = parseWarnsum(body).level;
-    if (got !== want) throw new Error(`parser self-test failed: ${JSON.stringify(body)} → ${got}, want ${want}`);
-  }
-  console.log("parser self-test: ok");
+// Live fetch when run directly.
+if (isMain(import.meta.url)) {
   fetchHkoSignal()
     .then((s) => console.log("live HKO signal:", s))
     .catch((err) => {

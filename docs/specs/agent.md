@@ -17,6 +17,7 @@ agent/src/
   llm/
     extractor.ts       email/invoice text → ExtractedInvoice (no tools)
     planner.ts         state → Action[] (no tools)
+    planCompiler.ts    policy, loan, payroll → draft PlanBook with citations (no tools; should)
   policy/
     localCheck.ts      same checks as PlanModule, run before signing (defence in depth)
   exec/
@@ -28,6 +29,8 @@ agent/src/
   drafts.ts            insurance claim, Circular 53 request, deadline list
   log.ts               decisions.jsonl (every action, refusal and reason)
   types.ts             zod schemas (below)
+  plan.ts              plan book: canonical JSON, planHash, chain parameters (spec: plans.md)
+  isMain.ts            "run directly?" check that also works on Windows
 ```
 
 ## Trust boundaries

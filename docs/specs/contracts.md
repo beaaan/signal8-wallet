@@ -269,7 +269,7 @@ Implements Safe v1.4.1 `Guard` (`checkTransaction`, `checkAfterExecution`). Reve
 
 `contracts/script/Deploy.s.sol`:
 
-1. Deploy `MockUSD`, `SignalAttestor` (relayer addresses, chain id, `timeUnit`), the mocks (vault; credit line and cover with the Safe as borrower and insured; router; evidence registry), then `PlanModule` (safe, guardian, agent, attestor, token, targets, region, `timeUnit`, initial plans, payees with plan masks, `dailyCeiling`).
+1. Deploy `MockUSD`, `SignalAttestor` (relayer addresses, chain id, `timeUnit`), the mocks (vault; credit line and cover with the Safe as borrower and insured; router; evidence registry), then `PlanModule` (safe, guardian, agent, attestor, token, targets, region, `timeUnit`, initial plans, payees with plan masks, `dailyCeiling`). Plans, payees and the ceiling come from the plan book: the script reads the JSON printed by `npm run plan:hash` (see [plans.md](plans.md)) with `vm.parseJson`.
 2. Mint: Safe 50,000 mUSD; lender reserve 200,000; insurer reserve 100,000; demo client wallet 100,000.
 3. Output the Safe transactions the owners must sign: `enableModule(PlanModule)`, then (optionally) `setGuard(PlanGuard)`.
 4. One owner registers the agent address as a Safe delegate in the Transaction Service (API Kit `addSafeDelegate`).

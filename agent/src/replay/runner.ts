@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMain } from "../isMain.ts";
 import { TC_LEVEL } from "../relayers/hko.ts";
 
 interface ReplaySignal {
@@ -74,8 +75,7 @@ function arg(name: string, fallback?: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
+if (isMain(import.meta.url)) {
   const id = arg("event", "ragasa-2025")!;
   const speed = Number(arg("speed", "600"));
   const dryRun = process.argv.includes("--dry-run");
