@@ -17,6 +17,7 @@ contracts/out/
 contracts/cache/
 contracts/lib/
 contracts/broadcast/*/31337/
+contracts/deployments/anvil.json
 
 # os / editors
 .DS_Store
