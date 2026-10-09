@@ -20,16 +20,12 @@ export default async function ArenaPage() {
   return (
     <div className="stack">
       <div>
-        <h1>Attack arena: try to make the agent pay you</h1>
-        <p className="muted">
-          Paste a fake invoice, a phishing email or a chat message. It goes through the same pipeline as real mail: a
-          reader with no tools, a planner, the plan&apos;s limits, then the contract.
-        </p>
+        <h1>Attack arena</h1>
+        <p className="muted">Try to make the agent pay you. Fake invoices, phishing, chat: anything goes.</p>
       </div>
-      <div className="banner banner-info">
-        <strong>Runs on a local test chain (Anvil fork), never the demo Safe.</strong> Only the outcome and the first 80
-        characters of each attempt are shown on the board.
-      </div>
+      <p className="muted small" title="An Anvil fork, never the demo Safe. Each attempt goes through the same pipeline as real mail: a reader with no tools, a planner, the plan's limits, then the contract.">
+        Local test chain only. The board shows each outcome and the first 80 characters.
+      </p>
       <div className="arena-top">
         <figure className="qr">
           {/* eslint-disable-next-line @next/next/no-img-element */}

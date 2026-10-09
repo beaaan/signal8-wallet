@@ -1,5 +1,4 @@
-// The Hong Kong Observatory tropical cyclone signal, drawn like the real symbols, and the GDACS alert chip.
-import { gdacsName } from "@/lib/words";
+// The Hong Kong Observatory tropical cyclone signal, drawn like the real symbols.
 
 function Symbol({ level }: { level: number }) {
   switch (level) {
@@ -27,15 +26,6 @@ export function SignalBadge({ level, size = "md" }: { level: number | null; size
         <Symbol level={l} />
       </svg>
       <span className="signal-no">{l > 0 ? `No. ${l}` : l === 0 ? "None" : "?"}</span>
-    </span>
-  );
-}
-
-export function GdacsChip({ level }: { level: number | null }) {
-  const l = level ?? -1;
-  return (
-    <span className={`gdacs gdacs-${l < 0 ? "x" : l}`} title="GDACS alert level (Global Disaster Alert and Coordination System)">
-      GDACS {l < 0 ? "unknown" : l === 0 ? "no alert" : gdacsName(l)}
     </span>
   );
 }

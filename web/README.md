@@ -6,22 +6,19 @@ The site is **read-only**. It reads chain state with viem and the agent's decisi
 
 ## Pages
 
-- `/` **dashboard** (polls `/api/dashboard` every 5 s), written for an owner or a judge who looks for 30 seconds:
-  - **Status**: one plain sentence (calm, watching, storm mode or paused), with the HKO signal drawn like the real symbol, the GDACS level as a coloured chip, when storm mode started and the official issue time
-  - **Needs you**: owner approvals (decisions with outcome `proposed`) with amount, payee and the reason in plain words, or "Nothing waiting for you". On Base Sepolia it links to the Safe Wallet queue
-  - **Money at a glance**: cash in the Safe, the money-market fund (`convertToAssets`), credit used vs limit, and typhoon cover status (`claimed(eventId)`), each with a one-line explanation
-  - **Today's limits**: meters for today's spend against the active plan's daily cap and the overall ceiling, plus credit drawn this storm (`drawnInEvent`). The per-payment cap is stated in words
-  - **Storm progress**: the HKO signal history of the current or last storm, with what the agent did at each step. Chain actions are placed by block; agent decisions without a transaction are placed by their `storm:<code>` label
-  - **Activity**: one timeline that merges chain events and agent decisions, grouped by phase (everyday / storm mode) and day:
-    - each item has an icon and colour by kind, payee names, formatted amounts and an explorer link
-    - cover `Executed` + `Claimed` and credit `Executed` + `Drawn` are each merged into one line, and a payroll run folds into one expandable line
-    - refusals give the reason in plain words (`lib/words.ts`); unknown agent actions show as plain notes
-- `/plan` **plan book** in the owner's language (`?lang=` over the summary's language tags; rule lines exist in `en` and `zh-Hant`, and other languages fall back to English). Each plan's rules are shown in plain words with amounts, with citations under the rule they support. Also shown: the payee list, and the plan hash computed here with the same canonical JSON as the agent. That hash is checked against `plans(0).planHash` and `plans(1).planHash`: "matches the signed plan on-chain", "does not match" or "not connected".
+- `/` **dashboard** (polls `/api/dashboard` every 5 s), in a quiet "ledger" style: labels and numbers, no sentences. Longer explanations are `title` hovers and screen-reader text.
+  - **Status**: the plan in force as a title ("Storm plan on", "Everyday plan", "Paused", "Not connected"), the HKO signal drawn like the real symbol, and chips for the signal, GDACS level and when storm mode started. A small "Live" dot turns red with a "Why?" list when the contracts, chain or agent can't be read
+  - **Needs you**: owner approvals (decisions with outcome `proposed`) as rows of payee, reference, short reason and amount; drafts from one run fold into one row. "Nothing needs you" when empty. On Base Sepolia it links to the Safe Wallet queue
+  - **Money**: cash in the Safe, the money-market fund (`convertToAssets`), borrowed vs credit limit, and typhoon cover (`claimed(eventId)`). Amounts carry no unit; the section names it once
+  - **Limits**: bars for today's spend against the active plan's daily cap and the overall ceiling, plus credit drawn this storm (`drawnInEvent`), and the per-payment cap
+  - **This storm / Last storm**: the HKO signal history as one line, with at most three short actions per signal. Chain actions are placed by block; agent decisions without a transaction are placed by their `storm:<code>` label
+  - **Activity**: chain events and agent decisions merged into one list, grouped by plan and day, ten rows then "Show more". A payroll run folds into one row, as do back-to-back drafts. Each row has a time, an icon, a short title, the amount and an explorer link; details are in the hover
+- `/plan` **plan book** in the owner's language (`?lang=` over the summary's language tags; rule lines exist in `en` and `zh-Hant`, and other languages fall back to English). Each plan's limits are shown as label and amount, allowed actions as chips, and each source clause folds out under the limit it supports. Also shown: the payee list, and the plan hash computed here with the same canonical JSON as the agent. That hash is checked against `plans(0).planHash` and `plans(1).planHash`: "matches the signed plan on-chain", "does not match" or "not connected".
 - `/arena` **attack arena**: a QR code to the page, a text box (2,000 characters at most) and a channel select. The live board polls `/api/arena/board` every 3 s and shows only the outcome and the first 80 characters of each attempt. Submissions are rendered as React text only, never as HTML.
 
 Route handlers: `app/api/dashboard` (GET), `app/api/arena` (POST, forwards to the agent), `app/api/arena/board` (GET, proxied).
 
-Library: `lib/config.ts` (env), `lib/deployments.ts` (reads `../contracts/deployments/<NETWORK>.json`), `lib/abis.ts`, `lib/chain.ts` (viem reads and the event feed), `lib/plan.ts` (plan book loader, `canonicalJson`, `planHash`), `lib/agentApi.ts`, `lib/activity.ts` (timeline, storm strip, "Needs you"), `lib/words.ts` (plain-language reasons and labels), `lib/dashboard.ts` (puts it all together; every number and time is formatted on the server in the business's time zone), `lib/format.ts`. UI pieces live in `app/components/`: inline SVG icons, the HKO signal symbol and GDACS chip, the nav and the meter.
+Library: `lib/config.ts` (env), `lib/deployments.ts` (reads `../contracts/deployments/<NETWORK>.json`), `lib/abis.ts`, `lib/chain.ts` (viem reads and the event feed), `lib/plan.ts` (plan book loader, `canonicalJson`, `planHash`), `lib/agentApi.ts`, `lib/activity.ts` (timeline, storm strip, "Needs you"), `lib/words.ts` (plain-language reasons and labels), `lib/dashboard.ts` (puts it all together; every number and time is formatted on the server in the business's time zone), `lib/format.ts`. UI pieces live in `app/components/`: inline SVG icons, the HKO signal symbol and the nav. Fonts: IBM Plex Sans and IBM Plex Mono through `next/font`.
 
 Any of the three sources can be missing: no deployments file, RPC down or agent API down. When one is missing the page shows "not connected" for that part and renders the rest.
 

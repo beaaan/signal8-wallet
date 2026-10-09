@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { readPlanHashes } from "@/lib/chain";
 import { loadDeployment } from "@/lib/deployments";
 import { fmtDecimal, shortAddr } from "@/lib/format";
@@ -19,6 +20,19 @@ const STRINGS = {
     daily: (x: React.ReactNode) => <>Per day: up to {x}.</>,
     credit: (x: React.ReactNode) => <>Credit line: up to {x} per storm.</>,
     may: "The assistant may:",
+    perTxLabel: "Per payment",
+    dailyLabel: "Per day",
+    creditLabel: "Credit per storm",
+    ceilingLabel: "Any day, both plans",
+    mayLabel: "May",
+    actionsShort: {
+      pay: "Pay listed payees",
+      vault_deposit: "Cash → fund",
+      vault_withdraw: "Fund → cash",
+      credit_draw: "Borrow",
+      cover_claim: "Claim cover",
+    } as Record<PlanAction, string>,
+    payeesShort: (n: number) => `${n} payees`,
     actions: {
       pay: "pay the payees listed for this plan",
       vault_deposit: "move spare cash into the money-market fund",
@@ -58,6 +72,19 @@ const STRINGS = {
     daily: (x: React.ReactNode) => <>每日最多 {x}。</>,
     credit: (x: React.ReactNode) => <>每次風暴最多提取 {x} 信貸額。</>,
     may: "助理可以：",
+    perTxLabel: "每筆上限",
+    dailyLabel: "每日上限",
+    creditLabel: "每次風暴信貸",
+    ceilingLabel: "兩個計劃合計每日上限",
+    mayLabel: "可以",
+    actionsShort: {
+      pay: "付款給名單收款人",
+      vault_deposit: "現金存入基金",
+      vault_withdraw: "從基金取回現金",
+      credit_draw: "提取信貸",
+      cover_claim: "申領保險",
+    } as Record<PlanAction, string>,
+    payeesShort: (n: number) => `${n} 位收款人`,
     actions: {
       pay: "向此計劃名單上的收款人付款",
       vault_deposit: "把多餘現金存入貨幣市場基金",
@@ -139,42 +166,56 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     return (
       <section className={`card plan-card-${p}`} key={p}>
         <h2>{t.planTitle[p]}</h2>
-        <p className="muted small">{t.planWhen[p]}</p>
-        <ul className="rules">
-          <li>
-            {t.perTx(money(r.perTxCap))}
-            {cite(`plans.${p}.perTxCap`)}
-          </li>
-          <li>
-            {t.daily(money(r.dailyCap))}
-            {cite(`plans.${p}.dailyCap`)}
-          </li>
+        <p className="muted small plan-when">{t.planWhen[p]}</p>
+        <dl className="kv">
+          <div>
+            <dt>{t.perTxLabel}</dt>
+            <dd>
+              {money(r.perTxCap)}
+              {cite(`plans.${p}.perTxCap`)}
+            </dd>
+          </div>
+          <div>
+            <dt>{t.dailyLabel}</dt>
+            <dd>
+              {money(r.dailyCap)}
+              {cite(`plans.${p}.dailyCap`)}
+            </dd>
+          </div>
           {Number(r.creditCapPerEvent) > 0 ? (
-            <li>
-              {t.credit(money(r.creditCapPerEvent))}
-              {cite(`plans.${p}.creditCapPerEvent`)}
-            </li>
+            <div>
+              <dt>{t.creditLabel}</dt>
+              <dd>
+                {money(r.creditCapPerEvent)}
+                {cite(`plans.${p}.creditCapPerEvent`)}
+              </dd>
+            </div>
           ) : null}
-          <li>
-            {t.may}
-            {cite(`plans.${p}.actions`)}
-            <ul>
+          <div>
+            <dt>{t.mayLabel}</dt>
+            <dd>
+              <ul className="chips" aria-label={t.may}>
+                {r.actions.map((a) => (
+                  <li key={a} className="chip" title={t.actions[a] ?? a}>
+                    {t.actionsShort[a] ?? a}
+                  </li>
+                ))}
+              </ul>
+              {cite(`plans.${p}.actions`)}
               {r.actions.map((a) => (
-                <li key={a}>
-                  {t.actions[a] ?? a}
-                  {cite(`plans.${p}.actions.${a}`)}
-                </li>
+                <Fragment key={a}>{cite(`plans.${p}.actions.${a}`)}</Fragment>
               ))}
-            </ul>
-          </li>
-          <li>
-            {t.payeesFor(payees.length)}
-            {cite(`plans.${p}.payees`)}
-          </li>
-        </ul>
-        <p className="small" style={{ marginTop: "0.5rem" }}>
-          {t.onChain(t.planShort[p])}: {status(onChain.ok ? onChain.hashes[p] : null)}
-        </p>
+            </dd>
+          </div>
+          <div>
+            <dt>{t.payees}</dt>
+            <dd>
+              {t.payeesShort(payees.length)}
+              {cite(`plans.${p}.payees`)}
+            </dd>
+          </div>
+        </dl>
+        <p className="small plan-onchain">{status(onChain.ok ? onChain.hashes[p] : null)}</p>
       </section>
     );
   });
@@ -188,7 +229,10 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         <div>
           <h1>{book.business}</h1>
           <p className="muted small">
-            {book.region} · {book.token.symbol} · {t.file}: <span className="mono">{file}</span>
+            {book.region} · {book.token.symbol} ·{" "}
+            <span className="mono" title={`${t.file}: ${file}`}>
+              {file.split("/").pop()}
+            </span>
           </p>
         </div>
         <nav className="langs" aria-label="Language">
@@ -203,14 +247,17 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       <Verify t={t} hash={hash} onChain={onChain} />
 
       <section className="card">
-        <h2>
-          <Icon name="plan" /> {t.summary}
-        </h2>
+        <h2 className="section-label">{t.summary}</h2>
         <p className="summary">{book.summary[lang]}</p>
-        <p className="ceiling">
-          {t.ceiling(money(book.dailyCeiling))}
-          {ceilingCite}
-        </p>
+        <dl className="kv">
+          <div>
+            <dt>{t.ceilingLabel}</dt>
+            <dd>
+              {money(book.dailyCeiling)}
+              {ceilingCite}
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <div className="grid2">{planSections}</div>
@@ -260,11 +307,6 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         <h2>{t.hashTitle}</h2>
         <p className="mono hash">{hash}</p>
         <p className="muted small">{t.hashNote}</p>
-        <p>
-          {t.onChain(t.planShort.base)}: {status(onChain.ok ? onChain.hashes.base : null)}
-          <br />
-          {t.onChain(t.planShort.storm)}: {status(onChain.ok ? onChain.hashes.storm : null)}
-        </p>
         {!onChain.ok ? <p className="muted small">{onChain.reason}</p> : null}
       </section>
     </article>
@@ -288,10 +330,8 @@ function Verify({
         <Icon name={state === "good" ? "check" : state === "bad" ? "alert" : "evidence"} />
       </span>
       <div>
-        <h2 style={{ margin: 0 }}>{state === "good" ? t.verified : state === "bad" ? t.mismatchTitle : t.unknownTitle}</h2>
-        <p className="muted small">
-          {state === "good" ? t.verifiedNote : state === "bad" ? t.mismatchNote : onChain.ok ? t.notConnected : onChain.reason}
-        </p>
+        <h2 title={state === "good" ? t.verifiedNote : undefined}>{state === "good" ? t.verified : state === "bad" ? t.mismatchTitle : t.unknownTitle}</h2>
+        {state !== "good" ? <p className="muted small">{state === "bad" ? t.mismatchNote : onChain.ok ? t.notConnected : onChain.reason}</p> : null}
       </div>
     </section>
   );
@@ -301,12 +341,12 @@ function Citations({ items, label }: { items: Citation[]; label: string }) {
   return (
     <>
       {items.map((c, i) => (
-        <blockquote key={i} className="cite">
-          “{c.quote}”
-          <footer>
+        <details key={i} className="cite">
+          <summary>
             {label}: {c.doc} §{c.clause}
-          </footer>
-        </blockquote>
+          </summary>
+          <blockquote>“{c.quote}”</blockquote>
+        </details>
       ))}
     </>
   );
