@@ -15,6 +15,7 @@ An AI treasurer for a small business. It runs the business's money every day fro
 | Detailed implementation plan | [docs/PLAN.md](docs/PLAN.md) |
 | Contract specs | [docs/specs/contracts.md](docs/specs/contracts.md) |
 | Agent, relayer and replay specs | [docs/specs/agent.md](docs/specs/agent.md) |
+| Plan book format and hashing | [docs/specs/plans.md](docs/specs/plans.md) |
 | Security self-assessment (fill in as we go) | [docs/SECURITY.md](docs/SECURITY.md) |
 | Demo script and demo-day checklist | [docs/DEMO.md](docs/DEMO.md) |
 | Execution evidence (transaction hashes) | [docs/EVIDENCE.md](docs/EVIDENCE.md) |
