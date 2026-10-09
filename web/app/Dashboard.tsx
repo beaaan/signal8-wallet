@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ActivityGroup, StormStrip } from "@/lib/activity";
-import type { DashboardData } from "@/lib/dashboard";
+import { Fragment, useEffect, useState } from "react";
+import type { ActivityGroup, StormStep, StormStrip } from "@/lib/activity";
+import type { DashboardData, Meter } from "@/lib/dashboard";
 import { txLink } from "@/lib/format";
 import { Icon } from "./components/Icons";
-import { MeterBar } from "./components/Meter";
-import { GdacsChip, SignalBadge } from "./components/Signal";
+import { SignalBadge } from "./components/Signal";
 
 const POLL_MS = 5000;
+const ACTIVITY_ROWS = 10;
 
 export default function Dashboard({ initial }: { initial: DashboardData }) {
   const [data, setData] = useState(initial);
@@ -38,60 +38,61 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
 
   return (
     <div className="dash">
-      <StatusHero data={data} stale={stale} />
+      <Status data={data} stale={stale} />
       <NeedsYou data={data} />
       <Money data={data} />
-      {data.strip ? <StormProgress strip={data.strip} /> : null}
-      <div className="dash-cols">
-        <Activity data={data} />
-        <Limits data={data} />
-      </div>
+      <Limits data={data} />
+      {data.strip ? <Storm strip={data.strip} /> : null}
+      <Activity data={data} />
     </div>
   );
 }
 
-function StatusHero({ data, stale }: { data: DashboardData; stale: boolean }) {
+function Status({ data, stale }: { data: DashboardData; stale: boolean }) {
   const s = data.status;
   const c = data.connection;
+  const down = [!c.deployment.ok && "contracts", c.deployment.ok && !c.chain.ok && "chain", !c.agent.ok && "agent"].filter(Boolean) as string[];
+  const storm = s.mode === "storm";
   return (
-    <section className={`hero hero-${s.mode}${s.paused ? " hero-paused" : ""}`} aria-live="polite">
+    <section className={`status status-${s.mode}${s.paused ? " status-paused" : ""}`} aria-live="polite">
       <SignalBadge level={s.hkoLevel} size="lg" />
-      <div className="hero-text">
-        <p className="hero-kicker">
-          {s.mode === "storm" ? "Storm mode" : s.mode === "unknown" ? "Not connected" : s.mode === "watch" ? "Calm, watching the weather" : "Calm"}
-          {s.paused ? " · Paused" : ""}
-        </p>
-        <h1 className="hero-headline">{s.headline}</h1>
-        {s.lines.length ? (
-          <ul className="hero-lines">
-            {s.lines.map((l) => (
-              <li key={l}>{l}</li>
+      <div className="status-text">
+        <h1 title={s.headline}>
+          {storm ? (
+            <>
+              Storm plan <span className="status-on">on</span>
+            </>
+          ) : (
+            s.title
+          )}
+        </h1>
+        <p className="sr-only">{s.headline}</p>
+        {s.chips.length ? (
+          <ul className="chips">
+            {s.chips.map((x) => (
+              <li key={x} className={/^GDACS (Red|Orange)/.test(x) ? "chip chip-hot" : "chip"}>
+                {x}
+              </li>
             ))}
           </ul>
         ) : null}
       </div>
-      <div className="hero-side">
-        <GdacsChip level={s.gdacsLevel} />
-        <div className="conn" aria-label="Connections">
-          <Dot ok={c.deployment.ok} label="Contracts" title={c.deployment.text} />
-          <Dot ok={c.chain.ok} label="Chain" title={c.chain.text} />
-          <Dot ok={c.agent.ok} label="Agent" title={c.agent.text} />
-        </div>
-        <span className="hero-updated">{stale ? "Refresh failed: showing older data" : `Updated ${data.updatedLabel}`}</span>
+      <div className="status-side">
+        <span className={`live ${down.length || stale ? "live-bad" : ""}`} title={[c.deployment.text, c.chain.text, c.agent.text].join("\n")}>
+          <span className="live-dot" aria-hidden />
+          {stale ? "Refresh failed" : down.length ? `No ${down.join(", ")}` : `Live · ${data.updatedLabel}`}
+        </span>
       </div>
-      {!c.chain.ok || !c.agent.ok ? (
-        <details className="hero-why">
-          <summary>Why “not connected”?</summary>
+      {down.length || c.readErrors.length ? (
+        <details className="status-why">
+          <summary>{down.length ? "Why?" : `${c.readErrors.length} reads failed`}</summary>
           <ul>
             {!c.deployment.ok ? <li>{c.deployment.text}</li> : null}
             {c.deployment.ok && !c.chain.ok ? <li>{c.chain.text}</li> : null}
             {!c.agent.ok ? <li>{c.agent.text}</li> : null}
-          </ul>
-        </details>
-      ) : c.readErrors.length ? (
-        <details className="hero-why">
-          <summary>{c.readErrors.length} chain reads failed</summary>
-          <ul>
+            {s.lines.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
             {c.readErrors.map((e) => (
               <li key={e} className="mono">
                 {e}
@@ -104,125 +105,80 @@ function StatusHero({ data, stale }: { data: DashboardData; stale: boolean }) {
   );
 }
 
-function Dot({ ok, label, title }: { ok: boolean; label: string; title: string }) {
-  return (
-    <span className="conn-item" title={title}>
-      <span className={`dot ${ok ? "dot-ok" : "dot-bad"}`} aria-hidden />
-      {label}
-      <span className="sr-only">{ok ? " connected" : " not connected"}</span>
-    </span>
-  );
-}
-
 function NeedsYou({ data }: { data: DashboardData }) {
   const n = data.needsYou;
-  if (!n.ok) {
-    return (
-      <section className="card needs needs-empty">
-        <Icon name="proposed" />
-        <div>
-          <h2>Needs you</h2>
-          <p className="muted">Agent not connected, so owner approvals cannot be shown.</p>
-        </div>
-      </section>
-    );
-  }
+  if (!n.ok) return null; // the status line already says the agent is not connected
   if (n.total === 0) {
     return (
-      <section className="card needs needs-empty">
-        <span className="ok-circle">
-          <Icon name="check" />
-        </span>
-        <div>
-          <h2>Nothing waiting for you</h2>
-          <p className="muted">The agent is working inside the signed plan. Anything outside it comes here for two owners to approve.</p>
-        </div>
+      <section className="panel needs needs-none" aria-label="Needs you">
+        <Icon name="check" size={18} />
+        <span>Nothing needs you</span>
       </section>
     );
   }
   return (
-    <section className="card needs" aria-labelledby="needs-title">
-      <div className="card-head">
-        <h2 id="needs-title">
-          Needs you <span className="count">{n.total}</span>
+    <section className="panel needs" aria-labelledby="needs-title">
+      <header className="needs-head">
+        <h2 id="needs-title" className="tag tag-wait">
+          Needs you · {n.total}
         </h2>
         {data.safeQueueUrl ? (
           <a className="button" href={data.safeQueueUrl} target="_blank" rel="noreferrer">
-            Review in Safe Wallet <Icon name="external" size={16} />
+            Review in Safe <Icon name="external" size={14} />
           </a>
         ) : (
-          <span className="muted small">Two owners approve these in the shared wallet.</span>
+          <span className="muted small">2 owners approve</span>
         )}
-      </div>
+      </header>
       <ul className="needs-list">
         {n.items.map((it) => (
-          <li key={it.id} className="needs-item">
-            <div className="needs-main">
-              <p className="needs-title">{it.title}</p>
-              {it.why ? <p className="needs-why">Why it needs you: {it.why}</p> : null}
-              <p className="muted small">
-                {[it.source, it.timeLabel].filter(Boolean).join(" · ")}
-              </p>
+          <li key={it.id} className="needs-row">
+            <div className="needs-what">
+              <span className="needs-title">
+                {it.title}
+                {it.ref ? <span className="mono needs-ref">{it.ref}</span> : null}
+              </span>
+              {it.why ? <span className="muted small">{it.why}</span> : null}
             </div>
-            {it.amount ? <div className="needs-amount">{it.amount}</div> : null}
+            <span className="needs-amount mono">{it.amount ?? ""}</span>
           </li>
         ))}
       </ul>
-      {n.total > n.items.length ? <p className="muted small">and {n.total - n.items.length} older requests</p> : null}
+      {n.total > n.items.length ? <p className="muted small">+{n.total - n.items.length} older</p> : null}
     </section>
   );
 }
 
 function Money({ data }: { data: DashboardData }) {
   const m = data.money;
-  if (!m) {
-    return (
-      <section className="money" aria-label="Money at a glance">
-        {["Cash in the Safe", "Money-market fund", "Credit line", "Typhoon cover"].map((t) => (
-          <div key={t} className="card tile">
-            <p className="tile-label">{t}</p>
-            <p className="tile-value muted">not connected</p>
+  const cells: { label: string; value: React.ReactNode; hint?: string; tone?: string }[] = m
+    ? [
+        { label: "Cash", value: m.cash, hint: m.hints.cash },
+        { label: "Savings fund", value: m.fund, hint: m.hints.fund },
+        {
+          label: "Borrowed",
+          value: (
+            <>
+              {m.credit.used} <span className="figure-of">/ {m.credit.cap}</span>
+            </>
+          ),
+          hint: m.hints.credit,
+        },
+        { label: `Typhoon cover · ${m.cover.label.toLowerCase()}`, value: m.cover.value, hint: m.hints.cover, tone: m.cover.state === "paid" ? "good" : m.cover.state === "ready" ? "wait" : undefined },
+      ]
+    : ["Cash", "Savings fund", "Borrowed", "Typhoon cover"].map((label) => ({ label, value: "—" }));
+  return (
+    <section aria-label={`Money, in ${data.symbol}`}>
+      <h2 className="section-label">
+        Money <span className="unit">{data.symbol}</span>
+      </h2>
+      <div className="figures">
+        {cells.map((c) => (
+          <div key={c.label} className="figure" title={c.hint}>
+            <span className="figure-label">{c.label}</span>
+            <span className={`figure-value mono${c.tone ? ` tone-${c.tone}` : ""}`}>{c.value}</span>
           </div>
         ))}
-      </section>
-    );
-  }
-  return (
-    <section className="money" aria-label="Money at a glance">
-      <div className="card tile">
-        <p className="tile-label">
-          <Icon name="cash" /> Cash in the Safe
-        </p>
-        <p className="tile-value">{m.cash}</p>
-        <p className="tile-note">The shop&apos;s shared wallet, ready to pay staff and suppliers.</p>
-      </div>
-      <div className="card tile">
-        <p className="tile-label">
-          <Icon name="fund" /> Money-market fund
-        </p>
-        <p className="tile-value">{m.fund}</p>
-        <p className="tile-note">Spare cash earning interest. The agent brings it back before a storm.</p>
-      </div>
-      <div className="card tile">
-        <p className="tile-label">
-          <Icon name="credit" /> Credit line
-        </p>
-        <p className="tile-value">
-          {m.credit.used} <span className="tile-of">of {m.credit.cap} {data.symbol} used</span>
-        </p>
-        <div className="meter-track small-track" aria-hidden>
-          <div className={`meter-fill meter-${m.credit.pct >= 90 ? "hot" : m.credit.pct >= 70 ? "warm" : "ok"}`} style={{ width: `${m.credit.pct}%` }} />
-        </div>
-        <p className="tile-note">{m.creditNote}</p>
-      </div>
-      <div className={`card tile cover-${m.cover.state}`}>
-        <p className="tile-label">
-          <Icon name="cover" /> Typhoon cover
-        </p>
-        <p className="tile-value">
-          {m.cover.state === "paid" ? <Icon name="check" /> : null} {m.cover.title}
-        </p>
-        <p className="tile-note">{m.cover.note}</p>
       </div>
     </section>
   );
@@ -230,147 +186,148 @@ function Money({ data }: { data: DashboardData }) {
 
 function Limits({ data }: { data: DashboardData }) {
   const l = data.limits;
+  if (!l) return null;
   return (
-    <section className="card limits" aria-labelledby="limits-title">
-      <h2 id="limits-title">
-        <Icon name="limit" /> Today&apos;s limits
+    <section aria-labelledby="limits-title">
+      <h2 id="limits-title" className="section-label">
+        {l.planName} limits
+        {!l.active ? <span className="tag tag-bad">switched off</span> : null}
+        <a href="/plan" className="section-link">
+          Signed plan →
+        </a>
       </h2>
-      {!l ? (
-        <p className="muted">Not connected.</p>
+      <div className="bars">
+        <Bar label="Spent today" m={l.planMeter} />
+        <Bar label="All plans today" m={l.allMeter} />
+        {l.creditMeter ? <Bar label="Borrowed this storm" m={l.creditMeter} /> : null}
+      </div>
+      <p className="muted small limits-foot" title={`Right now the agent may: ${l.allowed.join(", ") || "nothing"}. The contract enforces these limits, not the agent.`}>
+        Max <span className="mono">{l.perTx}</span> per payment
+      </p>
+    </section>
+  );
+}
+
+function Bar({ label, m }: { label: string; m: Meter }) {
+  const tone = m.pct >= 90 ? "hot" : m.pct >= 70 ? "warm" : "ok";
+  return (
+    <div className="bar">
+      <div className="bar-label">
+        <span className="muted">{label}</span>
+        <span className="mono">
+          {m.used} / {m.cap}
+        </span>
+      </div>
+      <div className="bar-track" role="progressbar" aria-label={label} aria-valuenow={Math.round(m.pct)} aria-valuemin={0} aria-valuemax={100}>
+        <div className={`bar-fill bar-${tone}`} style={{ width: `${Math.max(m.pct, m.pct > 0 ? 1.5 : 0)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** "Wed 24 Sept, 02:40" → "Wed 02:40"; today's "14:20" stays. */
+const shortWhen = (s: string | null) => (s ? s.replace(/^(\w{3}) [^,]+, /, "$1 ") : "");
+
+function Storm({ strip }: { strip: StormStrip }) {
+  return (
+    <section aria-labelledby="storm-title">
+      <h2 id="storm-title" className="section-label">
+        {strip.ongoing ? "This storm" : "Last storm"}
+      </h2>
+      <div className="steps-wrap">
+        <ol className="steps">
+          {strip.steps.map((s, i) => (
+            <Step key={i} s={s} />
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function Step({ s }: { s: StormStep }) {
+  const shown = s.actions.slice(0, 3);
+  return (
+    <li className={`step${s.stormOn ? " step-storm" : ""}${s.current ? " step-current" : ""}`}>
+      <span className="step-when mono">{shortWhen(s.issued)}</span>
+      <span className="step-title">
+        {s.level === 0 ? "All clear" : `Signal ${s.level}`}
+        {s.current ? <span className="tag tag-now">now</span> : null}
+        {s.stormChange ? <span className={`tag ${s.stormChange === "on" ? "tag-bad" : "tag-good"}`}>{s.stormChange === "on" ? "storm on" : "storm off"}</span> : null}
+      </span>
+      {shown.length ? (
+        <ul className="step-did">
+          {shown.map((a, j) => (
+            <li key={j}>{a.text}</li>
+          ))}
+          {s.actions.length > shown.length ? <li className="muted">+{s.actions.length - shown.length} more</li> : null}
+        </ul>
+      ) : (
+        <span className="step-did muted">Holding</span>
+      )}
+    </li>
+  );
+}
+
+function Activity({ data }: { data: DashboardData }) {
+  const a = data.activity;
+  if (!a.ok) return null;
+  const rows = a.groups.flatMap((g) => g.items.map((it, i) => ({ g, it, first: i === 0 })));
+  const head = rows.slice(0, ACTIVITY_ROWS);
+  const rest = rows.slice(ACTIVITY_ROWS);
+  return (
+    <section aria-labelledby="activity-title">
+      <h2 id="activity-title" className="section-label">
+        Activity
+      </h2>
+      {a.reason ? <p className="muted small">{a.reason}</p> : null}
+      {rows.length === 0 ? (
+        <p className="muted">Nothing yet.</p>
       ) : (
         <>
-          <p className={`plan-pill plan-${l.plan}`}>{l.planName} in force</p>
-          {!l.active ? <p className="warn">This plan is switched off on-chain.</p> : null}
-          <MeterBar label={`Spent today, ${l.planName.toLowerCase()}`} {...l.planMeter} symbol={data.symbol} />
-          <MeterBar label="Spent today, all plans (hard ceiling)" {...l.allMeter} symbol={data.symbol} />
-          {l.creditMeter ? <MeterBar label="Borrowed this storm" {...l.creditMeter} symbol={data.symbol} /> : null}
-          <p className="limits-line">
-            Each payment can be at most <strong>{l.perTx}</strong>.
-          </p>
-          <p className="limits-line">
-            Right now the agent may: {l.allowed.length ? l.allowed.join(", ") : "nothing"}.
-          </p>
-          <p className="muted small">
-            Limits are enforced by the contract, not by the agent. <a href="/plan">Read the signed plan</a>
-          </p>
+          <Rows rows={head} chainId={data.chainId} />
+          {rest.length ? (
+            <details className="more">
+              <summary>Show {rest.length} more</summary>
+              <Rows rows={rest} chainId={data.chainId} />
+            </details>
+          ) : null}
         </>
       )}
     </section>
   );
 }
 
-function StormProgress({ strip }: { strip: StormStrip }) {
+function Rows({ rows, chainId }: { rows: { g: ActivityGroup; it: ActivityGroup["items"][number]; first: boolean }[]; chainId: number | null }) {
   return (
-    <section className="card strip" aria-labelledby="strip-title">
-      <h2 id="strip-title">
-        <Icon name="signal" /> {strip.ongoing ? "This storm so far" : "The last storm"}
-      </h2>
-      <ol className="strip-steps">
-        {strip.steps.map((s, i) => (
-          <li key={i} className={`strip-step${s.stormOn ? " strip-storm" : ""}${s.current ? " strip-current" : ""}`}>
-            <div className="strip-head">
-              <SignalBadge level={s.level} size="sm" />
-              <div>
-                <p className="strip-title">{s.level === 0 ? "Cancelled" : `Signal ${s.level}`}</p>
-                {s.issued ? <p className="strip-time">{s.issued}</p> : null}
-              </div>
-            </div>
-            {s.stormChange ? (
-              <p className={`strip-change strip-change-${s.stormChange}`}>{s.stormChange === "on" ? "Storm mode ON" : "Storm mode off"}</p>
-            ) : null}
-            {s.actions.length ? (
-              <ul className="strip-actions">
-                {s.actions.slice(0, 5).map((a, j) => (
-                  <li key={j} className={`k-${a.kind}`}>
-                    <Icon name={a.kind} size={14} /> {a.text}
-                  </li>
-                ))}
-                {s.actions.length > 5 ? <li className="muted">+{s.actions.length - 5} more</li> : null}
-              </ul>
-            ) : (
-              <p className="strip-none">No action needed</p>
-            )}
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function Activity({ data }: { data: DashboardData }) {
-  const a = data.activity;
-  return (
-    <section className="card activity" aria-labelledby="activity-title">
-      <h2 id="activity-title">
-        <Icon name="timeline" /> Activity
-      </h2>
-      {a.reason ? <p className="muted small">{a.reason}</p> : null}
-      {!a.ok ? (
-        <p className="muted">Not connected.</p>
-      ) : a.groups.length === 0 ? (
-        <p className="muted">Nothing has happened yet.</p>
-      ) : (
-        a.groups.map((g) => <Group key={g.key} g={g} chainId={data.chainId} />)
-      )}
-    </section>
-  );
-}
-
-function Group({ g, chainId }: { g: ActivityGroup; chainId: number | null }) {
-  return (
-    <div className={`group group-${g.phase}`}>
-      <h3 className="group-head">{g.label}</h3>
-      <ul className="items">
-        {g.items.map((it) => {
-          const link = txLink(chainId, it.tx);
-          return (
-            <li key={it.id} className={`item k-${it.kind}`}>
-              <span className="item-icon" aria-hidden>
-                <Icon name={it.kind} size={18} />
-              </span>
-              <div className="item-body">
-                <p className="item-title">{it.title}</p>
-                {it.detail ? <p className="item-detail">{it.detail}</p> : null}
-                {it.meta ? <p className="item-meta">{it.meta}</p> : null}
-                {it.children?.length ? (
-                  <details className="item-children">
-                    <summary>Show all {it.children.length}</summary>
-                    <ul>
-                      {it.children.map((c, j) => {
-                        const l = txLink(chainId, c.tx);
-                        return (
-                          <li key={j}>
-                            <span>{c.title}</span>
-                            <span className="item-amount">
-                              {c.amount}
-                              {l ? (
-                                <a href={l} target="_blank" rel="noreferrer" className="item-link" aria-label="View on the block explorer">
-                                  <Icon name="external" size={12} />
-                                </a>
-                              ) : null}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </details>
-                ) : null}
-              </div>
-              <div className="item-side">
-                {it.amount ? <span className="item-amount">{it.amount}</span> : null}
-                <span className="item-time">
-                  {it.timeLabel}
-                  {link ? (
-                    <a href={link} target="_blank" rel="noreferrer" className="item-link" aria-label="View on the block explorer" title="View on the block explorer">
-                      <Icon name="external" size={14} />
-                    </a>
-                  ) : null}
-                </span>
-              </div>
+    <ul className="rows">
+      {rows.map(({ g, it, first }) => {
+        const link = txLink(chainId, it.tx);
+        const hover = [it.detail, it.meta, it.children?.map((c) => `${c.title} ${c.amount ?? ""}`).join("\n")].filter(Boolean).join("\n");
+        return (
+          <Fragment key={it.id}>
+            {first ? <li className={`row-group row-group-${g.phase}`}>{g.label}</li> : null}
+            <li className={`row k-${it.kind}`} title={hover || undefined}>
+            <span className="row-time mono">{it.timeLabel}</span>
+            <span className="row-icon" aria-hidden>
+              <Icon name={it.kind} size={15} />
+            </span>
+            <span className="row-title">
+              {it.title}
+              {it.detail ? <span className="sr-only">. {it.detail}</span> : null}
+            </span>
+            <span className="row-amount mono">
+              {it.amount ?? ""}
+              {link ? (
+                <a href={link} target="_blank" rel="noreferrer" className="row-link" aria-label="View on the block explorer">
+                  <Icon name="external" size={12} />
+                </a>
+              ) : null}
+            </span>
             </li>
-          );
-        })}
-      </ul>
-    </div>
+          </Fragment>
+        );
+      })}
+    </ul>
   );
 }

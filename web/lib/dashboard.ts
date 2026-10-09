@@ -31,17 +31,23 @@ export interface DashboardData {
   status: {
     mode: "calm" | "watch" | "storm" | "unknown";
     paused: boolean;
+    /** Two or three words: "Storm plan on", "Everyday plan", "Paused". */
+    title: string;
+    /** Short facts beside the title: "Signal 10", "GDACS Red", "Since 02:01". */
+    chips: string[];
+    /** The same in one full sentence, for screen readers and hover. */
     headline: string;
     lines: string[];
     hkoLevel: number | null;
     gdacsLevel: number | null;
   };
+  /** Amounts are in `symbol`, written without it. Each `hint` is a one-line explanation for hover. */
   money: null | {
     cash: string;
     fund: string;
     credit: Meter;
-    creditNote: string;
-    cover: { state: "paid" | "ready" | "standby"; title: string; note: string };
+    cover: { state: "paid" | "ready" | "standby"; value: string; label: string };
+    hints: { cash: string; fund: string; credit: string; cover: string };
   };
   limits: null | {
     plan: "base" | "storm";
@@ -115,6 +121,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   });
   const ctx = { timeZone, now };
   const u = (v: string | null) => `${fmtUnits(v, decimals)} ${symbol}`;
+  const n = (v: string | null) => fmtUnits(v, decimals);
 
   // ---- top status
   const hko = snap?.hko?.level ?? null;
@@ -122,6 +129,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   const status: DashboardData["status"] = {
     mode: "unknown",
     paused: Boolean(snap?.paused),
+    title: "Not connected",
+    chips: [],
     headline: "Not connected: storm status unknown",
     lines: [],
     hkoLevel: hko,
@@ -132,6 +141,17 @@ export async function getDashboardData(): Promise<DashboardData> {
       snap.hko && snap.hko.sourceTime > 0
         ? `${hko === 0 ? "Signals cancelled" : `${hkoName(hko)} issued`} ${whenLabel(snap.hko.sourceTime * 1000, ctx)} (official time)`
         : null;
+    const since = activity.stormSince ? `Since ${whenLabel(activity.stormSince, ctx)}` : null;
+    const signalChip = hko === null ? "Signal unknown" : hko === 0 ? "No signal" : `Signal ${hko}`;
+    const gdacsChip = gdacs ? `GDACS ${gdacsName(gdacs)}` : null;
+    status.title = snap.isStorm ? "Storm plan on" : "Everyday plan";
+    status.chips = [signalChip, gdacsChip, snap.isStorm ? since : (hko ?? 0) >= 8 ? "Waiting for GDACS" : (hko ?? 0) >= 1 ? "Getting ready" : null].filter(
+      (x): x is string => Boolean(x),
+    );
+    if (snap.paused) {
+      status.title = "Paused";
+      status.chips.unshift("Agent can't move money");
+    }
     if (snap.isStorm) {
       status.mode = "storm";
       status.headline = `Storm mode: ${hkoName(hko)} and GDACS ${gdacsName(gdacs)} confirmed. The storm plan is paying staff; supplier payments wait.`;
@@ -162,25 +182,26 @@ export async function getDashboardData(): Promise<DashboardData> {
     const stormPlan = snap.plans[1];
     const payout = u(snap.coverPayout);
     const cover: NonNullable<DashboardData["money"]>["cover"] = snap.coverClaimed
-      ? { state: "paid", title: `Paid ${payout}`, note: snap.isStorm ? "Claimed for this storm." : "Claimed for the last storm." }
+      ? { state: "paid", value: `+${n(snap.coverPayout)}`, label: snap.isStorm ? "Paid this storm" : "Paid last storm" }
       : snap.isStorm
-        ? { state: "ready", title: "Not claimed yet", note: `This storm qualifies: ${payout} can be claimed now.` }
-        : {
-            state: "standby",
-            title: `Pays ${payout}`,
-            note: activity.lastCoverPaid
-              ? `Once per Signal 8+ storm. Last paid ${activity.lastCoverPaid.when}.`
-              : "Once per storm, when Signal 8+ and GDACS are confirmed.",
-          };
+        ? { state: "ready", value: n(snap.coverPayout), label: "Ready to claim" }
+        : { state: "standby", value: n(snap.coverPayout), label: "On standby" };
     money = {
-      cash: u(snap.safeBalance),
-      fund: u(snap.vaultAssets),
+      cash: n(snap.safeBalance),
+      fund: n(snap.vaultAssets),
       credit,
-      creditNote:
-        stormPlan && stormPlan.creditCapPerEvent !== "0"
-          ? `Emergency loan. In a storm the agent may borrow up to ${u(stormPlan.creditCapPerEvent)}.`
-          : "Emergency loan for storms.",
       cover,
+      hints: {
+        cash: "The shop's shared wallet (a 2-of-3 Safe), ready to pay staff and suppliers.",
+        fund: "Spare cash in a money-market fund. The agent brings it back before a storm.",
+        credit:
+          stormPlan && stormPlan.creditCapPerEvent !== "0"
+            ? `Emergency credit line. In a storm the agent may borrow up to ${u(stormPlan.creditCapPerEvent)}.`
+            : "Emergency credit line for storms.",
+        cover: activity.lastCoverPaid
+          ? `Typhoon cover pays ${payout} once per Signal 8+ storm. Last paid ${activity.lastCoverPaid.when}.`
+          : `Typhoon cover pays ${payout} once per storm, when Signal 8+ and GDACS are confirmed.`,
+      },
     };
   }
 
@@ -191,7 +212,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     limits = {
       plan: plan.name,
       planName: plan.name === "storm" ? "Storm plan" : "Everyday plan",
-      perTx: u(plan.perTxCap),
+      perTx: n(plan.perTxCap),
       planMeter: meter(plan.spentToday, plan.dailyCap, decimals),
       allMeter: meter(snap.spentAllToday, snap.dailyCeiling, decimals),
       creditMeter: plan.name === "storm" && plan.creditCapPerEvent !== "0" ? meter(snap.drawnInEvent, plan.creditCapPerEvent, decimals) : null,

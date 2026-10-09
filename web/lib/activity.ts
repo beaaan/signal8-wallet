@@ -4,7 +4,7 @@
 import type { Decision } from "./agentApi";
 import { SOURCES, ZERO32, type ChainLog } from "./chain";
 import { fmtDecimal, fmtUnits, shortHash } from "./format";
-import { gdacsName, hkoName, plainReason, signalFromCode, sourceLabel } from "./words";
+import { gdacsName, plainReason, signalFromCode, sourceLabel } from "./words";
 
 export type Kind =
   | "paid"
@@ -64,9 +64,13 @@ export interface StormStrip {
 export interface NeedsYouItem {
   id: string;
   timeLabel: string;
+  /** Who gets paid, or what to review: a few words. */
   title: string;
-  amount: string | null;
+  /** Why it needs the owners, in a short phrase. */
   why: string | null;
+  /** Invoice or order reference, if any. */
+  ref: string | null;
+  amount: string | null;
   source: string | null;
 }
 
@@ -152,7 +156,7 @@ export function tidySummary(s: string, symbol: string): string {
 function amountIn(s: string | undefined, symbol: string): string | null {
   if (!s) return null;
   const m = new RegExp(`([\\d,]+(?:\\.\\d+)?)\\s*${symbol}`).exec(s);
-  return m ? `${fmtDecimal(m[1].replace(/,/g, ""))} ${symbol}` : null;
+  return m ? fmtDecimal(m[1].replace(/,/g, "")) : null;
 }
 
 // ---------------------------------------------------------------- chain → items
@@ -165,14 +169,14 @@ function signalItemText(log: ChainLog, ctx: Ctx): { title: string; detail?: stri
   const sourceTime = Number(a.sourceTime ?? 0);
   const issued = sourceTime > 0 ? `Issued ${whenLabel(sourceTime * 1000, ctx)} (official time)` : undefined;
   if (a.source === SOURCES.HKO) {
-    return { level, source: "hko", title: level === 0 ? "Observatory: all typhoon signals cancelled" : `Observatory: ${hkoName(level)} issued`, detail: issued };
+    return { level, source: "hko", title: level === 0 ? "Signals cancelled" : `Signal ${level}`, detail: issued };
   }
   if (a.source === SOURCES.NCHMF) {
-    return { level, source: "hko", title: `National weather service: storm level ${level}`, detail: issued };
+    return { level, source: "hko", title: `Storm level ${level}`, detail: issued };
   }
   if (a.source === SOURCES.GDACS) {
     const ev = a.eventId && a.eventId !== ZERO32 ? `event ${shortHash(String(a.eventId))}` : "";
-    return { level, source: "gdacs", title: `GDACS: ${gdacsName(level)} alert`, detail: ["Global disaster alert for this storm", ev].filter(Boolean).join(", ") };
+    return { level, source: "gdacs", title: `GDACS ${gdacsName(level)}`, detail: ["Global disaster alert for this storm", ev].filter(Boolean).join(", ") };
   }
   return { level, source: "other", title: `Signal level ${level}` };
 }
@@ -185,7 +189,7 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
     list.push(l);
     byTx.set(l.tx, list);
   }
-  const amt = (v: unknown) => `${fmtUnits(typeof v === "bigint" ? v : 0n, ctx.decimals)} ${ctx.symbol}`;
+  const amt = (v: unknown) => fmtUnits(typeof v === "bigint" ? v : 0n, ctx.decimals);
   const out: (ActivityItem & { block: number })[] = [];
 
   for (const [tx, group] of byTx) {
@@ -204,8 +208,8 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
       out.push({
         ...base,
         kind: started ? "stormOn" : "stormOff",
-        title: started ? "Storm mode ON: the storm plan takes over" : "Storm mode off: back to the everyday plan",
-        detail: s ? (started ? `${s.title}, with a GDACS alert in force` : s.title) : undefined,
+        title: started ? "Storm plan on" : "Everyday plan back",
+        detail: s ? (started ? `${s.title} with a GDACS alert: the storm plan takes over` : `${s.title}: back to the everyday plan`) : undefined,
       });
       continue;
     }
@@ -235,14 +239,14 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
           break;
         }
         case ACT.vault_deposit:
-          out.push({ ...base, kind: "vault", title: "Put spare cash in the money-market fund", meta, amount: amt(a.amount) });
+          out.push({ ...base, kind: "vault", title: "Moved to fund", detail: "Spare cash into the money-market fund", meta, amount: amt(a.amount) });
           break;
         case ACT.vault_withdraw:
-          out.push({ ...base, kind: "vault", title: "Took cash out of the money-market fund", detail: "Back in the Safe, ready to pay", meta, amount: amt(a.amount) });
+          out.push({ ...base, kind: "vault", title: "Back from fund", detail: "Cash out of the money-market fund, ready to pay", meta, amount: amt(a.amount) });
           break;
         case ACT.cover_claim: {
           const c = find("Claimed");
-          out.push({ ...base, kind: "cover", title: "Typhoon cover paid out", detail: "Insurance paid once for this storm", meta, amount: c ? amt(c.args.payout) : undefined });
+          out.push({ ...base, kind: "cover", title: "Cover paid", detail: "Typhoon insurance, paid once per storm", meta, amount: c ? amt(c.args.payout) : undefined });
           break;
         }
         case ACT.credit_draw: {
@@ -250,7 +254,7 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
           out.push({
             ...base,
             kind: "credit",
-            title: "Borrowed from the credit line",
+            title: "Borrowed",
             detail: dr ? `Now owing ${amt(dr.args.drawnTotal)}` : undefined,
             meta,
             amount: amt(a.amount),
@@ -269,8 +273,8 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
       out.push({
         ...base,
         kind: "evidence",
-        title: `Evidence sealed on-chain: ${(kindText && EVIDENCE_KINDS[kindText]) ?? kindText ?? "record"}`,
-        detail: `Only a fingerprint is stored (${shortHash(String(anchored.args.hash))}); the record stays private`,
+        title: `Sealed ${(kindText && EVIDENCE_KINDS[kindText]) ?? kindText ?? "record"}`,
+        detail: `Fingerprint on-chain (${shortHash(String(anchored.args.hash))}); the record stays private`,
         meta: from ?? undefined,
       });
       continue;
@@ -285,7 +289,7 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
       out.push({
         ...base,
         kind: "inflow",
-        title: "Customer payment received",
+        title: "Customer paid",
         detail: [ref ? `Invoice ${ref}` : null, swept > 0n ? `${amt(swept)} went to repay the credit line` : null].filter(Boolean).join(" · ") || undefined,
         amount: amt(inflow.args.amount),
       });
@@ -294,22 +298,22 @@ function chainItems(logs: ChainLog[], ctx: Ctx, decisionsByTx: Map<string, Decis
 
     const repaid = find("Repaid");
     if (repaid) {
-      out.push({ ...base, kind: "credit", title: "Credit line repaid", detail: `Now owing ${amt(repaid.args.drawnTotal)}`, amount: amt(repaid.args.amount) });
+      out.push({ ...base, kind: "credit", title: "Repaid credit", detail: `Now owing ${amt(repaid.args.drawnTotal)}`, amount: amt(repaid.args.amount) });
       continue;
     }
     const claimed = find("Claimed");
     if (claimed) {
-      out.push({ ...base, kind: "cover", title: "Typhoon cover paid out", amount: amt(claimed.args.payout) });
+      out.push({ ...base, kind: "cover", title: "Cover paid", amount: amt(claimed.args.payout) });
       continue;
     }
     const drawn = find("Drawn");
     if (drawn) {
-      out.push({ ...base, kind: "credit", title: "Borrowed from the credit line", amount: amt(drawn.args.amount) });
+      out.push({ ...base, kind: "credit", title: "Borrowed", amount: amt(drawn.args.amount) });
       continue;
     }
     const paused = find("PausedSet");
     if (paused) {
-      out.push({ ...base, kind: "alert", title: paused.args.paused ? "Agent paused by an owner" : "Agent resumed by an owner", detail: `by ${shortHash(String(paused.args.by))}` });
+      out.push({ ...base, kind: "alert", title: paused.args.paused ? "Agent paused" : "Agent resumed", detail: `by ${shortHash(String(paused.args.by))}` });
       continue;
     }
   }
@@ -331,14 +335,14 @@ function decisionItem(d: Decision, i: number, ctx: Ctx): ActivityItem {
     return { ...base, kind: "note", title: "No loan needed", detail: "Cash on hand covers the forecast", meta: from ?? undefined };
   }
   if (action === "hold") {
-    return { ...base, kind: "hold", title: summary ?? "Holding supplier payments until the storm passes", meta: from ?? undefined };
+    return { ...base, kind: "hold", title: "Suppliers on hold", detail: summary ?? "Supplier payments wait until the storm passes", meta: from ?? undefined };
   }
   if (d.outcome === "proposed") {
     return {
       ...base,
       kind: "proposed",
-      title: summary ? `Asked the owners: ${summary}` : "Asked the owners to decide",
-      detail: reason ? `Why: ${reason}` : undefined,
+      title: `To owners: ${proposalTitle(summary)}`,
+      detail: reason ? capital(reason) : summary,
       meta: from ?? undefined,
       amount: amountIn(summary, ctx.symbol) ?? undefined,
     };
@@ -349,17 +353,17 @@ function decisionItem(d: Decision, i: number, ctx: Ctx): ActivityItem {
     else if (summary && /^No payment for "/.test(summary)) {
       const m = /^No payment for "(.+)" ([\d.,]+) (\w+)/.exec(summary);
       const known = m && m[1].toLowerCase() !== "unknown" && Number(m[2].replace(/,/g, "")) > 0;
-      title = known ? `Did not pay ${m![1]} (${fmtDecimal(m![2].replace(/,/g, ""))} ${m![3]} asked)` : `Blocked ${article(from)}`;
-    } else if (summary) title = `Refused: ${summary}`;
+      title = known ? `Refused ${m![1]}` : `Blocked ${article(from)}`;
+    } else if (summary) title = `Refused: ${clip(summary, 40)}`;
     else title = "Refused";
-    return { ...base, kind: "refused", title, detail: reason ? `Reason: ${reason}` : undefined, meta: from ?? undefined };
+    return { ...base, kind: "refused", title, detail: reason ? capital(reason) : undefined, meta: from ?? undefined };
   }
   // executed without a matching chain event: an agent note (notify, forecast, drafts, reconcile, …)
   const label: Record<string, string> = {
-    notify: "Agent message",
-    forecast: "Cash forecast updated",
-    drafts: "Drafts ready for the owners",
-    reconcile: "Books reconciled",
+    notify: "Owners told",
+    forecast: "Forecast updated",
+    drafts: "Drafts ready",
+    reconcile: /mismatch/i.test(d.summary ?? "") ? "Books do not match" : "Books match",
     inflow_match: "Customer payment matched",
     relayer: "Signal relayed",
     plan_check: "Plan check",
@@ -367,10 +371,31 @@ function decisionItem(d: Decision, i: number, ctx: Ctx): ActivityItem {
   return {
     ...base,
     kind: "note",
-    title: summary ?? label[action] ?? (action ? action.replace(/_/g, " ") : "Agent note"),
-    detail: summary && label[action] ? label[action] : reason ?? undefined,
+    title: label[action] ?? (summary ? clip(summary, 48) : action ? capital(action.replace(/_/g, " ")) : "Agent note"),
+    detail: summary ?? reason ?? undefined,
     meta: from ?? undefined,
   };
+}
+
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+
+/** "Pay 4,900 mUSD to Wing On Meats (WO-2299); logged…" → { who: "Wing On Meats", ref: "WO-2299" }. */
+export function parseProposal(summary: string | null | undefined): { who: string | null; ref: string | null; draft: string | null } {
+  const s = (summary ?? "").split(";")[0];
+  const draft = /^Draft for the owner to review and send: (.+?)(?: →|$)/.exec(s)?.[1] ?? null;
+  const who = /\bto (.+?)(?: \(|$)/.exec(s)?.[1] ?? null;
+  const ref = /\(([^()#]+)(?:#[^()]*)?\)/.exec(s)?.[1] ?? null;
+  return { who: draft ? null : who, ref: draft ? null : ref, draft };
+}
+
+function proposalTitle(summary: string | undefined): string {
+  if (!summary) return "a decision";
+  const p = parseProposal(summary);
+  if (p.draft) return `draft ${p.draft}`;
+  if (p.who) return `pay ${p.who}`;
+  if (/queueChange/.test(summary)) return "plan change";
+  return clip(summary.split(";")[0], 40);
 }
 
 function article(from: string | null): string {
@@ -383,16 +408,27 @@ function article(from: string | null): string {
 function foldPayments<T extends ActivityItem>(items: T[], ctx: Ctx): T[] {
   const out: T[] = [];
   let run: T[] = [];
-  const same = (a: T, b: T) => a.kind === "paid" && b.kind === "paid" && a.meta === b.meta && a.detail === b.detail;
+  const isDraft = (x: T) => x.kind === "proposed" && x.title.startsWith("To owners: draft ");
+  const same = (a: T, b: T) =>
+    (a.kind === "paid" && b.kind === "paid" && a.meta === b.meta && a.detail === b.detail) || (isDraft(a) && isDraft(b));
   const flush = () => {
-    if (run.length >= 3) {
+    if (run.length >= 2 && isDraft(run[0])) {
+      const last = run[run.length - 1];
+      out.push({
+        ...last,
+        id: `fold-${run[0].id}`,
+        title: `To owners: ${run.length} drafts`,
+        detail: "Review and send them yourself; the agent never sends them",
+        children: run.map((it) => ({ title: it.title.replace(/^To owners: draft /, "") })),
+      });
+    } else if (run.length >= 3) {
       const total = run.reduce((s, it) => s + BigInt(it.raw ?? "0"), 0n);
       const last = run[run.length - 1];
       out.push({
         ...last,
         id: `fold-${run[0].id}`,
-        title: last.detail === "Wages" ? `Paid wages to ${run.length} staff` : `Made ${run.length} payments`,
-        amount: `${fmtUnits(total, ctx.decimals)} ${ctx.symbol}`,
+        title: last.detail === "Wages" ? `Paid ${run.length} staff` : `${run.length} payments`,
+        amount: fmtUnits(total, ctx.decimals),
         raw: total.toString(),
         tx: undefined,
         children: run.map((it) => ({ title: it.title.replace(/^Paid /, ""), amount: it.amount, tx: it.tx })),
@@ -402,7 +438,7 @@ function foldPayments<T extends ActivityItem>(items: T[], ctx: Ctx): T[] {
   };
   for (const it of items) {
     if (run.length && !same(run[run.length - 1], it)) flush();
-    if (it.kind === "paid") run.push(it);
+    if (it.kind === "paid" || isDraft(it)) run.push(it);
     else out.push(it);
   }
   flush();
@@ -457,7 +493,7 @@ export function buildActivity(logs: ChainLog[], decisions: Decision[], ctx: Ctx)
     const key = `${sg}:${day}`;
     let g = groups[groups.length - 1];
     if (!g || g.key !== key) {
-      g = { key, phase: ph, label: `${ph === "storm" ? "Storm mode" : "Everyday plan"} · ${day}`, items: [] };
+      g = { key, phase: ph, label: `${ph === "storm" ? "Storm plan" : "Everyday plan"} · ${day}`, items: [] };
       groups.push(g);
     }
     const { block: _b, ...clean } = it as ActivityItem & { block?: number };
@@ -466,18 +502,37 @@ export function buildActivity(logs: ChainLog[], decisions: Decision[], ctx: Ctx)
 
   // Needs you: proposals waiting for the owners (holds are information, not a request).
   const proposals = decisions.filter((d) => d.outcome === "proposed" && d.action !== "hold");
-  const needsYou = proposals.slice(0, 6).map((d, i) => {
+  // Newest first; drafts from one run become a single "review the drafts" line.
+  const needsAll: NeedsYouItem[] = [];
+  const drafts: { d: Decision; name: string }[] = [];
+  for (const [i, d] of proposals.entries()) {
     const summary = d.summary ? tidySummary(d.summary, ctx.symbol) : null;
+    const p = parseProposal(summary);
     const t = Date.parse(d.ts);
-    return {
+    const timeLabel = Number.isFinite(t) ? whenLabel(t, ctx) : "";
+    if (p.draft) {
+      if (!drafts.length) needsAll.push({ id: `drafts-${d.ts}`, timeLabel, title: "", why: null, ref: null, amount: null, source: null });
+      drafts.push({ d, name: p.draft });
+      continue;
+    }
+    const why = plainReason(d.reason);
+    needsAll.push({
       id: `n${i}-${d.ts}`,
-      timeLabel: Number.isFinite(t) ? whenLabel(t, ctx) : "",
-      title: summary ?? (d.action ? d.action.replace(/_/g, " ") : "A decision"),
+      timeLabel,
+      title: p.who ?? (d.action === "plan_change" ? "Plan change" : summary ? clip(summary.split(";")[0], 48) : "A decision"),
+      why: why ? capital(why) : null,
+      ref: p.ref,
       amount: amountIn(summary ?? undefined, ctx.symbol),
-      why: plainReason(d.reason),
       source: sourceLabel(d.input),
-    };
-  });
+    });
+  }
+  const draftLine = needsAll.find((n) => n.id.startsWith("drafts-"));
+  if (draftLine) {
+    draftLine.title = drafts.length === 1 ? "Draft to review" : `${drafts.length} drafts to review`;
+    draftLine.why = drafts.map((x) => x.name.replace(/ \((?:en|zh-Hant|zh-Hans|vi)\)$/, "")).filter((v, i, a) => a.indexOf(v) === i).join(" · ");
+    draftLine.source = "The agent never sends them";
+  }
+  const needsYou = needsAll.slice(0, 6);
 
   const lastStart = [...logs].reverse().find((l) => l.eventName === "StormStarted" || l.eventName === "StormEnded");
   const stormSince = lastStart?.eventName === "StormStarted" && lastStart.time !== null ? lastStart.time * 1000 : null;
@@ -485,7 +540,7 @@ export function buildActivity(logs: ChainLog[], decisions: Decision[], ctx: Ctx)
   const lastClaim = [...logs].reverse().find((l) => l.eventName === "Claimed");
   const lastCoverPaid = lastClaim
     ? {
-        amount: `${fmtUnits(typeof lastClaim.args.payout === "bigint" ? lastClaim.args.payout : 0n, ctx.decimals)} ${ctx.symbol}`,
+        amount: fmtUnits(typeof lastClaim.args.payout === "bigint" ? lastClaim.args.payout : 0n, ctx.decimals),
         when: lastClaim.time ? whenLabel(lastClaim.time * 1000, ctx) : "",
       }
     : null;
@@ -494,7 +549,7 @@ export function buildActivity(logs: ChainLog[], decisions: Decision[], ctx: Ctx)
     groups,
     strip: buildStrip(logs, decisions, chain, ctx),
     needsYou,
-    needsYouTotal: proposals.length,
+    needsYouTotal: needsAll.length,
     stormSince,
     stormEnded,
     lastCoverPaid,
@@ -580,7 +635,7 @@ function buildStrip(logs: ChainLog[], decisions: Decision[], chain: (ActivityIte
     steps[k].actions.push({ kind: it.kind, text: it.amount ? `${shortTitle(it)} ${it.amount}` : shortTitle(it) });
   }
   for (const [k, p] of paidByStep) {
-    steps[k].actions.unshift({ kind: "paid", text: `Paid ${p.n} ${p.n === 1 ? "payee" : "people"} ${fmtUnits(p.total, ctx.decimals)} ${ctx.symbol}` });
+    steps[k].actions.unshift({ kind: "paid", text: `Paid ${p.n === 1 ? "1 payee" : `${p.n} people`} ${fmtUnits(p.total, ctx.decimals)}` });
   }
 
   // decisions without a chain event: walk forward through the steps
@@ -623,13 +678,17 @@ function buildStrip(logs: ChainLog[], decisions: Decision[], chain: (ActivityIte
     }
     const it = decisionItem(d, i, ctx);
     if (it.kind === "note" && d.action === "forecast") continue; // too detailed for the strip
+    if (it.kind === "proposed" && parseProposal(d.summary).draft) {
+      if (!steps[p].actions.some((a) => a.text === "Drafts for owners")) steps[p].actions.push({ kind: "proposed", text: "Drafts for owners" });
+      continue;
+    }
     const text =
       d.action === "notify"
-        ? "Checked the signed plan, told the owners"
+        ? "Plan checked"
         : d.action === "hold"
-          ? "Held supplier payments"
+          ? "Suppliers on hold"
           : d.action === "drafts"
-            ? "Drafted the claim and deadlines for the owners"
+            ? "Claim drafted"
             : shortTitle(it);
     steps[p].actions.push({ kind: it.kind, text });
   }
@@ -645,20 +704,10 @@ function nextBlockAfter(logs: ChainLog[], block: number, hkoSource: string): num
 function shortTitle(it: ActivityItem): string {
   switch (it.kind) {
     case "cover":
-      return "Cover paid";
-    case "credit":
-      return it.title.startsWith("Borrowed") ? "Borrowed" : it.title;
+      return "Cover";
     case "vault":
-      return it.title.startsWith("Took") ? "Cash out of the fund" : "Cash into the fund";
-    case "evidence":
-      return it.title.replace("Evidence sealed on-chain: ", "Sealed ");
-    case "inflow":
-      return "Customer paid";
-    case "refused":
-      return it.title.length > 60 ? `${it.title.slice(0, 57)}…` : it.title;
-    case "proposed":
-      return it.title.replace(/^Asked the owners: /, "Asked owners: ").replace(/^(.{60}\S*).+$/, "$1…");
+      return it.title.startsWith("Back") ? "Fund → cash" : "Cash → fund";
     default:
-      return it.title.length > 70 ? `${it.title.slice(0, 67)}…` : it.title;
+      return clip(it.title, 40);
   }
 }

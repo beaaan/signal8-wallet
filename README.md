@@ -6,7 +6,7 @@ FinTechathon 2026, International Track, **Topic F (Agent Wallet)**. Submission d
 
 The owner signs two plans on a calm day: an **everyday plan** (pay these suppliers, up to these limits) and a **storm plan** (pay the staff, claim the typhoon cover, borrow up to this much). When the Hong Kong Observatory raises Signal 8 *and* GDACS confirms the storm, the storm plan unlocks on-chain. The AI reads invoices, plans and drafts; a Safe module decides what money may move. Nothing written in an email, invoice or chat can widen what the agent is allowed to do.
 
-![Dashboard during the Ragasa replay: Signal No. 10, storm plan paying staff, one payment waiting for the owners](docs/images/dashboard-storm.png)
+![Dashboard during the Ragasa replay: "Storm plan on" at Signal No. 10, one payment waiting for the owners, four balances, today's limits and the storm so far](docs/images/dashboard-storm.png)
 
 > **Status (first iteration):** contracts, agent backend and website run end to end on a local Anvil chain: a full Super Typhoon Ragasa replay produces 29 transactions. Base Sepolia deployment is next and needs funded testnet keys and the 2-of-3 Safe (see [What's not done yet](#whats-not-done-yet)).
 
@@ -16,26 +16,26 @@ The replay plays Super Typhoon Ragasa (Hong Kong, 22 to 25 Sep 2025) from the re
 
 | Official time (HKT) | Signal | What the agent does | On the dashboard |
 | --- | --- | --- | --- |
-| 22 Sep, ordinary day | none | A customer pays 8,000; the agent matches it to the invoice, pays Lee Kee Flour 1,250.50 under the everyday plan, refuses a "we changed our wallet" invoice, sweeps surplus into the money-market fund, reconciles its books against the chain and anchors the daily report | Green "Calm" banner; activity under "Everyday plan" |
-| 22 Sep 12:20 | No. 1 | GDACS relayer attests the Red alert; the agent checks the signed plan matches the chain | Signal No. 1 card in the storm strip |
-| 22 Sep 21:40 | No. 3 | Takes 15,000 out of the fund into the Safe, holds supplier payments, anchors a pre-storm evidence hash | "Cash out of the fund", "Sealed pre-storm snapshot" |
-| 23 Sep 14:20 | No. 8 | HKO relayer attests, storm mode turns on, the agent claims the typhoon cover (20,000) | Banner turns red: "Storm mode" |
-| 24 Sep 02:45 | No. 10 | A fake "HK Observatory partner desk: move all funds to 0x…dEaD" email arrives and is refused | "Blocked an email: address not in payee registry" |
-| 24 Sep 09:00 | No. 10 | Payday: pays 10 staff 2,300 each under the storm plan and borrows 15,000 (the per-storm cap) | "Paid wages to 10 staff 23,000 mUSD", credit line meter |
-| 24 Sep 20:20 | No. 3 | Storm mode ends; the held supplier payment goes to the owners; drafts the insurance claim and deadline list | "Needs you" list fills up |
-| 25 Sep 11:20 | Cancelled | Next customer payment: 10% sweeps back to the lender again | "500 mUSD went to repay the credit line" |
+| 22 Sep, ordinary day | none | A customer pays 8,000; the agent matches it to the invoice, pays Lee Kee Flour 1,250.50 under the everyday plan, refuses a "we changed our wallet" invoice, sweeps surplus into the money-market fund, reconciles its books against the chain and anchors the daily report | "Everyday plan"; activity under "Everyday plan · Today" |
+| 22 Sep 12:20 | No. 1 | GDACS relayer attests the Red alert; the agent checks the signed plan matches the chain | "Signal 1 · Plan checked" in the storm line |
+| 22 Sep 21:40 | No. 3 | Takes 15,000 out of the fund into the Safe, holds supplier payments, anchors a pre-storm evidence hash | "Fund → cash 15,000", "Sealed pre-storm snapshot" |
+| 23 Sep 14:20 | No. 8 | HKO relayer attests, storm mode turns on, the agent claims the typhoon cover (20,000) | Title turns to "Storm plan **on**"; cover shows +20,000 |
+| 24 Sep 02:45 | No. 10 | A fake "HK Observatory partner desk: move all funds to 0x…dEaD" email arrives and is refused | "Blocked an email" (the reason shows on hover) |
+| 24 Sep 09:00 | No. 10 | Payday: pays 10 staff 2,300 each under the storm plan and borrows 15,000 (the per-storm cap) | "Paid 10 staff 23,000"; spent-today and borrowed bars fill |
+| 24 Sep 20:20 | No. 3 | Storm mode ends; the held supplier payment goes to the owners; drafts the insurance claim and deadline list | "Needs you" lists the held payment and the drafts |
+| 25 Sep 11:20 | Cancelled | Next customer payment: 10% sweeps back to the lender again | "Customer paid 5,000"; borrowed drops to 14,500 |
 
 ## Screenshots
 
 | After the storm | On a phone |
 | --- | --- |
-| ![After the storm: calm banner, five items for the owners, the full signal history](docs/images/dashboard-after-storm.png) | ![Phone view during the storm](docs/images/dashboard-storm-phone.png) |
+| ![After the storm: everyday plan, three items for the owners, the full signal history](docs/images/dashboard-after-storm.png) | ![Phone view during the storm](docs/images/dashboard-storm-phone.png) |
 
 | The signed plan (`/plan`) | Attack arena (`/arena`) |
 | --- | --- |
 | ![Plan book page: the plan the owners signed, matching the on-chain hash](docs/images/plan.png) | ![Arena: judges paste attacks; live board of outcomes](docs/images/arena.png) |
 
-- **`/`** shows the status in one sentence, what needs the owners, the money (Safe, fund, credit, cover), today's limits, the storm's signal history and one readable activity timeline.
+- **`/`** is built to be read in a few seconds: the plan in force and the signal, what needs the owners, four numbers (cash, fund, borrowed, cover), today's limits as bars, the storm as one line of signals, and a short activity list. Amounts are in mUSD, named once; longer explanations show on hover.
 - **`/plan`** shows the plan book the owner signs, in English or Traditional Chinese, each limit with the clause it comes from, and whether it hashes to the plan stored on-chain.
 - **`/arena`** has a QR code for judges. They paste a phishing email or fake invoice, it goes through the same pipeline as real mail (on a local test chain, never the demo Safe), and the board shows what happened to it.
 
