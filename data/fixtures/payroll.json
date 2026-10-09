@@ -1,0 +1,68 @@
+{
+  "business": "Golden Lotus Dim Sum, 10 staff (fictional)",
+  "token": "mUSD",
+  "payPeriod": "2025-09",
+  "payday": "2025-09-24",
+  "staff": [
+    {
+      "id": "staff-01",
+      "name": "Staff 01 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a1",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-02",
+      "name": "Staff 02 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a2",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-03",
+      "name": "Staff 03 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a3",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-04",
+      "name": "Staff 04 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a4",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-05",
+      "name": "Staff 05 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a5",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-06",
+      "name": "Staff 06 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a6",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-07",
+      "name": "Staff 07 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a7",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-08",
+      "name": "Staff 08 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a8",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-09",
+      "name": "Staff 09 (fictional)",
+      "address": "0x00000000000000000000000000000000000000a9",
+      "amount": "2300"
+    },
+    {
+      "id": "staff-10",
+      "name": "Staff 10 (fictional)",
+      "address": "0x00000000000000000000000000000000000000aa",
+      "amount": "2300"
+    }
+  ]
+}

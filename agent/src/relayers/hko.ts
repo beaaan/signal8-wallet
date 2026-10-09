@@ -1,12 +1,14 @@
 // HKO relayer: reads the Hong Kong Observatory warning summary and maps the tropical cyclone signal to a level.
 // Spec: docs/specs/agent.md#hko-relayershkots
-// Signing and submitting the EIP-712 attestation is still to build (relayers/sign.ts).
+// buildHkoAttestation turns a signal into the SignalAttestation the HKO relayer signs (relayers/sign.ts)
+// and submits (relayers/submit.ts).
 //
 // Run once:  npm run hko:now
 // (on Node 22 without tsx: NODE_USE_ENV_PROXY=1 node --experimental-strip-types src/relayers/hko.ts)
 // Parser tests: test/hko.test.ts
 
 import { isMain } from "../isMain.ts";
+import { SOURCE, ZERO32, type Hex, type SignalAttestation } from "./sign.ts";
 
 export const HKO_WARNSUM_URL =
   process.env.HKO_WARNSUM_URL ??
@@ -49,6 +51,34 @@ export function parseWarnsum(body: unknown): HkoSignal {
     actionCode: e["actionCode"] === undefined ? undefined : String(e["actionCode"]),
     issueTime: e["issueTime"] === undefined ? undefined : String(e["issueTime"]),
     updateTime: e["updateTime"] === undefined ? undefined : String(e["updateTime"]),
+  };
+}
+
+/** Official time (unix seconds) from an HKO ISO time; falls back to the signing time when HKO gave none. */
+export function toUnixSeconds(iso: string | undefined, fallback: bigint): bigint {
+  if (!iso) return fallback;
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) throw new Error(`bad time "${iso}"`);
+  return BigInt(Math.floor(ms / 1000));
+}
+
+/**
+ * The attestation the HKO relayer signs: eventId is always zero (only GDACS carries the event id),
+ * sourceTime is HKO's issueTime, issuedAt is the signing time. The Yagi variant passes source NCHMF.
+ */
+export function buildHkoAttestation(
+  signal: Pick<HkoSignal, "level" | "issueTime">,
+  opts: { region: Hex; nonce: bigint; issuedAt: bigint; source?: Hex },
+): SignalAttestation {
+  if (![0, 1, 3, 8, 9, 10].includes(signal.level)) throw new Error(`HKO level ${signal.level} is not one the attestor accepts`);
+  return {
+    source: opts.source ?? SOURCE.HKO,
+    region: opts.region,
+    level: signal.level,
+    eventId: ZERO32,
+    sourceTime: toUnixSeconds(signal.issueTime, opts.issuedAt),
+    issuedAt: opts.issuedAt,
+    nonce: opts.nonce,
   };
 }
 
