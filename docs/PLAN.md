@@ -78,7 +78,7 @@ flowchart TB
     subgraph onchain["On-chain: Base Sepolia"]
         att["SignalAttestor"]
         plan["PlanModule + guard<br/>base plan, storm plan,<br/>payees, caps, timelock"]
-        safe["Business Safe<br/>2-of-3"]
+        safe["Business Safe<br/>2-of-3 humans"]
         payees["Staff and suppliers"]
         cover["MockSignalCover"]
         credit["FlowCreditLine"]
@@ -91,8 +91,8 @@ flowchart TB
     extractor -- "fields only" --> planner
     planner -- "typed actions" --> check
     check --> executor
-    executor -- "executeTransfer / executeCall" --> plan
-    executor -.->|"over cap: Safe proposal"| owner
+    executor -- "pay, vaultDeposit, vaultWithdraw,<br/>creditDraw, claimCover, anchor" --> plan
+    executor -.->|"outside plan: Safe proposal (delegate)"| owner
     owner -- "signs plans (24 h timelock), co-signs" --> safe
     hko -- "signed attestation" --> att
     gdacs -- "signed attestation" --> att
@@ -111,7 +111,11 @@ flowchart TB
 Key decisions (already made, don't reopen without a reason):
 
 - **Chain:** Base Sepolia (84532). Safe v1.4.1 (Protocol Kit default). Safe's Allowance Module is **not** deployed on Base Sepolia, so our own `PlanModule` enforces limits.
-- **Oracle:** two signing relayers (HKO, GDACS) with separate keys, verified on-chain by EIP-712. Chainlink Functions was shut down on testnets in June 2026; Chainlink CRE is a stretch goal only.
+- **Safe owners:** owner, partner and the owner's offline backup key, threshold 2. The agent is **not** an owner; it is a Safe delegate that can propose but not sign.
+- **No generic call path:** `PlanModule` exposes typed agent functions (`pay`, `vaultDeposit`, `vaultWithdraw`, `creditDraw`, `claimCover`, `anchor`) and builds every call itself, with the Safe as the only receiver.
+- **Base vs storm plan:** suppliers are base-plan payees, staff are storm-plan payees. Ordinary-day payroll is an owner co-sign; in a storm the storm plan pays staff, draws credit (capped per event) and claims the cover. A `dailyCeiling` caps both plans together.
+- **Oracle:** two signing relayers (HKO, GDACS) with separate keys, verified on-chain by EIP-712. Each reads only its own source; only GDACS carries the event id. Chainlink Functions was shut down on testnets in June 2026; Chainlink CRE is a stretch goal only.
+- **Replays:** relayers sign with the current time and keep the 2025 time as `sourceTime`; each run salts the GDACS event id; rehearsals run on an Anvil fork.
 - **Solidity 0.8.11 + OpenZeppelin 4.9.x** everywhere, because FISCO BCOS supports at most 0.8.11.
 - **Money:** a mock 6-decimal dollar token for payroll-sized amounts; one compatibility run with real test USDC (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).
 - **Vietnam (Yagi):** crypto is not a lawful means of payment in Vietnam, so the Yagi replay uses a mock bank-issued VND deposit token on a local FISCO chain.
@@ -132,11 +136,11 @@ The Ragasa walkthrough (what M3 must produce):
 
 | Replay time (HKT) | Signal | Agent action | Evidence |
 | --- | --- | --- | --- |
-| 22 Sep 12:20 | No. 1 | Checks the storm plan is signed; sends the owner a 3-line summary | plan hash read |
+| 22 Sep 12:20 | No. 1 | GDACS relayer attests the event (Red); checks the storm plan is signed; sends the owner a 3-line summary | GDACS attest tx; plan hash read |
 | 22 Sep 21:40 | No. 3 | Brace: vault withdraw to buffer, pause non-urgent payments, anchor pre-storm evidence hash | 2 tx |
-| 23 Sep 14:20 | No. 8 NW | Relayers attest; storm unlocks; claim cover payout; re-run forecast | 3 tx (2 attest + unlock event, claim) |
+| 23 Sep 14:20 | No. 8 NW | HKO relayer attests; storm unlocks; claim cover payout; re-run forecast | 2 tx (HKO attest + `StormStarted`, claim) |
 | 24 Sep 02:40 | No. 10 | Fake "move funds now" email arrives; rejected (not a registered payee, no plan allows it) | attack log entry |
-| 24 Sep 09:00 | No. 10 | Payday: pay 10 staff; draw emergency credit within cap; repayment sweep paused | 10+ tx (batch allowed), draw tx |
+| 24 Sep 09:00 | No. 10 | Payday: pay 10 staff under the storm plan; draw emergency credit within the per-event cap; repayment sweep paused | 10 pay tx, draw tx |
 | 24 Sep 20:20 | No. 3 | Storm plan locks; delayed supplier payments queued for owner | attest tx, lock event |
 | 25 Sep 11:20 | Cancelled | Drafts insurance claim and deadline list; sweep resumes on next inflow | inflow tx with sweep |
 
@@ -148,22 +152,22 @@ Spec: [specs/contracts.md](specs/contracts.md). Build in this order; each step e
 
 1. **Project setup (10 Oct).** `forge init`, `foundry.toml` pinned to solc 0.8.11, OpenZeppelin v4.9.6, remappings, CI job. Mock dollar token (`MockUSD`, 6 decimals, owner mint).
 2. **`PlanModule` core (10 to 11 Oct).**
-   - Storage: plans (base, storm), payee registry with `activeFrom` time, allowed calls per plan (target + selector), daily spend per plan with reset, agent address, paused flag.
-   - `executeTransfer` and `executeCall` for the agent only; both go through `Safe.execTransactionFromModule`.
-   - Every check is in the contract: caller is the agent, not paused, plan active (storm plan needs `attestor.isStorm()`), payee registered and past cooling-off, per-transaction cap, daily cap, call allowlist.
-3. **Timelock and pause (11 to 12 Oct).** `queueChange(bytes)` / `applyChange(bytes)` after 24 h, only callable by the Safe. `pause()` instant from the Safe or the owner's guardian key; `unpause()` by the Safe.
+   - Storage: plans (base, storm) with caps, per-event credit cap and allowed-action bits; payees with a plan mask; daily spend per plan and across plans (`dailyCeiling`); credit drawn per storm event; used refs; fixed targets (vault, credit line, cover, evidence registry); agent, guardian, paused flag; `timeUnit` for FISCO.
+   - Typed agent functions only: `pay`, `vaultDeposit`, `vaultWithdraw`, `creditDraw`, `claimCover`, `anchor`. Each builds its own call through `Safe.execTransactionFromModule`, with the Safe as the only receiver. No generic call path.
+   - Every check is in the contract: caller is the agent, not paused, plan active (storm plan needs `attestor.isStorm()`), action allowed by the plan, ref not used before, payee in this plan, per-transaction cap, plan daily cap, daily ceiling, per-event credit cap.
+3. **Timelock and pause (11 to 12 Oct).** `queueChange(bytes)` / `applyChange(bytes)` after 24 h, only callable by the Safe; the timelock on `setPayee` is the new-payee cooling-off. `pause()` instant from the Safe, the owner's guardian key or the agent itself; `unpause()` by the Safe.
 4. **Tests (11 to 12 Oct), the M1 gate.**
    - Unit tests for every revert path.
-   - Fuzz: random amounts and payees never exceed caps.
-   - **Invariant:** total moved by the agent per day per plan ≤ that plan's daily cap; the agent can never call admin functions; storm-plan actions never execute while `isStorm()` is false.
-5. **`SignalAttestor` (12 to 13 Oct).** EIP-712 verification of two attestations (HKO, GDACS), freshness windows, nonces, 12 h auto-expiry, configurable chain id (FISCO returns 0 from `CHAINID`). Tests with forged, stale, replayed and mismatched attestations.
+   - Fuzz: random amounts and payees never exceed caps; `timeUnit = 1000` behaves the same.
+   - **Invariant:** spend per plan per day ≤ its daily cap, and across plans ≤ the ceiling; the agent can never change configuration; storm-plan actions never execute while `isStorm()` is false; tokens leave the Safe only to payees in the executing plan or into the vault for the Safe; credit per event ≤ its cap; each ref executes once.
+5. **`SignalAttestor` (12 to 13 Oct).** EIP-712 verification of HKO and GDACS attestations, signing-time freshness (`issuedAt`) with the official time kept as `sourceTime`, nonces, event id from GDACS only, 12 h HKO and 24 h GDACS expiry, configurable chain id and `timeUnit` (FISCO returns 0 from `CHAINID` and uses milliseconds). Tests with forged, stale, future, replayed and malformed attestations.
 6. **Mocks (12 to 14 Oct).**
-   - `MockSignalCover`: pays a fixed sum once per event id when storm level ≥ 8.
+   - `MockSignalCover`: pays a fixed sum to the Safe once per event id while storm mode is on.
    - `FlowCreditLine` + `PaymentRouter`: credit limit, `draw`, and a router that clients pay into; it forwards `sweepBps` to the lender and the rest to the Safe, and skips the sweep while storm mode is on.
    - `MockMMFVault`: OpenZeppelin ERC-4626 over `MockUSD`.
    - `EvidenceRegistry`: `anchor(bytes32 hash, bytes32 kind)` with an event.
 7. **Transaction guard (should, 13 Oct).** Blocks Safe transactions that disable the module, change owners or threshold, or set a new guard, unless the change came through the timelock. Test on a throwaway Safe first: a broken guard can lock a Safe permanently.
-8. **Deploy (14 Oct).** Foundry script deploys everything, enables the module on the Safe (a Safe transaction signed by 2 owners), registers demo payees, sets plans, verifies on Basescan, writes `contracts/deployments/base-sepolia.json` with addresses and ABIs.
+8. **Deploy (14 Oct).** Foundry script deploys everything, enables the module on the Safe (a Safe transaction signed by 2 owners), registers demo payees with their plan masks, sets plans and the ceiling, verifies on Basescan, writes `contracts/deployments/base-sepolia.json` with addresses and ABIs. One owner registers the agent as a Safe delegate.
 9. **FISCO port (stretch, 17 to 19 Oct).** See 5.6.
 
 ### 5.2 Trigger and replay (area B)
@@ -171,16 +175,16 @@ Spec: [specs/contracts.md](specs/contracts.md). Build in this order; each step e
 Spec: [specs/agent.md](specs/agent.md), sections "Relayers" and "Replay".
 
 1. **Replay data (12 Oct).** `data/replays/ragasa-2025.json` is already in the repo, transcribed from the HKO Ragasa report. Add the GDACS event id for RAGASA-25 (query GDACS `geteventlist` for TC events, Sep 2025).
-2. **HKO relayer (12 to 13 Oct).** Two modes: `live` polls `warnsum` every 60 s; `replay` reads the JSON on a compressed clock. Maps `TC1/TC3/TC8NE/TC8SE/TC8SW/TC8NW/TC9/TC10/CANCEL` to levels 1/3/8/8/8/8/9/10/0, signs the EIP-712 attestation with its own key, and submits it.
-3. **GDACS relayer (13 to 14 Oct).** Confirms an active tropical-cyclone event (alert level Orange or Red) whose affected countries include the region, signs with a separate key, and submits it.
-4. **Replay runner (14 Oct).** `npm run replay -- --event ragasa-2025 --speed 600` drives both relayers and the agent clock. 600× compresses 23 hours to about 2.3 minutes; the demo uses a faster speed with pauses at each step.
+2. **HKO relayer (12 to 13 Oct).** Two modes: `live` polls `warnsum` every 60 s; `replay` reads the JSON on a compressed clock. Maps `TC1/TC3/TC8NE/TC8SE/TC8SW/TC8NW/TC9/TC10/CANCEL` to levels 1/3/8/8/8/8/9/10/0, signs the EIP-712 attestation with its own key, and submits it. It never reads GDACS.
+3. **GDACS relayer (13 to 14 Oct).** Confirms an active tropical-cyclone event (alert level Orange or Red) whose affected countries include the region, signs with a separate key, and submits it with the event id.
+4. **Replay runner (14 Oct).** `npm run replay -- --event ragasa-2025 --speed 600` drives both relayers and the agent clock. 600× compresses 23 hours to about 2.3 minutes; the demo uses a faster speed with pauses at each step. Relayers sign with the current time (official time kept as `sourceTime`), `--run-id` salts the GDACS event id, and `--rpc` points rehearsals at an Anvil fork.
 
 ### 5.3 Agent (area B)
 
 1. **Plumbing (10 to 11 Oct).** TypeScript, viem, Safe Protocol Kit and API Kit, zod. Reads `contracts/deployments/*.json`. Keys come only from `.env`.
 2. **Extractor (12 to 13 Oct).** A model call with **no tools** that turns one email or invoice into JSON matching `ExtractedInvoice`. Output validated with zod; anything invalid is dropped and logged. Test it with an invoice containing hidden instructions; the output must contain only fields.
 3. **Planner (13 to 15 Oct).** A second model call that sees the ledger, forecast, active plan and extracted invoices, and returns a list of typed `Action`s (schema in [specs/agent.md](specs/agent.md)). It cannot call anything. The backend checks each action against a local copy of the plan before signing (defence in depth) and then the contract checks again.
-4. **Executor (13 to 15 Oct).** Within plan → `PlanModule.executeTransfer/executeCall` signed by the agent key. Over cap → proposes a Safe transaction through the Transaction Service so the owner can co-sign in Safe Wallet.
+4. **Executor (13 to 15 Oct).** Within plan → the typed `PlanModule` function, signed by the agent key, with a deterministic `ref`. Outside the plan (over cap, payee not in plan, ordinary-day payroll) → the agent, as a Safe delegate, proposes a Safe transaction through the Transaction Service for two owners to sign in Safe Wallet.
 5. **Storm playbook (14 to 16 Oct).** Brace, claim, payroll, credit draw, lock: the steps in the walkthrough table. Deterministic code drives the order; the planner only fills in amounts and payees.
 6. **Cash forecast (should, 14 to 15 Oct).** 13 weeks from the ledger, payroll and scheduled bills; it sizes the credit draw, and the contract cap always wins.
 7. **Everyday loop (15 to 16 Oct).** Match inflows to invoices; pay due bills to registered payees; sweep surplus to the vault; end-of-day reconciliation that hashes the report into `EvidenceRegistry` and pauses the agent on mismatch.
@@ -285,7 +289,7 @@ Until A deploys to Base Sepolia, B and C work against a local Anvil chain (`anvi
 ## 8. Environments, keys and secrets
 
 - Copy `.env.example` to `.env`. Never commit `.env` or any private key; CI has none.
-- Separate keys for: owner, partner, agent, HKO relayer, GDACS relayer, deployer. Each person holds only the keys their area needs; the owner and partner keys stay with two different people.
+- Separate keys for: owner, partner, owner's backup (Safe owners); guardian; agent (Safe delegate, not an owner); HKO relayer; GDACS relayer; deployer. Each person holds only the keys their area needs; the owner and partner keys stay with two different people.
 - Test ETH from the Coinbase CDP faucet (Base Sepolia); test USDC from Circle's faucet (20 USDC per address every 2 hours).
 - Safe Transaction Service on Base Sepolia needs a free API key from developer.safe.global.
 - Model API key for the extractor and planner stays in the agent backend's `.env` only.

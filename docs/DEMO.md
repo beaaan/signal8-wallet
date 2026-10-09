@@ -18,9 +18,10 @@ Cut from one clean run: sections 3 to 7 of the deck, with captions. Doubles as t
 ## Demo-day checklist
 
 - [ ] Wallets pre-funded (no faucet on the day): agent, relayers, demo client
-- [ ] Payees registered more than 24 h before (cooling-off passed)
+- [ ] Payees in place: set at deploy, or `setPayee` applied through the 24 h timelock
+- [ ] Rehearsals done on the Anvil fork, not on Base Sepolia (the live run needs the day's caps)
 - [ ] Storm plan signed; plan hash on-chain
-- [ ] Replay tested twice that morning on Base Sepolia
+- [ ] Replay tested twice that morning on the Anvil fork; `spentAllToday` on Base Sepolia is 0
 - [ ] Local Anvil fork ready (`anvil --fork-url $BASE_SEPOLIA_RPC`) in case the testnet is slow
 - [ ] Backup video on the laptop, not only online
 - [ ] Arena rate limit on; QR code slide tested from a phone
