@@ -15,10 +15,16 @@
     "plan:hash": "tsx src/plan.ts",
     "serve": "tsx src/server.ts",
     "evidence": "tsx src/evidence.ts",
-    "keys:new": "tsx src/keys.ts"
+    "keys:new": "tsx src/keys.ts",
+    "redteam": "tsx src/redteam.ts",
+    "relayer:hko": "tsx src/relayers/live.ts hko",
+    "relayer:gdacs": "tsx src/relayers/live.ts gdacs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",
+    "@safe-global/api-kit": "5.0.3",
+    "@safe-global/protocol-kit": "8.0.7",
+    "@safe-global/types-kit": "4.0.1",
     "dotenv": "^16.4.5",
     "viem": "^2.21.0",
     "zod": "^3.23.8"

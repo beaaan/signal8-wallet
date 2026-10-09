@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { outcomeLabel, outcomeTone, shortHash, timeAgo } from "@/lib/format";
+import { shortHash, timeAgo } from "@/lib/format";
+import { outcomeWords, plainReason } from "@/lib/words";
+import { Icon } from "../components/Icons";
 
 // Duplicated from lib/agentApi (server-only module) to keep it out of the browser bundle.
 const CHANNELS = ["email", "invoice", "chat", "zalo"] as const;
@@ -107,18 +109,14 @@ export default function ArenaClient() {
         <button type="submit" disabled={busy || !text.trim()}>
           {busy ? "The agent is deciding…" : "Send to the agent"}
         </button>
-        {result?.kind === "ok" ? (
-          <p>
-            <span className={`pill pill-${outcomeTone(result.outcome)}`}>{outcomeLabel(result.outcome, result.stage)}</span>
-            {result.reason ? <span className="muted"> · {result.reason}</span> : null}
-          </p>
-        ) : result?.kind === "error" ? (
+        {result?.kind === "ok" ? <Verdict outcome={result.outcome} stage={result.stage} reason={result.reason} /> : result?.kind === "error" ? (
           <p className="warn">{result.message}</p>
         ) : null}
       </form>
 
-      <section className="card">
-        <h2>Board</h2>
+      <section className="card" aria-live="polite">
+        <h2>Live board</h2>
+        {board?.ok && board.attempts.length > 0 ? <Score attempts={board.attempts} /> : null}
         {board === null ? (
           <p className="muted">Loading…</p>
         ) : !board.ok ? (
@@ -126,24 +124,62 @@ export default function ArenaClient() {
         ) : board.attempts.length === 0 ? (
           <p className="muted">No attempts yet. Be the first.</p>
         ) : (
-          <ul className="list">
-            {board.attempts.map((a) => (
-              <li key={a.id} className="row">
-                <span className="row-main">
-                  <span className={`pill pill-${outcomeTone(a.outcome)}`}>{outcomeLabel(a.outcome, a.stage)}</span>{" "}
-                  <span className="quote">“{Array.from(a.preview ?? "").slice(0, 80).join("")}”</span>
-                  {a.reason ? <span className="muted small"> · {a.reason}</span> : null}
-                </span>
-                <span className="row-meta">
-                  {a.channel ? `${a.channel} · ` : ""}
-                  {timeAgo(a.ts, now)}
-                  {a.tx ? <span className="mono"> · {shortHash(a.tx)}</span> : null}
-                </span>
-              </li>
-            ))}
+          <ul className="board-list">
+            {board.attempts.map((a) => {
+              const w = outcomeWords(a.outcome, a.stage);
+              const why = plainReason(a.reason);
+              return (
+                <li key={a.id} className="board-item">
+                  <span className={`board-badge pill-${w.tone}`}>
+                    <Icon name={w.tone === "good" ? "refused" : w.tone === "wait" ? "proposed" : "alert"} size={14} />
+                    {w.badge}
+                  </span>
+                  <span className="board-quote">“{Array.from(a.preview ?? "").slice(0, 80).join("")}”</span>
+                  <span className="board-meta">
+                    {why ? `${why} · ` : ""}
+                    {a.channel ? `${a.channel} · ` : ""}
+                    {timeAgo(a.ts, now)}
+                    {a.tx ? <span className="mono"> · {shortHash(a.tx)}</span> : null}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+function Verdict({ outcome, stage, reason }: { outcome: string; stage: string; reason?: string }) {
+  const w = outcomeWords(outcome, stage);
+  const why = plainReason(reason);
+  return (
+    <div className={`banner verdict pill-${w.tone}`} role="status">
+      <strong>{w.badge}.</strong> {w.text}
+      {why ? <> Reason: {why}.</> : null}
+    </div>
+  );
+}
+
+function Score({ attempts }: { attempts: Attempt[] }) {
+  const blocked = attempts.filter((a) => a.outcome === "refused").length;
+  const proposed = attempts.filter((a) => a.outcome === "proposed").length;
+  const through = attempts.filter((a) => a.outcome === "executed").length;
+  return (
+    <div className="score">
+      <span className="score-item">
+        <strong>{attempts.length}</strong> attempts
+      </span>
+      <span className="score-item">
+        <strong>{blocked}</strong> blocked
+      </span>
+      <span className="score-item">
+        <strong>{proposed}</strong> sent to owners
+      </span>
+      <span className="score-item">
+        <strong>{through}</strong> went through
+      </span>
     </div>
   );
 }

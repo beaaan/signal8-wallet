@@ -38,37 +38,6 @@ export function txLink(chainId: number | null | undefined, tx: string | null | u
   return base && tx && /^0x[0-9a-fA-F]{64}$/.test(tx) ? `${base}/tx/${tx}` : null;
 }
 
-export function addressLink(chainId: number | null | undefined, address: string | null | undefined): string | null {
-  const base = explorerBase(chainId);
-  return base && address ? `${base}/address/${address}` : null;
-}
-
-/** Plain label for an agent pipeline result (arena board and decision list). */
-export function outcomeLabel(outcome: string, stage: string): string {
-  if (outcome === "executed") return "Executed";
-  if (outcome === "proposed") return "Proposed to owners";
-  if (outcome === "refused") {
-    switch (stage) {
-      case "extractor":
-        return "Refused by extractor";
-      case "planner":
-        return "Refused by planner";
-      case "localCheck":
-        return "Refused by local check";
-      case "chain":
-        return "Reverted on-chain";
-      case "owner":
-        return "Refused by owners";
-    }
-    return "Refused";
-  }
-  return outcome;
-}
-
-export function outcomeTone(outcome: string): "good" | "bad" | "wait" {
-  return outcome === "executed" ? "good" : outcome === "proposed" ? "wait" : "bad";
-}
-
 export function timeAgo(isoOrSeconds: string | number | null | undefined, now = Date.now()): string {
   if (isoOrSeconds === null || isoOrSeconds === undefined) return "";
   const t = typeof isoOrSeconds === "number" ? isoOrSeconds * 1000 : Date.parse(isoOrSeconds);
@@ -80,14 +49,3 @@ export function timeAgo(isoOrSeconds: string | number | null | undefined, now = 
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-/** Hong Kong Observatory tropical cyclone signal, from the on-chain level (0,1,3,8,9,10). */
-export function hkoLabel(level: number | null | undefined): string {
-  if (level === null || level === undefined) return "–";
-  return level === 0 ? "No signal" : `Signal ${level}`;
-}
-
-/** GDACS alert level: 0 none, 1 green, 2 orange, 3 red. */
-export function gdacsLabel(level: number | null | undefined): string {
-  if (level === null || level === undefined) return "–";
-  return ["No alert", "Green alert", "Orange alert", "Red alert"][level] ?? `Level ${level}`;
-}

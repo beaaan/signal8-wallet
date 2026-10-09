@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { units, type ActionSink, type ExecResult, type PlainAction } from "../src/exec/executor.ts";
 import { DecisionLog } from "../src/log.ts";
-import { forecast, FORECAST, loadPayroll, payrollTotal, StormLoop, type StormChain } from "../src/loops/storm.ts";
+import { forecast, FORECAST, loadPayroll, payrollTotal, StormLoop, type StormChain, type StormRecord } from "../src/loops/storm.ts";
 import type { Action } from "../src/types.ts";
 
 const H = `0x${"aa".repeat(32)}` as const;
@@ -15,7 +15,9 @@ class Recorder implements ActionSink {
   batches: PlainAction[][] = [];
   async run(a: Action): Promise<ExecResult> {
     this.runs.push(a);
-    return { outcome: "executed", stage: "chain", summary: a.type };
+    if (a.type === "propose_to_owner") return { outcome: "proposed", stage: "owner", summary: a.type };
+    const tx = `0x${this.runs.length.toString(16).padStart(64, "0")}` as const;
+    return { outcome: "executed", stage: "chain", tx, summary: a.type, payout: a.type === "cover_claim" ? units("20000") : undefined };
   }
   async proposeBatch(_r: string, actions: PlainAction[]): Promise<ExecResult> {
     this.batches.push(actions);
@@ -23,14 +25,17 @@ class Recorder implements ActionSink {
   }
 }
 
-function setup(over: Partial<{ hashes: `0x${string}`[]; safe: bigint; vault: bigint; room: bigint }> = {}) {
+const EVENT = `0x${"ee".repeat(32)}` as const;
+
+function setup(over: Partial<{ hashes: `0x${string}`[]; safe: bigint; vault: bigint; room: bigint; drafts: (r: StormRecord) => string[] }> = {}) {
   const sink = new Recorder();
   const chain: StormChain = {
     planHashes: async () => over.hashes ?? [H, H],
     balances: async () => ({ safe: over.safe ?? units("10000"), vault: over.vault ?? units("40000"), creditDrawn: 0n, creditLimit: units("50000") }),
     creditRoom: async () => over.room ?? units("15000"),
+    eventId: async () => EVENT,
   };
-  const loop = new StormLoop({ sink, log: new DecisionLog(mkdtempSync(join(tmpdir(), "s8-storm-")), false), chain, payroll, localPlanHash: H, runId: "r1" });
+  const loop = new StormLoop({ sink, log: new DecisionLog(mkdtempSync(join(tmpdir(), "s8-storm-")), false), chain, payroll, localPlanHash: H, runId: "r1", drafts: over.drafts });
   return { sink, loop };
 }
 
@@ -79,6 +84,28 @@ describe("StormLoop", () => {
     await loop.onSignal(3, "TC3", false, at);
     expect(sink.runs.at(-1)).toMatchObject({ type: "propose_to_owner", action: { payee: "0x00000000000000000000000000000000000000b2" } });
     expect(loop.held).toEqual([]);
+  });
+
+  it("records the storm for the drafts and calls the drafts writer once, at storm end", async () => {
+    const seen: StormRecord[] = [];
+    const { loop } = setup({ drafts: (r) => (seen.push(structuredClone(r)), ["drafts/r1/claim-en.md"]) });
+    const t = (h: number) => new Date(at.getTime() + h * 3_600_000);
+    loop.schedule([{ type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00", ref: "WO-2231#r1" }], [{ invoiceId: "WO-2231", dueDate: "2025-09-26" }]);
+    await loop.onSignal(3, "TC3", false, t(0));
+    await loop.onSignal(8, "TC8NW", true, t(16));
+    await loop.onPayday();
+    expect(seen).toEqual([]);
+    await loop.onSignal(3, "TC3", false, t(46));
+    expect(seen).toHaveLength(1);
+    const r = seen[0]!;
+    expect(r.stormStart).toEqual(t(16));
+    expect(r.stormEnd).toEqual(t(46));
+    expect(r.preStorm).toMatchObject({ signal: "TC3", hash: expect.stringMatching(/^0x[0-9a-f]{64}$/), tx: expect.stringMatching(/^0x/) });
+    expect(r.cover).toMatchObject({ payout: units("20000"), eventId: EVENT, tx: expect.stringMatching(/^0x/) });
+    expect(r.credit).toMatchObject({ amount: units("15000") });
+    expect(r.payrollPaidInStorm).toBe(true);
+    expect(r.proposedHeld).toEqual([{ action: expect.objectContaining({ ref: "WO-2231#r1" }), invoiceId: "WO-2231", dueDate: "2025-09-26", outcome: "proposed" }]);
+    expect(loop.record.drafts).toEqual(["drafts/r1/claim-en.md"]);
   });
 
   it("caps the credit draw at the room left under creditCapPerEvent", async () => {

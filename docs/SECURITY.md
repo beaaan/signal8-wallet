@@ -33,7 +33,7 @@ The agent is controlled the way a bank controls a junior treasurer. Every contro
 
 | Threat | Response | Residual risk |
 | --- | --- | --- |
-| Instructions hidden in emails or invoices | Extractor has no tools and outputs fields only; payee must already be registered | A registered payee could be overpaid up to the per-payment cap |
+| Instructions hidden in emails or invoices | Extractor has no tools and outputs fields only; payee must already be registered; invoices are checked against purchase orders and paid invoices | A registered payee without a purchase order requirement could be overpaid up to the per-payment cap |
 | Fake storm warning (email, Zalo) | Messages cannot unlock anything; only on-chain attestations can | None found |
 | One relayer key compromised | Cannot unlock storm mode alone | Two compromised keys → losses capped by the storm plan |
 | Replayed or stale attestation | Nonce; signing time must be under 1 h old; HKO attestations lapse after 12 h, GDACS after 24 h | None found |
@@ -74,11 +74,11 @@ Method: same model and prompts for both; the bare agent holds a direct wallet to
 4. **Mock counterparties.** The insurer and lender are labelled simulations, not real products.
 5. **Testnet only.** No real funds; the dollar token is a mock.
 6. **Model output quality.** Wrong extraction can propose a wrong amount to a registered payee, bounded by the per-payment cap and visible in the decision log.
-7. **Guard risk.** A faulty Safe guard can lock a Safe; ours was tested on a throwaway Safe first. **TODO [Contracts]:** confirm, or state that the guard was not deployed (not written yet as of the first iteration). Without the guard, two human owners acting together can change modules or owners at once; the agent alone cannot.
+7. **Guard risk.** A faulty Safe guard can lock a Safe, so ours goes on a throwaway Safe first. `PlanGuard` is written and unit-tested against the Safe v1.4.1 guard interface but not yet set on any Safe. **TODO [Contracts]:** set it on a throwaway Safe on Base Sepolia, then on the demo Safe, or state here that it was not set. Without the guard, two human owners acting together can change modules or owners at once; the agent alone cannot.
 8. **Replay mode.** In the Ragasa and Yagi replays the relayers sign with the current time and keep the 2025 official time as `sourceTime`, and each run salts the GDACS event id so the cover and credit cap reset per run. Live mode uses the real event id and signs as soon as the source changes.
 9. **Tightening changes are timelocked too.** Removing a payee or lowering a cap waits 24 h like any other change; the owner pauses the module in the meantime.
 10. **Agent can pause itself.** A stolen agent key can stop the agent (denial of service) but cannot move money outside the plan.
 11. **Local runs use a stand-in Safe.** On Anvil the Business Safe is `LocalSafe` (one admin, no signatures) so the demo runs without a Safe deployment; it is never deployed to Base Sepolia, where the real 2-of-3 Safe holds the funds.
-12. **Owner proposals are logged, not yet sent.** In the first iteration, actions outside the plan are written to `agent/logs/proposals.jsonl`; sending them to the Safe Transaction Service as a delegate is still to build. Either way the agent cannot sign them.
-13. **Registered-payee abuse is only capped, not detected.** An inflated invoice from a registered supplier within the per-payment cap is paid (no purchase-order matching yet); see red-team family "abuse of registered payees".
+12. **Owner proposals are not yet tested against the live Safe service.** On Base Sepolia the agent, as a Safe delegate, proposes through the Safe Transaction Service (API Kit) and also logs each proposal to `agent/logs/proposals.jsonl`; this path is unit-tested with a fake service only. Either way the agent cannot sign them.
+13. **Registered-payee abuse is checked off-chain, capped on-chain.** The agent checks invoices against purchase orders and paid invoices and sends overpaid, re-issued or PO-less invoices to the owners; a duplicate invoice id is refused. These checks live in the backend, so a stolen agent key skips them: the contract still bounds the loss to registered payees under the caps.
 14. **Regulation.** Crypto is not a lawful means of payment in Vietnam; the Yagi replay uses a mock bank deposit token on a local consortium chain. Hong Kong licenses stablecoin issuers since 2026; this is a prototype, not a licensed service.

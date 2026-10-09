@@ -22,7 +22,7 @@ export interface AttestResult {
 export async function chainIssuedAt(c: Chainish): Promise<bigint> {
   const wall = issuedAtNow();
   let latest = (await c.pub.getBlock({ blockTag: "latest" })).timestamp;
-  if (c.cfg.network === "anvil" && latest < wall - 60n) {
+  if (c.cfg.local && latest < wall - 60n) {
     await c.pub.request({ method: "evm_mine", params: [] } as never);
     latest = (await c.pub.getBlock({ blockTag: "latest" })).timestamp;
   }

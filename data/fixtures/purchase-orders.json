@@ -1,0 +1,14 @@
+{
+  "note": "Purchase orders and expected amounts the agent checks invoices against (fictional). A supplier with requiresPO needs a matching order; an invoice above its order's amount goes to the owners instead of being paid.",
+  "suppliers": {
+    "supplier-flour": { "requiresPO": false },
+    "supplier-meat": { "requiresPO": true },
+    "supplier-landlord": { "requiresPO": false }
+  },
+  "orders": [
+    { "po": "PO-F-0912", "supplier": "supplier-flour", "invoiceId": "LK-0917", "amount": "1250.50", "item": "50 kg high-gluten flour" },
+    { "po": "PO-F-0918", "supplier": "supplier-flour", "invoiceId": "LK-0921", "amount": "1250.50", "item": "50 kg high-gluten flour, 20 kg rice flour" },
+    { "po": "PO-M-0915", "supplier": "supplier-meat", "invoiceId": "WO-2231", "amount": "1400.00", "item": "Pork shoulder 40 kg" },
+    { "po": "PO-M-0918", "supplier": "supplier-meat", "invoiceId": "WO-2240", "amount": "980.00", "item": "Prawns 10 kg" }
+  ]
+}

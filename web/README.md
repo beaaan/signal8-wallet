@@ -6,21 +6,22 @@ The site is **read-only**. It reads chain state with viem and the agent's decisi
 
 ## Pages
 
-- `/` **dashboard** (polls `/api/dashboard` every 5 s). It shows:
-  - connection status for the deployment file, the RPC and the agent API
-  - storm banner: `SignalAttestor.isStorm(region)` and `currentEvent`, the latest HKO and GDACS levels, red when storm mode is on
-  - paused banner
-  - Safe mUSD balance, money-market fund position (`convertToAssets` of the Safe's shares), credit drawn / limit
-  - active plan (storm if `isStorm`, else base) with its caps, `spentToday`, and `spentAllToday` against `dailyCeiling`
-  - **Waiting for the owners**: agent decisions with outcome `proposed`, plus a link to the Safe Wallet queue on Base Sepolia
-  - **Transactions**: PlanModule `Executed`/`PausedSet`, SignalAttestor `Attested`/`StormStarted`/`StormEnded`, PaymentRouter `Inflow`, MockSignalCover `Claimed`, FlowCreditLine `Drawn` and EvidenceRegistry `Anchored`, scanned from the deployment's `startBlock`, newest first, with Basescan links on chain 84532. Payee addresses are shown by their plan book names.
-  - **Agent decisions** (executed / refused / proposed, with the reason)
+- `/` **dashboard** (polls `/api/dashboard` every 5 s), written for an owner or a judge who looks for 30 seconds:
+  - **Status**: one plain sentence (calm, watching, storm mode or paused), with the HKO signal drawn like the real symbol, the GDACS level as a coloured chip, when storm mode started and the official issue time
+  - **Needs you**: owner approvals (decisions with outcome `proposed`) with amount, payee and the reason in plain words, or "Nothing waiting for you". On Base Sepolia it links to the Safe Wallet queue
+  - **Money at a glance**: cash in the Safe, the money-market fund (`convertToAssets`), credit used vs limit, and typhoon cover status (`claimed(eventId)`), each with a one-line explanation
+  - **Today's limits**: meters for today's spend against the active plan's daily cap and the overall ceiling, plus credit drawn this storm (`drawnInEvent`). The per-payment cap is stated in words
+  - **Storm progress**: the HKO signal history of the current or last storm, with what the agent did at each step. Chain actions are placed by block; agent decisions without a transaction are placed by their `storm:<code>` label
+  - **Activity**: one timeline that merges chain events and agent decisions, grouped by phase (everyday / storm mode) and day:
+    - each item has an icon and colour by kind, payee names, formatted amounts and an explorer link
+    - cover `Executed` + `Claimed` and credit `Executed` + `Drawn` are each merged into one line, and a payroll run folds into one expandable line
+    - refusals give the reason in plain words (`lib/words.ts`); unknown agent actions show as plain notes
 - `/plan` **plan book** in the owner's language (`?lang=` over the summary's language tags; rule lines exist in `en` and `zh-Hant`, and other languages fall back to English). Each plan's rules are shown in plain words with amounts, with citations under the rule they support. Also shown: the payee list, and the plan hash computed here with the same canonical JSON as the agent. That hash is checked against `plans(0).planHash` and `plans(1).planHash`: "matches the signed plan on-chain", "does not match" or "not connected".
 - `/arena` **attack arena**: a QR code to the page, a text box (2,000 characters at most) and a channel select. The live board polls `/api/arena/board` every 3 s and shows only the outcome and the first 80 characters of each attempt. Submissions are rendered as React text only, never as HTML.
 
 Route handlers: `app/api/dashboard` (GET), `app/api/arena` (POST, forwards to the agent), `app/api/arena/board` (GET, proxied).
 
-Library: `lib/config.ts` (env), `lib/deployments.ts` (reads `../contracts/deployments/<NETWORK>.json`), `lib/abis.ts`, `lib/chain.ts` (viem reads and the event feed), `lib/plan.ts` (plan book loader, `canonicalJson`, `planHash`), `lib/agentApi.ts`, `lib/dashboard.ts` (puts it all together), `lib/format.ts` (display helpers used by the browser).
+Library: `lib/config.ts` (env), `lib/deployments.ts` (reads `../contracts/deployments/<NETWORK>.json`), `lib/abis.ts`, `lib/chain.ts` (viem reads and the event feed), `lib/plan.ts` (plan book loader, `canonicalJson`, `planHash`), `lib/agentApi.ts`, `lib/activity.ts` (timeline, storm strip, "Needs you"), `lib/words.ts` (plain-language reasons and labels), `lib/dashboard.ts` (puts it all together; every number and time is formatted on the server in the business's time zone), `lib/format.ts`. UI pieces live in `app/components/`: inline SVG icons, the HKO signal symbol and GDACS chip, the nav and the meter.
 
 Any of the three sources can be missing: no deployments file, RPC down or agent API down. When one is missing the page shows "not connected" for that part and renders the rest.
 

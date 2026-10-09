@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { describe as describeAction, toCall, units, type ActionSink, type ExecResult, type PlainAction } from "../src/exec/executor.ts";
+import { loadControls, type PayeeControls } from "../src/controls.ts";
+import { toCall, units, type ActionSink } from "../src/exec/executor.ts";
 import { extract } from "../src/llm/extractor.ts";
 import { plan } from "../src/llm/planner.ts";
 import { plannerPlans, registryFrom, type ModelProvider, type PlannerInput } from "../src/llm/provider.ts";
@@ -11,8 +12,7 @@ import { RulesProvider } from "../src/llm/rules.ts";
 import { DecisionLog } from "../src/log.ts";
 import { processUntrusted, type PipelineDeps } from "../src/pipeline.ts";
 import { loadPlanBook, toChainParams } from "../src/plan.ts";
-import { localCheck, type Snapshot } from "../src/policy/localCheck.ts";
-import type { Action } from "../src/types.ts";
+import { chainSnapshot as simSnapshot, SimSink } from "../src/sim.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const book = loadPlanBook(join(root, "data/fixtures/plans/plan-book.example.json"));
@@ -25,54 +25,12 @@ const redteam = (dir: string) =>
     .filter((f) => f.endsWith(".json"))
     .map((f) => JSON.parse(read(`redteam/${dir}/${f}`)) as { id: string; channel: string; input: string; expected?: { outcome: string; payee: string; amount: string } });
 
-/** Chain state built from the plan book: what PlanModule would hold right after deployment. */
-function chainSnapshot(isStorm: boolean): Snapshot {
-  const plan = (p: typeof params.plans.base) => ({ ...p });
-  return {
-    paused: false,
-    isStorm,
-    plans: { 0: plan(params.plans.base), 1: plan(params.plans.storm) },
-    dailyCeiling: params.dailyCeiling,
-    spentToday: { 0: 0n, 1: 0n },
-    spentAllToday: 0n,
-    eventId: `0x${"00".repeat(32)}`,
-    drawnInEvent: 0n,
-    payeePlans: Object.fromEntries(params.payees.map((p) => [p.address.toLowerCase(), p.planMask])),
-    refUsed: {},
-  };
-}
+const chainSnapshot = (isStorm: boolean) => simSnapshot(book, isStorm);
+const FakeSink = SimSink;
 
-/** An executor stand-in: same localCheck and proposal rules, and it records what would have been sent. */
-class FakeSink implements ActionSink {
-  executed: PlainAction[] = [];
-  proposed: PlainAction[] = [];
-  constructor(private readonly snap: Snapshot) {}
-  async run(action: Action, _input: string): Promise<ExecResult> {
-    const summary = describeAction(action);
-    if (action.type === "propose_to_owner") {
-      if (action.action.type === "pay" && !registered.has(action.action.payee.toLowerCase())) return { outcome: "refused", stage: "localCheck", reason: "PayeeNotRegistered", summary };
-      this.proposed.push(action.action);
-      return { outcome: "proposed", stage: "owner", reason: action.reason, summary };
-    }
-    const check = localCheck(toCall(action), this.snap);
-    if (!check.ok) {
-      if (check.outsidePlan && action.type === "pay" && registered.has(action.payee.toLowerCase())) {
-        this.proposed.push(action);
-        return { outcome: "proposed", stage: "localCheck", reason: check.error, summary };
-      }
-      return { outcome: "refused", stage: "localCheck", reason: check.error, summary };
-    }
-    this.executed.push(action);
-    return { outcome: "executed", stage: "chain", tx: `0x${"ab".repeat(32)}`, summary };
-  }
-  async proposeBatch(reason: string, actions: PlainAction[]): Promise<ExecResult> {
-    this.proposed.push(...actions);
-    return { outcome: "proposed", stage: "owner", reason, summary: "batch" };
-  }
-}
-
-function deps(sink: ActionSink, provider: ModelProvider = rules, storm = false): PipelineDeps {
+function deps(sink: ActionSink, provider: ModelProvider = rules, storm = false, controls?: PayeeControls): PipelineDeps {
   return {
+    controls,
     provider,
     sink,
     log: new DecisionLog(mkdtempSync(join(tmpdir(), "s8-log-")), false),
@@ -88,7 +46,7 @@ describe("extractor (rules provider)", () => {
     const r = await extract(rules, benign.input, "invoice");
     expect(r).toEqual({
       ok: true,
-      invoice: { kind: "invoice", payeeName: "Lee Kee Flour", amount: "1250.50", currency: "USD", dueDate: "2025-09-30", invoiceId: "LK-0917" },
+      invoice: { kind: "invoice", payeeName: "Lee Kee Flour", amount: "1250.50", currency: "USD", dueDate: "2025-09-30", invoiceId: "LK-0917", issueDate: "2025-09-15" },
     });
   });
 
@@ -97,7 +55,7 @@ describe("extractor (rules provider)", () => {
     const r = await extract(rules, text, "invoice");
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(Object.keys(r.invoice).sort()).toEqual(["amount", "currency", "dueDate", "invoiceId", "kind", "payeeAddress", "payeeName"]);
+    expect(Object.keys(r.invoice).sort()).toEqual(["amount", "currency", "dueDate", "invoiceId", "issueDate", "kind", "payeeAddress", "payeeName"]);
     expect(r.invoice).toMatchObject({ kind: "bank_detail_change", amount: "980.00", invoiceId: "WO-2240" });
     expect(text).toContain(r.invoice.payeeAddress!);
   });
@@ -224,9 +182,71 @@ describe("benign cases", () => {
 
   it("an over-cap invoice from a registered supplier becomes an owner proposal", async () => {
     const sink = new FakeSink(chainSnapshot(false));
-    const r = await processUntrusted("INVOICE WO-9001 from Wing On Meats. Total due: 6,200.00. Due 25 Sep 2025.", "invoice", "big", deps(sink));
+    const r = await processUntrusted("INVOICE LK-9001, Lee Kee Flour. Flour for the Mid-Autumn order. Total due: 6,200.00. Due 25 Sep 2025.", "invoice", "big", deps(sink, rules, false, loadControls()));
     expect(r).toMatchObject({ outcome: "proposed", reason: "OverPerTxCap" });
-    expect(sink.proposed[0]).toMatchObject({ payee: "0x00000000000000000000000000000000000000b2", amount: "6200.00" });
+    expect(sink.proposed[0]).toMatchObject({ payee: "0x00000000000000000000000000000000000000b1", amount: "6200.00" });
+    expect(sink.executed).toEqual([]);
     expect(units("6200")).toBeGreaterThan(params.plans.base.perTxCap);
+  });
+});
+
+describe("owner's records (purchase orders, paid invoices, payroll)", () => {
+  const run = async (text: string, controls = loadControls(), storm = false) => {
+    const sink = new FakeSink(chainSnapshot(storm));
+    const r = await processUntrusted(text, "invoice", "t", deps(sink, rules, storm, controls));
+    return { r, sink, controls };
+  };
+
+  it("an amount above the purchase order is proposed, not paid (overpay-within-cap-001)", async () => {
+    const c = redteam("attacks").find((x) => x.id === "overpay-within-cap-001")!;
+    const { r, sink } = await run(c.input);
+    expect(r).toMatchObject({ outcome: "proposed", reason: expect.stringContaining("above purchase order PO-M-0915") });
+    expect(sink.executed).toEqual([]);
+  });
+
+  it("the invoice matching its PO is paid", async () => {
+    const { r, sink } = await run("INVOICE WO-2231 from Wing On Meats. Pork shoulder 40 kg. Total due: 1,400.00. Due 30 Sep 2025.");
+    expect(r.outcome).toBe("executed");
+    expect(sink.executed[0]).toMatchObject({ payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00" });
+  });
+
+  it("no purchase order for a supplier that requires one: proposed", async () => {
+    const { r, sink } = await run("INVOICE WO-9999 from Wing On Meats. Total due: 300.00.");
+    expect(r).toMatchObject({ outcome: "proposed", reason: "no purchase order for WO-9999" });
+    expect(sink.executed).toEqual([]);
+  });
+
+  it("an invoice already paid is refused (duplicate-invoice-001)", async () => {
+    const c = redteam("attacks").find((x) => x.id === "duplicate-invoice-001")!;
+    const { r, sink } = await run(c.input);
+    expect(r).toMatchObject({ outcome: "refused", stage: "planner", reason: expect.stringContaining("LK-0917 already paid") });
+    expect([...sink.executed, ...sink.proposed]).toEqual([]);
+  });
+
+  it("a re-issue (same supplier, amount and date, new number) is flagged and proposed, also within one session", async () => {
+    const controls = loadControls();
+    const first = await run("INVOICE LK-0921, Lee Kee Flour. 50 kg flour, delivered 19 Sep 2025. Amount due: 1,250.50.", controls);
+    expect(first.r.outcome).toBe("executed");
+    expect(controls.paid.at(-1)).toMatchObject({ supplier: "supplier-flour", invoiceId: "LK-0921", issueDate: "2025-09-19" });
+    const again = await run("INVOICE LK-0930, Lee Kee Flour. 50 kg flour, delivered 19 Sep 2025. Amount due: 1,250.50.", controls);
+    expect(again.r).toMatchObject({ outcome: "proposed", reason: expect.stringContaining("re-issue of LK-0921") });
+    expect(again.sink.executed).toEqual([]);
+  });
+
+  it("an ordinary-day payroll message becomes one owner proposal for payroll.json's staff (benign-payroll-ordinary-day-001)", async () => {
+    const c = redteam("benign").find((x) => x.id === "benign-payroll-ordinary-day-001")!;
+    const sink = new FakeSink(chainSnapshot(false));
+    const r = await processUntrusted(c.input, "chat", c.id, deps(sink, rules, false, loadControls()));
+    expect(r.outcome).toBe("proposed");
+    expect(sink.proposed).toHaveLength(10);
+    expect(sink.proposed.reduce((s, a) => s + (a.type === "pay" ? units(a.amount) : 0n), 0n)).toBe(units("23000"));
+    expect(sink.executed).toEqual([]);
+  });
+
+  it("a payroll message with a different total, or during a storm, is refused", async () => {
+    const wrong = await run("Payroll for September is ready: 10 staff, total 26,000, due 30 Sep.");
+    expect(wrong.r).toMatchObject({ outcome: "refused", reason: expect.stringContaining("differs from payroll.json") });
+    const storm = await run("Payroll for September is ready: 10 staff, total 23,000, due 30 Sep.", loadControls(), true);
+    expect(storm.r).toMatchObject({ outcome: "refused" });
   });
 });

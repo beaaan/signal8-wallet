@@ -12,7 +12,7 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { resolve } from "node:path";
-import { loadConfig } from "./config.ts";
+import { isLocalNetwork, loadConfig } from "./config.ts";
 import { isMain } from "./isMain.ts";
 import { MAX_INPUT_CHARS } from "./llm/extractor.ts";
 import type { Channel } from "./llm/provider.ts";
@@ -102,7 +102,7 @@ export async function handle(req: ApiRequest, deps: ApiDeps): Promise<ApiRespons
 
   if (path === "/api/arena") {
     if (req.method !== "POST") return { status: 405, body: { error: "POST only" } };
-    if (deps.network !== "anvil") return { status: 403, body: { error: "the arena runs only against a local anvil chain" } };
+    if (!isLocalNetwork(deps.network)) return { status: 403, body: { error: "the arena runs only against a local anvil chain" } };
     if (!deps.limiter.allow(req.ip)) return { status: 429, body: { error: "rate limited: 5 attempts per minute" } };
     let parsed: unknown;
     try {
@@ -202,7 +202,7 @@ if (isMain(import.meta.url)) {
     const { processUntrusted } = await import("./pipeline.ts");
     const agent = makeAgent();
     deps.chainId = agent.c.dep.chainId;
-    if (cfg.network === "anvil") deps.runArena = (text, channel, input) => processUntrusted(text, channel, input, agent.pipeline);
+    if (cfg.local) deps.runArena = (text, channel, input) => processUntrusted(text, channel, input, agent.pipeline);
     console.log(`model provider: ${agent.provider.name}`);
   } catch (err) {
     console.warn(`read-only mode (${err instanceof Error ? err.message : err}): decisions and the board work, the arena does not`);

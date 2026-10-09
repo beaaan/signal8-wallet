@@ -14,6 +14,7 @@ export const ExtractedInvoice = z
     amount,
     currency: z.enum(["USD", "HKD", "VND"]),
     dueDate: z.string().date().optional(),
+    issueDate: z.string().date().optional(), // invoice or delivery date; used to spot re-issued invoices
     invoiceId: z.string().max(64).optional(),
   })
   .strict();

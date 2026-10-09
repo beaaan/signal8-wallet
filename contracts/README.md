@@ -19,7 +19,7 @@ Interfaces are in `src/interfaces/`. Status (see [PLAN.md §5.1](../docs/PLAN.md
 | `src/SignalAttestor.sol` + `test/SignalAttestor.t.sol` | first version: EIP-712, freshness, nonces, TTLs, FISCO chain id and `timeUnit`, timelocked relayer rotation |
 | `src/mocks/MockSignalCover.sol`, `FlowCreditLine.sol`, `PaymentRouter.sol`, `MockMMFVault.sol`, `EvidenceRegistry.sol` + `test/Mocks.t.sol` | first version |
 | `src/LocalSafe.sol` | stand-in Safe for Anvil and tests only (one admin, no signatures); Base Sepolia uses the real 2-of-3 Safe |
-| `src/PlanGuard.sol` | not started (should) |
+| `src/PlanGuard.sol` + `test/PlanGuard.t.sol` | first version: blocks module, owner, threshold, guard and fallback changes and any delegatecall unless queued 24 h earlier; deployed by the script, not set on the Safe |
 | `script/Deploy.s.sol` → writes `deployments/<network>.json` | works on Anvil; Base Sepolia path untested |
 
 Local chain (what the agent and website use until Base Sepolia):

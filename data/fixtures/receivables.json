@@ -1,0 +1,8 @@
+{
+  "note": "Open customer invoices (fictional). Customers pay them into PaymentRouter with invoiceRef = keccak256(id); replays salt the id as <id>#<runId>.",
+  "receivables": [
+    { "id": "INV-C-2025-09-22", "customer": "Harbour View Catering (fictional)", "amount": "8000", "due": "2025-09-22" },
+    { "id": "INV-C-2025-09-25", "customer": "Harbour View Catering (fictional)", "amount": "5000", "due": "2025-09-25" },
+    { "id": "INV-C-2025-09-30", "customer": "Lotus Banquets (fictional)", "amount": "3200", "due": "2025-09-30" }
+  ]
+}

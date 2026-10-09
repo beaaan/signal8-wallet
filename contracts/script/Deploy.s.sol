@@ -6,6 +6,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import "../src/interfaces/IPlanModule.sol";
 import {ISignalAttestor} from "../src/interfaces/ISignalAttestor.sol";
 import {PlanModule} from "../src/PlanModule.sol";
+import {PlanGuard} from "../src/PlanGuard.sol";
 import {SignalAttestor} from "../src/SignalAttestor.sol";
 import {LocalSafe} from "../src/LocalSafe.sol";
 import {MockUSD} from "../src/MockUSD.sol";
@@ -55,6 +56,7 @@ contract Deploy is Script {
     MockSignalCover internal cover;
     EvidenceRegistry internal evidence;
     PlanModule internal module;
+    PlanGuard internal guard;
     string internal params;
 
     function run() external {
@@ -71,6 +73,7 @@ contract Deploy is Script {
             : vm.envAddress("SAFE_ADDRESS");
         _deployContracts();
         _deployModule();
+        guard = new PlanGuard(safe, timeUnit);
         _mint();
         vm.stopBroadcast();
 
@@ -81,6 +84,7 @@ contract Deploy is Script {
         } else {
             console2.log("Owners must now sign, in Safe Wallet, a Safe transaction to the Safe itself:");
             console2.log("  enableModule(address)", address(module));
+            console2.log("Optional, after testing on a throwaway Safe: setGuard(address)", address(guard));
         }
 
         _write(startBlock);
@@ -170,6 +174,7 @@ contract Deploy is Script {
         string memory c = "contracts";
         vm.serializeAddress(c, "Safe", safe);
         vm.serializeAddress(c, "PlanModule", address(module));
+        vm.serializeAddress(c, "PlanGuard", address(guard));
         vm.serializeAddress(c, "SignalAttestor", address(attestor));
         vm.serializeAddress(c, "MockUSD", address(usd));
         vm.serializeAddress(c, "MockSignalCover", address(cover));

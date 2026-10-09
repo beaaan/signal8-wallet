@@ -18,6 +18,10 @@ export const planModuleAbi = parseAbi([
   "function claimCover(bytes32 ref)",
   "function anchor(bytes32 hash, bytes32 kind)",
   "function pause()",
+  "function queueChange(bytes data)",
+  "function setPayee(address payee, uint8 planMask)",
+  "function setDailyCeiling(uint256 ceiling)",
+  "function today() view returns (uint256)",
   "function plans(uint8 planId) view returns (uint256 perTxCap, uint256 dailyCap, uint256 creditCapPerEvent, uint8 actions, bool active, bytes32 planHash)",
   "function payeePlans(address payee) view returns (uint8)",
   "function dailyCeiling() view returns (uint256)",
@@ -80,6 +84,8 @@ export const signalAttestorAbi = parseAbi([
 ]);
 
 export const vaultAbi = parseAbi([
+  "function deposit(uint256 assets, address receiver) returns (uint256)",
+  "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
   "function convertToAssets(uint256 shares) view returns (uint256)",
   "function maxWithdraw(address owner) view returns (uint256)",
@@ -87,6 +93,7 @@ export const vaultAbi = parseAbi([
 ]);
 
 export const creditLineAbi = parseAbi([
+  "function draw(uint256 amount)",
   "function limit() view returns (uint256)",
   "function drawn() view returns (uint256)",
   "function borrower() view returns (address)",

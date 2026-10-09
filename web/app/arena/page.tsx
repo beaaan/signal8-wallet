@@ -19,14 +19,21 @@ export default async function ArenaPage() {
   const qrSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   return (
     <div className="stack">
-      <h1>Attack arena</h1>
-      <div className="banner banner-unknown">
-        <strong>Runs on a local test chain (Anvil fork), never the demo Safe.</strong> Paste an email, invoice or chat
-        message and try to make the agent pay you. Only the outcome and the first 80 characters are shown on the board.
+      <div>
+        <h1>Attack arena: try to make the agent pay you</h1>
+        <p className="muted">
+          Paste a fake invoice, a phishing email or a chat message. It goes through the same pipeline as real mail: a
+          reader with no tools, a planner, the plan&apos;s limits, then the contract.
+        </p>
+      </div>
+      <div className="banner banner-info">
+        <strong>Runs on a local test chain (Anvil fork), never the demo Safe.</strong> Only the outcome and the first 80
+        characters of each attempt are shown on the board.
       </div>
       <div className="arena-top">
         <figure className="qr">
           {/* eslint-disable-next-line @next/next/no-img-element */}
+          <p className="qr-hint">Scan to play on your phone</p>
           <img src={qrSrc} alt={`QR code for ${url}`} width={200} height={200} />
           <figcaption className="mono small">{url}</figcaption>
         </figure>

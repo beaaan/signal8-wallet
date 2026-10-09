@@ -6,12 +6,17 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { makeAgent, type Agent } from "../agent.ts";
-import { isStorm, readSnapshot } from "../chain.ts";
-import { fmt, units } from "../exec/executor.ts";
+import { isStorm, readBalances, readSnapshot } from "../chain.ts";
+import { writeDrafts, type DraftContext } from "../drafts.ts";
+import { Ledger } from "../ledger.ts";
+import { JsonlFile } from "../log.ts";
+import { fmt, plain, units } from "../exec/executor.ts";
 import { extractFields } from "../llm/rules.ts";
 import type { Channel } from "../llm/provider.ts";
 import { clientPays, listInvoices, runEveryday } from "../loops/everyday.ts";
-import { loadPayroll, payrollTotal, StormLoop } from "../loops/storm.ts";
+import { chainInflows, inflowCheckpointPath, InflowWatcher, loadReceivables } from "../loops/inflows.ts";
+import { chainReader, type Alert } from "../loops/reconcile.ts";
+import { loadPayroll, payrollTotal, StormLoop, type StormRecord } from "../loops/storm.ts";
 import { processUntrusted } from "../pipeline.ts";
 import { buildGdacsAttestation, eventFromReplay, gdacsEventId } from "../relayers/gdacs.ts";
 import { buildHkoAttestation } from "../relayers/hko.ts";
@@ -48,6 +53,11 @@ export interface RunFile {
   gdacs: { eventId: string; alertLevel: string; saltedEventId: Hex };
   txs: RunTx[];
   fakeMessages: Array<{ replayTime: string; channel: string; outcome: string; stage: string; reason?: string }>;
+  /** End-of-day reconciliation of the ordinary day. */
+  reconciliation?: { ok: boolean; diffs: string[]; pauseTx?: Hex };
+  inflows: Array<{ kind: string; receivable?: string; amount: string; swept: string; tx: Hex }>;
+  /** What the storm loop recorded: the cover payout (PlanModule's Executed event carries 0 for a claim), evidence, credit, drafts. */
+  storm?: { coverPayout?: string; coverTx?: Hex; coverEventId?: Hex; preStormHash?: Hex; creditDrawn?: string; heldProposed: number; drafts: string[] };
   ok: boolean;
   error?: string;
 }
@@ -122,6 +132,7 @@ export async function runReplay(opts: RunOptions): Promise<number> {
     gdacs: { eventId: file.gdacs.eventId, alertLevel: file.gdacs.alertLevel, saltedEventId: gdacsEventId(file.gdacs.eventId, runId) },
     txs,
     fakeMessages: [],
+    inflows: [],
     ok: false,
   };
   const outPath = resolve(a.cfg.logDir, `run-${runId}.json`);
@@ -141,14 +152,63 @@ export async function runReplay(opts: RunOptions): Promise<number> {
   }
 
   const rl = opts.pauseAtSteps ? createInterface({ input: process.stdin, output: process.stdout }) : undefined;
-  const storm = new StormLoop({ sink: a.sink, log: a.log, chain: a.stormChain, payroll, localPlanHash: a.localPlanHash, runId, names: a.names });
   const tz = file.timezone ?? "UTC";
+  const drafts = async (rec: StormRecord): Promise<string[]> => {
+    const b = await readBalances(a.c);
+    const ctx: DraftContext = {
+      runId,
+      business: payroll.business,
+      eventName: file.name,
+      region: file.region,
+      timeZone: tz,
+      network: a.cfg.network,
+      chainId: a.c.dep.chainId,
+      stormStart: rec.stormStart,
+      stormEnd: rec.stormEnd ?? new Date(),
+      safe: a.c.dep.contracts.Safe,
+      cover: rec.cover && { contract: a.c.dep.contracts.MockSignalCover, ...rec.cover },
+      preStorm: rec.preStorm,
+      credit: rec.credit && { ...rec.credit, outstanding: b.creditDrawn },
+      payroll: { period: payroll.payPeriod, payday: payroll.payday, total: payrollTotal(payroll), staff: payroll.staff.length, paidInStorm: rec.payrollPaidInStorm },
+      held: rec.proposedHeld.flatMap((h) =>
+        h.action.type === "pay" ? [{ payee: a.names.get(h.action.payee.toLowerCase()) ?? h.action.payee, amount: h.action.amount, invoiceId: h.invoiceId, dueDate: h.dueDate }] : [],
+      ),
+    };
+    return writeDrafts(ctx, a.cfg.logDir, a.log);
+  };
+  const storm = new StormLoop({ sink: a.sink, log: a.log, chain: a.stormChain, payroll, localPlanHash: a.localPlanHash, runId, names: a.names, drafts });
+  // Inflow matching starts at this run's first block, so earlier runs' (differently salted) payments are not re-flagged.
+  const inflows = new InflowWatcher({
+    source: chainInflows(a.c),
+    log: a.log,
+    receivables: loadReceivables(),
+    checkpointFile: inflowCheckpointPath(a.cfg.stateDir, `${a.cfg.network}-run-${runId}`),
+    fromBlock: (await a.c.pub.getBlockNumber({ cacheTime: 0 })) + 1n,
+    runId,
+  });
   const steps = buildRunSteps(file, opts.speed);
   try {
     if (!opts.skipEveryday) {
       await waitEnter(rl, "ordinary day");
-      const { scheduled } = await runEveryday({ ...a.pipeline, c: a.c, sink: a.sink, log: a.log, today: localDate(steps[0]!.at, tz), runId, onTx });
-      storm.schedule(scheduled);
+      const ledger = new Ledger();
+      a.sink.ledger = ledger;
+      const day = await runEveryday({
+        ...a.pipeline,
+        c: a.c,
+        sink: a.sink,
+        log: a.log,
+        today: localDate(steps[0]!.at, tz),
+        runId,
+        onTx,
+        inflows,
+        reconcile: { ledger, reader: chainReader(a.c), pauser: a.sink, alerts: new JsonlFile<Alert>(resolve(a.cfg.logDir, "alerts.jsonl")) },
+      });
+      a.sink.ledger = undefined;
+      storm.schedule(day.scheduled, day.scheduledInfo);
+      run.inflows.push(...day.inflows.map((m) => ({ kind: m.kind, receivable: m.receivable?.id, amount: plain(m.event.amount), swept: plain(m.event.swept), tx: m.event.tx })));
+      const rec = day.reconciliation;
+      if (rec) run.reconciliation = { ok: rec.ok, diffs: rec.diffs, pauseTx: rec.pauseTx };
+      if (rec && !rec.ok) throw new Error(`ledger mismatch at end of day; PlanModule paused (${rec.diffs.join("; ")})`);
     }
 
     ctx.phase = "replay";
@@ -180,7 +240,8 @@ export async function runReplay(opts: RunOptions): Promise<number> {
         await storm.onSignal(step.level ?? 0, step.code, stormNow, step.at);
         if ((step.level ?? 0) === 0 && stormSeen) {
           // After the storm, the next customer payment repays the credit line again (sweep resumes).
-          await clientPays(a.c, a.log, `INV-C-${localDate(step.at, tz)}#${runId}`, units("5000"), onTx);
+          await clientPays(a.c, `INV-C-${localDate(step.at, tz)}#${runId}`, units("5000"), onTx);
+          for (const m of await inflows.poll()) run.inflows.push({ kind: m.kind, receivable: m.receivable?.id, amount: plain(m.event.amount), swept: plain(m.event.swept), tx: m.event.tx });
         }
       } else if (step.kind === "fake_message") {
         await waitEnter(rl, `fake ${step.code} message`);
@@ -196,6 +257,16 @@ export async function runReplay(opts: RunOptions): Promise<number> {
       }
       save();
     }
+    const r = storm.record;
+    run.storm = {
+      coverPayout: r.cover?.payout !== undefined ? plain(r.cover.payout) : undefined,
+      coverTx: r.cover?.tx,
+      coverEventId: r.cover?.eventId,
+      preStormHash: r.preStorm?.hash,
+      creditDrawn: r.credit ? plain(r.credit.amount) : undefined,
+      heldProposed: r.proposedHeld.length,
+      drafts: r.drafts.map((p) => p.replace(`${a.cfg.logDir}/`, "")),
+    };
     run.ok = true;
   } catch (err) {
     run.error = err instanceof Error ? err.message : String(err);
@@ -206,6 +277,12 @@ export async function runReplay(opts: RunOptions): Promise<number> {
     save();
   }
 
+  if (run.storm) {
+    const st = run.storm;
+    console.log(`\nStorm: cover payout ${st.coverPayout ?? "-"} mUSD (tx ${st.coverTx ?? "-"}), credit drawn ${st.creditDrawn ?? "0"} mUSD, ${st.heldProposed} held payment(s) proposed`);
+    if (st.drafts.length) console.log(`Drafts for the owner (never sent by the agent):\n  ${st.drafts.join("\n  ")}`);
+  }
+  if (run.reconciliation) console.log(`Reconciliation: ${run.reconciliation.ok ? "ledger matches the chain" : `MISMATCH, paused ${run.reconciliation.pauseTx ?? "(pause failed)"}`}`);
   console.log(`\nTransactions (${txs.length}), run ${runId}:`);
   for (const t of txs) console.log(`${String(t.n).padStart(3)}  ${t.tx}  ${t.signal ?? "-"}  ${t.label}`);
   console.log(`\nWritten to ${outPath}. npm run evidence prints EVIDENCE.md rows.`);

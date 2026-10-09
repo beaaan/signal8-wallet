@@ -21,7 +21,7 @@ export interface ReplayFile {
   gdacs: { eventId: string; alertLevel: string; affectedCountries?: string[]; from?: string; to?: string };
   signals: ReplaySignal[];
   levelMap?: Record<string, number>;
-  scenario?: { payday?: string; fakeMessages?: Array<{ time: string; channel: string; text: string }> };
+  scenario?: { business?: string; payday?: string; fakeMessages?: Array<{ time: string; channel: string; text: string }> };
 }
 
 export interface ReplayStep {
