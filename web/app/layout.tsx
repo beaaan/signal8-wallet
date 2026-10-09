@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { config } from "@/lib/config";
+import Nav from "./components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,21 +16,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <header className="topbar">
-          <Link href="/" className="brand">
-            Signal 8 Wallet
-          </Link>
-          <nav>
-            <Link href="/">Dashboard</Link>
-            <Link href="/plan">Plan</Link>
-            <Link href="/arena">Arena</Link>
-          </nav>
-          <span className="badge" title="NETWORK">
-            {config.network}
-          </span>
+          <div className="topbar-inner">
+            <Link href="/" className="brand">
+              <span className="brand-mark" aria-hidden>
+                8
+              </span>
+              Signal 8 Wallet
+            </Link>
+            <Nav />
+            <span className="badge" title="Network this site reads">
+              {config.network === "anvil" ? "local test chain" : config.network}
+            </span>
+          </div>
         </header>
         <main>{children}</main>
         <footer className="footer">
-          Testnet demo for FinTechathon 2026. Read-only: this site holds no keys and sends no transactions.
+          Testnet demo for FinTechathon 2026. This site only reads: it holds no keys and sends no transactions.
         </footer>
       </body>
     </html>

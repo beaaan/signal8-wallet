@@ -12,6 +12,7 @@ export const planModuleAbi = parseAbi([
   "function spentToday(uint8 planId) view returns (uint256)",
   "function spentAllToday() view returns (uint256)",
   "function paused() view returns (bool)",
+  "function drawnInEvent(bytes32 eventId) view returns (uint256)",
   "event Executed(uint8 indexed planId, uint8 indexed action, address target, uint256 amount, bytes32 indexed ref)",
   "event PausedSet(bool paused, address by)",
 ]);
@@ -34,11 +35,16 @@ export const creditLineAbi = parseAbi([
   "function limit() view returns (uint256)",
   "function drawn() view returns (uint256)",
   "event Drawn(uint256 amount, uint256 drawnTotal)",
+  "event Repaid(uint256 amount, uint256 drawnTotal)",
 ]);
 
 export const routerAbi = parseAbi(["event Inflow(bytes32 indexed invoiceRef, uint256 amount, uint256 swept)"]);
 
-export const coverAbi = parseAbi(["event Claimed(bytes32 indexed eventId, uint256 payout)"]);
+export const coverAbi = parseAbi([
+  "function payout() view returns (uint256)",
+  "function claimed(bytes32 eventId) view returns (bool)",
+  "event Claimed(bytes32 indexed eventId, uint256 payout)",
+]);
 
 export const evidenceAbi = parseAbi(["event Anchored(bytes32 indexed kind, bytes32 hash, address indexed sender)"]);
 
@@ -48,6 +54,6 @@ export const feedEvents = [
   ...attestorAbi.filter((x) => x.type === "event"),
   ...creditLineAbi.filter((x) => x.type === "event"),
   ...routerAbi,
-  ...coverAbi,
+  ...coverAbi.filter((x) => x.type === "event"),
   ...evidenceAbi,
 ] as const;

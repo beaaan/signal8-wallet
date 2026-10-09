@@ -1,16 +1,8 @@
 // Chain reads through viem. Read-only: the website never signs or sends transactions. Server only.
-import {
-  createPublicClient,
-  hexToString,
-  http,
-  keccak256,
-  toBytes,
-  type PublicClient,
-} from "viem";
-import { attestorAbi, creditLineAbi, erc20Abi, feedEvents, planModuleAbi, vaultAbi } from "./abis";
+import { createPublicClient, http, keccak256, toBytes, type PublicClient } from "viem";
+import { attestorAbi, coverAbi, creditLineAbi, erc20Abi, feedEvents, planModuleAbi, vaultAbi } from "./abis";
 import { config } from "./config";
 import type { Deployment } from "./deployments";
-import { fmtUnits, gdacsLabel, hkoLabel, shortAddr, shortHash } from "./format";
 
 let client: PublicClient | null = null;
 export function getClient(): PublicClient {
@@ -26,7 +18,7 @@ export const SOURCES = {
   GDACS: keccak256(toBytes("GDACS")),
   NCHMF: keccak256(toBytes("NCHMF")),
 } as const;
-const ZERO32 = `0x${"0".repeat(64)}`;
+export const ZERO32 = `0x${"0".repeat(64)}`;
 
 /** Thrown when the RPC does not answer; pages show "not connected". */
 export class ChainUnreachable extends Error {}
@@ -61,7 +53,8 @@ export interface ChainSnapshot {
   creditDrawn: string | null;
   creditLimit: string | null;
   isStorm: boolean | null;
-  currentEvent: { eventId: string; hkoLevel: number } | null;
+  /** GDACS event id the attestor tracks (stays set after the storm ends); null when none. */
+  eventId: string | null;
   hko: SourceLevel | null;
   gdacs: SourceLevel | null;
   paused: boolean | null;
@@ -69,6 +62,11 @@ export interface ChainSnapshot {
   spentAllToday: string | null;
   plans: (PlanState | null)[];
   activePlanId: number | null;
+  coverPayout: string | null;
+  /** Cover already paid for the current (or last) event. */
+  coverClaimed: boolean | null;
+  /** Credit drawn under the storm plan for the current (or last) event. */
+  drawnInEvent: string | null;
   readErrors: string[];
 }
 
@@ -100,7 +98,7 @@ export async function readSnapshot(d: Deployment): Promise<ChainSnapshot> {
       return null;
     });
 
-  const [decimals, safeBalance, vaultShares, creditDrawn, creditLimit, isStorm, currentEvent, hko, gdacs, paused, ceiling, spentAll] =
+  const [decimals, safeBalance, vaultShares, creditDrawn, creditLimit, isStorm, currentEvent, hko, gdacs, paused, ceiling, spentAll, payout] =
     await Promise.all([
       r("MockUSD.decimals", c.readContract({ address: k.MockUSD, abi: erc20Abi, functionName: "decimals" })),
       r("MockUSD.balanceOf(Safe)", c.readContract({ address: k.MockUSD, abi: erc20Abi, functionName: "balanceOf", args: [k.Safe] })),
@@ -109,11 +107,12 @@ export async function readSnapshot(d: Deployment): Promise<ChainSnapshot> {
       r("FlowCreditLine.limit", c.readContract({ address: k.FlowCreditLine, abi: creditLineAbi, functionName: "limit" })),
       r("SignalAttestor.isStorm", c.readContract({ address: k.SignalAttestor, abi: attestorAbi, functionName: "isStorm", args: [region] })),
       r("SignalAttestor.currentEvent", c.readContract({ address: k.SignalAttestor, abi: attestorAbi, functionName: "currentEvent", args: [region] })),
-      r("SignalAttestor.latest(HKO)", c.readContract({ address: k.SignalAttestor, abi: attestorAbi, functionName: "latest", args: [SOURCES.HKO, region] })),
+      r("SignalAttestor.latest(HKO)", c.readContract({ address: k.SignalAttestor, abi: attestorAbi, functionName: "latest", args: [d.region === "HK" ? SOURCES.HKO : SOURCES.NCHMF, region] })),
       r("SignalAttestor.latest(GDACS)", c.readContract({ address: k.SignalAttestor, abi: attestorAbi, functionName: "latest", args: [SOURCES.GDACS, region] })),
       r("PlanModule.paused", c.readContract({ address: k.PlanModule, abi: planModuleAbi, functionName: "paused" })),
       r("PlanModule.dailyCeiling", c.readContract({ address: k.PlanModule, abi: planModuleAbi, functionName: "dailyCeiling" })),
       r("PlanModule.spentAllToday", c.readContract({ address: k.PlanModule, abi: planModuleAbi, functionName: "spentAllToday" })),
+      r("MockSignalCover.payout", c.readContract({ address: k.MockSignalCover, abi: coverAbi, functionName: "payout" })),
     ]);
 
   const plans = await Promise.all(
@@ -138,13 +137,14 @@ export async function readSnapshot(d: Deployment): Promise<ChainSnapshot> {
     }),
   );
 
-  const vaultAssets =
+  const eventId = currentEvent && currentEvent[0] !== ZERO32 ? currentEvent[0] : null;
+  const [vaultAssets, coverClaimed, drawnInEvent] = await Promise.all([
     vaultShares === null
       ? null
-      : await r(
-          "MockMMFVault.convertToAssets",
-          c.readContract({ address: k.MockMMFVault, abi: vaultAbi, functionName: "convertToAssets", args: [vaultShares] }),
-        );
+      : r("MockMMFVault.convertToAssets", c.readContract({ address: k.MockMMFVault, abi: vaultAbi, functionName: "convertToAssets", args: [vaultShares] })),
+    eventId ? r("MockSignalCover.claimed", c.readContract({ address: k.MockSignalCover, abi: coverAbi, functionName: "claimed", args: [eventId] })) : null,
+    eventId ? r("PlanModule.drawnInEvent", c.readContract({ address: k.PlanModule, abi: planModuleAbi, functionName: "drawnInEvent", args: [eventId] })) : null,
+  ]);
 
   const level = (v: readonly [number, `0x${string}`, bigint, bigint] | null): SourceLevel | null =>
     v ? { level: v[0], eventId: v[1], sourceTime: Number(v[2]), issuedAt: Number(v[3]) } : null;
@@ -160,7 +160,7 @@ export async function readSnapshot(d: Deployment): Promise<ChainSnapshot> {
     creditDrawn: s(creditDrawn),
     creditLimit: s(creditLimit),
     isStorm,
-    currentEvent: currentEvent ? { eventId: currentEvent[0], hkoLevel: currentEvent[1] } : null,
+    eventId,
     hko: level(hko),
     gdacs: level(gdacs),
     paused,
@@ -168,6 +168,9 @@ export async function readSnapshot(d: Deployment): Promise<ChainSnapshot> {
     spentAllToday: s(spentAll),
     plans,
     activePlanId: isStorm === null ? null : isStorm ? 1 : 0,
+    coverPayout: s(payout),
+    coverClaimed: eventId ? coverClaimed : false,
+    drawnInEvent: eventId ? s(drawnInEvent) : "0",
     readErrors: errors,
   };
 }
@@ -185,20 +188,20 @@ export async function readPlanHashes(d: Deployment): Promise<{ base: string | nu
   return { base, storm };
 }
 
-// ---------------------------------------------------------------- transaction feed
+// ---------------------------------------------------------------- event logs
 
-export interface FeedItem {
-  id: string;
-  block: string;
-  tx: string;
-  ts: number | null; // unix seconds
-  kind: string; // event name
-  tone: "money" | "storm" | "info" | "alert";
-  text: string;
+/** One decoded event the activity timeline and the storm strip are built from. */
+export interface ChainLog {
+  eventName: string;
+  args: Record<string, unknown>;
+  block: number;
+  logIndex: number;
+  tx: `0x${string}`;
+  /** Block time, unix seconds; null when not fetched. */
+  time: number | null;
 }
 
-/** The parts of a decoded log the feed uses. */
-interface FeedLog {
+interface RawLog {
   eventName: string;
   args: Record<string, unknown>;
   blockNumber: bigint;
@@ -207,16 +210,16 @@ interface FeedLog {
   removed: boolean;
 }
 
-interface FeedCache {
+interface LogCache {
   key: string;
   scannedTo: number; // block numbers fit in a JS number; plain numbers also keep Next's file tracer happy
-  logs: FeedLog[];
+  logs: RawLog[];
 }
 
-// Module-level cache: the feed is scanned once from startBlock, then only new blocks on each poll.
-let cache: FeedCache | null = null;
+// Module-level cache: logs are scanned once from startBlock, then only new blocks on each poll.
+let cache: LogCache | null = null;
 let scanning: Promise<void> | null = null;
-const blockTimes = new Map<string, number>();
+const blockTimes = new Map<number, number>();
 const CHUNK = 5_000; // blocks per eth_getLogs call (public RPCs cap the range)
 const MAX_CHUNKS_PER_POLL = 20; // keep one request fast; the rest is picked up on the next poll
 
@@ -246,115 +249,49 @@ async function scan(d: Deployment): Promise<void> {
       fromBlock: BigInt(fromBlock),
       toBlock: BigInt(toBlock),
       strict: false,
-    })) as unknown as FeedLog[];
+    })) as unknown as RawLog[];
     cache.logs.push(...logs.filter((l) => !l.removed));
     cache.scannedTo = toBlock;
   }
 }
 
-/** Newest first, at most `limit` items. Throws ChainUnreachable when the RPC is down. */
-export async function readFeed(
-  d: Deployment,
-  ctx: { decimals: number; symbol: string; payeeName: (a: string) => string | null },
-  limit = 50,
-): Promise<FeedItem[]> {
+const TIMED_RECENT = 200; // block times are fetched for the newest logs and for every signal / storm log
+
+/** Every feed event since startBlock, oldest first. Throws ChainUnreachable when the RPC is down. */
+export async function readLogs(d: Deployment): Promise<ChainLog[]> {
   await reachable();
   if (!scanning) scanning = scan(d).finally(() => (scanning = null));
   await scanning;
-  const logs = [...(cache?.logs ?? [])]
-    .sort((a, b) => (a.blockNumber === b.blockNumber ? b.logIndex - a.logIndex : a.blockNumber > b.blockNumber ? -1 : 1))
-    .slice(0, limit);
-
-  const c = getClient();
-  const missing = [...new Set(logs.map((l) => l.blockNumber.toString()))].filter((b) => !blockTimes.has(b));
-  await Promise.all(
-    missing.map((b) =>
-      c
-        .getBlock({ blockNumber: BigInt(b) })
-        .then((blk) => blockTimes.set(b, Number(blk.timestamp)))
-        .catch(() => undefined),
-    ),
+  const logs = [...(cache?.logs ?? [])].sort((a, b) =>
+    a.blockNumber === b.blockNumber ? a.logIndex - b.logIndex : a.blockNumber < b.blockNumber ? -1 : 1,
   );
 
-  return logs.map((l) => ({
-    id: `${l.transactionHash}:${l.logIndex}`,
-    block: l.blockNumber.toString(),
-    tx: l.transactionHash,
-    ts: blockTimes.get(l.blockNumber.toString()) ?? null,
-    kind: l.eventName,
-    ...describe(l, ctx),
-  }));
-}
+  const want = new Set<number>();
+  logs.slice(-TIMED_RECENT).forEach((l) => want.add(Number(l.blockNumber)));
+  logs
+    .filter((l) => l.eventName === "Attested" || l.eventName === "StormStarted" || l.eventName === "StormEnded")
+    .forEach((l) => want.add(Number(l.blockNumber)));
+  const c = getClient();
+  await Promise.all(
+    [...want]
+      .filter((b) => !blockTimes.has(b))
+      .map((b) =>
+        c
+          .getBlock({ blockNumber: BigInt(b) })
+          .then((blk) => blockTimes.set(b, Number(blk.timestamp)))
+          .catch(() => undefined),
+      ),
+  );
 
-const ACTIONS: Record<number, string> = { 1: "pay", 2: "vault_deposit", 4: "vault_withdraw", 8: "credit_draw", 16: "cover_claim" };
-
-function bytes32Text(h: unknown): string {
-  if (typeof h !== "string") return "–";
-  try {
-    const s = hexToString(h as `0x${string}`, { size: 32 });
-    if (/^[\x20-\x7e]+$/.test(s)) return s;
-  } catch {
-    // not text
-  }
-  return shortHash(h);
-}
-
-function describe(
-  l: FeedLog,
-  ctx: { decimals: number; symbol: string; payeeName: (a: string) => string | null },
-): { tone: FeedItem["tone"]; text: string } {
-  const a = l.args ?? {};
-  const amt = (v: unknown) => `${fmtUnits(typeof v === "bigint" ? v : 0n, ctx.decimals)} ${ctx.symbol}`;
-  const who = (addr: unknown) => {
-    const s = String(addr ?? "");
-    const name = ctx.payeeName(s);
-    return name ? `${name} (${shortAddr(s)})` : shortAddr(s);
-  };
-  switch (l.eventName) {
-    case "Executed": {
-      const plan = Number(a.planId) === 1 ? "Storm plan" : "Base plan";
-      const action = ACTIONS[Number(a.action)] ?? `action ${a.action}`;
-      const text =
-        action === "pay"
-          ? `Paid ${amt(a.amount)} to ${who(a.target)}`
-          : action === "vault_deposit"
-            ? `Moved ${amt(a.amount)} into the money-market fund`
-            : action === "vault_withdraw"
-              ? `Took ${amt(a.amount)} out of the money-market fund`
-              : action === "credit_draw"
-                ? `Drew ${amt(a.amount)} from the credit line`
-                : action === "cover_claim"
-                  ? `Claimed the typhoon cover (${amt(a.amount)})`
-                  : `${action}: ${amt(a.amount)} to ${who(a.target)}`;
-      return { tone: "money", text: `${plan}: ${text}` };
-    }
-    case "PausedSet":
-      return { tone: "alert", text: a.paused ? `Agent paused by ${shortAddr(String(a.by))}` : `Agent resumed by ${shortAddr(String(a.by))}` };
-    case "Attested": {
-      const src = a.source === SOURCES.HKO ? "HKO" : a.source === SOURCES.GDACS ? "GDACS" : a.source === SOURCES.NCHMF ? "NCHMF" : "Unknown source";
-      const level = Number(a.level);
-      const label = src === "GDACS" ? gdacsLabel(level) : src === "HKO" ? hkoLabel(level) : `level ${level}`;
-      const ev = a.eventId && a.eventId !== ZERO32 ? ` (event ${shortHash(String(a.eventId))})` : "";
-      return { tone: "storm", text: `${src} reports ${label}${ev}` };
-    }
-    case "StormStarted":
-      return { tone: "alert", text: `Storm mode ON (event ${shortHash(String(a.eventId))})` };
-    case "StormEnded":
-      return { tone: "storm", text: `Storm mode off (event ${shortHash(String(a.eventId))})` };
-    case "Inflow":
-      return {
-        tone: "money",
-        text:
-          `Client paid ${amt(a.amount)} (invoice ${bytes32Text(a.invoiceRef)})` +
-          (typeof a.swept === "bigint" && a.swept > BigInt(0) ? `; ${amt(a.swept)} went to repay the credit line` : ""),
-      };
-    case "Claimed":
-      return { tone: "money", text: `Typhoon cover paid out ${amt(a.payout)}` };
-    case "Drawn":
-      return { tone: "money", text: `Credit line drawn: ${amt(a.amount)} (total drawn ${amt(a.drawnTotal)})` };
-    case "Anchored":
-      return { tone: "info", text: `Evidence anchored: ${bytes32Text(a.kind)} ${shortHash(String(a.hash))}` };
-    default:
-      return { tone: "info", text: l.eventName };
-  }
+  return logs.map((l) => {
+    const block = Number(l.blockNumber);
+    return {
+      eventName: l.eventName,
+      args: l.args ?? {},
+      block,
+      logIndex: l.logIndex,
+      tx: l.transactionHash,
+      time: blockTimes.get(block) ?? null,
+    };
+  });
 }

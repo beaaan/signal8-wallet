@@ -2,6 +2,7 @@ import Link from "next/link";
 import { readPlanHashes } from "@/lib/chain";
 import { loadDeployment } from "@/lib/deployments";
 import { fmtDecimal, shortAddr } from "@/lib/format";
+import { Icon } from "../components/Icons";
 import { loadPlanBook, type Citation, type PlanAction, type PlanName } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +12,12 @@ export const dynamic = "force-dynamic";
 const STRINGS = {
   en: {
     summary: "Summary",
-    ceiling: (x: string) => `Across both plans, nothing on any day can exceed ${x}.`,
-    planTitle: { base: "Base plan (ordinary days)", storm: "Storm plan (Signal 8 or higher, confirmed by GDACS)" },
-    perTx: (x: string) => `Each payment: up to ${x}.`,
-    daily: (x: string) => `Per day: up to ${x}.`,
-    credit: (x: string) => `Credit line: up to ${x} per storm.`,
+    ceiling: (x: React.ReactNode) => <>Across both plans, nothing on any day can exceed {x}.</>,
+    planTitle: { base: "Everyday plan", storm: "Storm plan" },
+    planWhen: { base: "Ordinary days", storm: "Only when Signal 8 or higher is up and GDACS confirms the storm" },
+    perTx: (x: React.ReactNode) => <>Each payment: up to {x}.</>,
+    daily: (x: React.ReactNode) => <>Per day: up to {x}.</>,
+    credit: (x: React.ReactNode) => <>Credit line: up to {x} per storm.</>,
     may: "The assistant may:",
     actions: {
       pay: "pay the payees listed for this plan",
@@ -31,7 +33,7 @@ const STRINGS = {
     plans: "Plans",
     address: "Address",
     roles: { staff: "Staff", supplier: "Supplier", other: "Other" },
-    planShort: { base: "base", storm: "storm" },
+    planShort: { base: "everyday", storm: "storm" },
     source: "Source",
     otherCitations: "Other citations",
     hashTitle: "Plan hash",
@@ -41,14 +43,20 @@ const STRINGS = {
     notConnected: "not connected",
     onChain: (p: string) => `On-chain ${p} plan`,
     file: "File",
+    verified: "This is the plan the owners signed",
+    verifiedNote: "The plan book below hashes to the same fingerprint both on-chain plans store, so what runs is what was signed.",
+    mismatchTitle: "Warning: this is not the signed plan",
+    mismatchNote: "The plan book below differs from what the owners signed on-chain. The agent refuses to act until they match.",
+    unknownTitle: "Cannot check the signature right now",
   },
   "zh-Hant": {
     summary: "摘要",
-    ceiling: (x: string) => `兩個計劃合計，任何一天的總支出都不會超過 ${x}。`,
-    planTitle: { base: "平日計劃", storm: "風暴計劃（八號或以上風球，並經 GDACS 確認）" },
-    perTx: (x: string) => `每筆付款最多 ${x}。`,
-    daily: (x: string) => `每日最多 ${x}。`,
-    credit: (x: string) => `每次風暴最多提取 ${x} 信貸額。`,
+    ceiling: (x: React.ReactNode) => <>兩個計劃合計，任何一天的總支出都不會超過 {x}。</>,
+    planTitle: { base: "平日計劃", storm: "風暴計劃" },
+    planWhen: { base: "平日", storm: "只在八號或以上風球生效、並經 GDACS 確認風暴時" },
+    perTx: (x: React.ReactNode) => <>每筆付款最多 {x}。</>,
+    daily: (x: React.ReactNode) => <>每日最多 {x}。</>,
+    credit: (x: React.ReactNode) => <>每次風暴最多提取 {x} 信貸額。</>,
     may: "助理可以：",
     actions: {
       pay: "向此計劃名單上的收款人付款",
@@ -74,6 +82,11 @@ const STRINGS = {
     notConnected: "未連線",
     onChain: (p: string) => `鏈上${p}計劃`,
     file: "檔案",
+    verified: "這就是東主簽署的計劃",
+    verifiedNote: "以下計劃書的指紋（雜湊值）與鏈上兩個計劃儲存的一致，所以執行的正是簽署的內容。",
+    mismatchTitle: "注意：這不是已簽署的計劃",
+    mismatchNote: "以下計劃書與東主在鏈上簽署的不同。在兩者一致之前，助理不會行動。",
+    unknownTitle: "暫時無法核對簽署",
   },
 };
 type Strings = (typeof STRINGS)["en"];
@@ -86,7 +99,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     return (
       <div className="stack">
         <h1>Plan book</h1>
-        <p className="banner banner-unknown">{pb.reason}</p>
+        <p className="banner banner-info">{pb.reason}</p>
       </div>
     );
   }
@@ -96,7 +109,11 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const want = Array.isArray(asked) ? asked[0] : asked;
   const lang = want && langs.includes(want) ? want : langs.includes("en") ? "en" : langs[0] ?? "en";
   const t: Strings = (STRINGS as Record<string, Strings>)[lang] ?? STRINGS.en;
-  const money = (x: string) => `${fmtDecimal(x)} ${book.token.symbol}`;
+  const money = (x: string) => (
+    <strong className="rule-amount">
+      {fmtDecimal(x)} {book.token.symbol}
+    </strong>
+  );
 
   const onChain = await readOnChain();
   const status = (h: string | null | undefined) =>
@@ -120,8 +137,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     const r = book.plans[p];
     const payees = book.payees.filter((x) => x.plans.includes(p));
     return (
-      <section className="card" key={p}>
+      <section className={`card plan-card-${p}`} key={p}>
         <h2>{t.planTitle[p]}</h2>
+        <p className="muted small">{t.planWhen[p]}</p>
         <ul className="rules">
           <li>
             {t.perTx(money(r.perTxCap))}
@@ -154,7 +172,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
             {cite(`plans.${p}.payees`)}
           </li>
         </ul>
-        <p className="small">
+        <p className="small" style={{ marginTop: "0.5rem" }}>
           {t.onChain(t.planShort[p])}: {status(onChain.ok ? onChain.hashes[p] : null)}
         </p>
       </section>
@@ -166,7 +184,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
   return (
     <article className="stack" lang={lang}>
-      <div className="row-between">
+      <div className="page-head">
         <div>
           <h1>{book.business}</h1>
           <p className="muted small">
@@ -182,11 +200,15 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         </nav>
       </div>
 
+      <Verify t={t} hash={hash} onChain={onChain} />
+
       <section className="card">
-        <h2>{t.summary}</h2>
+        <h2>
+          <Icon name="plan" /> {t.summary}
+        </h2>
         <p className="summary">{book.summary[lang]}</p>
-        <p>
-          <strong>{t.ceiling(money(book.dailyCeiling))}</strong>
+        <p className="ceiling">
+          {t.ceiling(money(book.dailyCeiling))}
           {ceilingCite}
         </p>
       </section>
@@ -246,6 +268,32 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         {!onChain.ok ? <p className="muted small">{onChain.reason}</p> : null}
       </section>
     </article>
+  );
+}
+
+function Verify({
+  t,
+  hash,
+  onChain,
+}: {
+  t: Strings;
+  hash: string;
+  onChain: { ok: true; hashes: { base: string | null; storm: string | null } } | { ok: false; reason: string };
+}) {
+  const hs = onChain.ok ? [onChain.hashes.base, onChain.hashes.storm] : [];
+  const state = !onChain.ok || hs.some((h) => !h) ? "wait" : hs.every((h) => h!.toLowerCase() === hash.toLowerCase()) ? "good" : "bad";
+  return (
+    <section className={`card verify verify-${state}`}>
+      <span className="verify-icon">
+        <Icon name={state === "good" ? "check" : state === "bad" ? "alert" : "evidence"} />
+      </span>
+      <div>
+        <h2 style={{ margin: 0 }}>{state === "good" ? t.verified : state === "bad" ? t.mismatchTitle : t.unknownTitle}</h2>
+        <p className="muted small">
+          {state === "good" ? t.verifiedNote : state === "bad" ? t.mismatchNote : onChain.ok ? t.notConnected : onChain.reason}
+        </p>
+      </div>
+    </section>
   );
 }
 
