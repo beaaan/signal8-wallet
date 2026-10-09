@@ -1,0 +1,36 @@
+{
+  "id": "yagi-2024",
+  "name": "Typhoon Yagi (bão số 3)",
+  "region": "VN-QN-HP",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "gdacs": {
+    "eventId": "1001090",
+    "episodeId": "24",
+    "alertLevel": "Red",
+    "affectedCountries": ["VNM", "CHN", "PHL"],
+    "from": "2024-09-01T12:00:00Z",
+    "to": "2024-09-07T06:00:00Z"
+  },
+  "sources": [
+    "https://en.wikipedia.org/wiki/Effects_of_Typhoon_Yagi_in_Vietnam",
+    "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC&fromDate=2024-09-01&toDate=2024-09-09"
+  ],
+  "todo": "Area D: confirm exact bulletin times from NCHMF / Vietnamese press and replace the approximate times below.",
+  "signals": [
+    { "time": "2024-09-06T08:00:00+07:00", "code": "VN_RISK_4", "approximate": true, "note": "First-ever level 4 disaster risk warning for the Gulf of Tonkin, issued 6 Sep (time to confirm)" },
+    { "time": "2024-09-07T13:00:00+07:00", "code": "VN_LANDFALL", "approximate": true, "note": "Landfall in Quang Ninh and Hai Phong around 13:00" },
+    { "time": "2024-09-08T12:00:00+07:00", "code": "VN_CANCEL", "approximate": true, "note": "Placeholder: end of warning, to confirm" }
+  ],
+  "levelMap": { "VN_RISK_4": 8, "VN_LANDFALL": 10, "VN_CANCEL": 0 },
+  "scenario": {
+    "business": "Hai Phong garment workshop, 20 workers (fictional)",
+    "relief": "Loan restructuring request under SBV Circular 53/2024/TT-NHNN",
+    "fakeMessages": [
+      {
+        "time": "2024-09-07T15:00:00+07:00",
+        "channel": "zalo",
+        "text": "Ngân hàng hỗ trợ khách hàng bị ảnh hưởng bão Yagi: chuyển phí xử lý 2.000.000đ vào tài khoản dưới đây để nhận gói hỗ trợ 50 triệu."
+      }
+    ]
+  }
+}

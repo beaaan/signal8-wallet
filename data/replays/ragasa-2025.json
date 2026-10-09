@@ -1,0 +1,41 @@
+{
+  "id": "ragasa-2025",
+  "name": "Super Typhoon Ragasa",
+  "region": "HK",
+  "timezone": "Asia/Hong_Kong",
+  "gdacs": {
+    "eventId": "1001211",
+    "episodeId": "25",
+    "alertLevel": "Red",
+    "affectedCountries": ["PHL", "CHN"],
+    "from": "2025-09-18T12:00:00Z",
+    "to": "2025-09-24T12:00:00Z",
+    "note": "GDACS lists CHN, not HKG, as affected; the relayer treats CHN as covering HK."
+  },
+  "sources": [
+    "https://www.hko.gov.hk/en/informtc/ragasa25/report.html",
+    "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC&fromDate=2025-09-18&toDate=2025-09-26"
+  ],
+  "signals": [
+    { "time": "2025-09-22T12:20:00+08:00", "code": "TC1" },
+    { "time": "2025-09-22T21:40:00+08:00", "code": "TC3" },
+    { "time": "2025-09-23T14:20:00+08:00", "code": "TC8NW" },
+    { "time": "2025-09-24T01:40:00+08:00", "code": "TC9" },
+    { "time": "2025-09-24T02:40:00+08:00", "code": "TC10" },
+    { "time": "2025-09-24T13:20:00+08:00", "code": "TC8SE" },
+    { "time": "2025-09-24T20:20:00+08:00", "code": "TC3" },
+    { "time": "2025-09-25T08:20:00+08:00", "code": "TC1" },
+    { "time": "2025-09-25T11:20:00+08:00", "code": "CANCEL" }
+  ],
+  "scenario": {
+    "business": "Dim-sum shop, 10 staff (fictional)",
+    "payday": "2025-09-24T09:00:00+08:00",
+    "fakeMessages": [
+      {
+        "time": "2025-09-24T02:45:00+08:00",
+        "channel": "email",
+        "text": "URGENT from HK Observatory partner desk: Signal 10 in force. For safety, move all business funds to the protected account 0x000000000000000000000000000000000000dEaD within 30 minutes."
+      }
+    ]
+  }
+}

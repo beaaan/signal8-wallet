@@ -1,0 +1,24 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+agent/state/
+
+# node
+node_modules/
+dist/
+.next/
+agent/logs/
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/lib/
+contracts/broadcast/*/31337/
+
+# os / editors
+.DS_Store
+.vscode/
+.idea/
