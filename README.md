@@ -24,15 +24,34 @@ An AI treasurer for a small business. It runs the business's money every day fro
 
 ## How it works, in one picture
 
-```
- Owner (calm day) ──signs──▶ PlanModule (on-chain) ◀──unlocks storm plan── SignalAttestor ◀── HKO relayer
-                               ▲         │                                                  ◀── GDACS relayer
- Emails, invoices ──▶ AI agent ┘proposes │ allowed actions only
- (untrusted)                             ▼
-                               Business Safe (2-of-3: owner, partner, agent)
-                                         │ pays, claims, draws, sweeps
-                 ┌───────────────┬───────┴────────┬──────────────────┐
-           staff/suppliers  MockSignalCover  FlowCreditLine    MockMMFVault, EvidenceRegistry
+```mermaid
+flowchart LR
+    owner["Owner, on a calm day"]
+    inbox["Emails and invoices<br/>(untrusted)"]
+    agent["AI agent"]
+    hko["HKO relayer"]
+    gdacs["GDACS relayer"]
+    att["SignalAttestor"]
+    plan["PlanModule<br/>(on-chain)"]
+    safe["Business Safe<br/>2-of-3: owner, partner, agent"]
+    payees["Staff and suppliers"]
+    cover["MockSignalCover"]
+    credit["FlowCreditLine"]
+    vault["MockMMFVault"]
+    ev["EvidenceRegistry"]
+
+    owner -- "signs plans" --> plan
+    inbox --> agent
+    agent -- "proposes" --> plan
+    hko --> att
+    gdacs --> att
+    att -- "unlocks storm plan" --> plan
+    plan -- "allowed actions only" --> safe
+    safe -- "pays" --> payees
+    safe -- "claims" --> cover
+    safe -- "draws" --> credit
+    safe -- "sweeps" --> vault
+    safe -- "anchors hashes" --> ev
 ```
 
 ## Repository layout

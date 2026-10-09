@@ -61,23 +61,51 @@ With three people, merge C into D and drop the FISCO port.
 
 ## 3. System overview
 
-```
-                         calm day                                    storm
-  ┌──────────┐   signs plans    ┌──────────────────────┐   unlock   ┌────────────────┐
-  │  Owner   │ ───────────────▶ │  PlanModule (+guard) │ ◀───────── │ SignalAttestor │ ◀── HKO relayer  (signal code)
-  └──────────┘  (timelocked)    │  base plan, storm    │            └────────────────┘ ◀── GDACS relayer (cyclone event)
-       ▲ co-signs over-cap      │  plan, payees, caps  │
-       │                        └──────────┬───────────┘
-  ┌────┴─────┐  typed actions              │ execTransactionFromModule
-  │ AI agent │ ────────────────────────────┤
-  └────▲─────┘                             ▼
-       │ fields only            ┌──────────────────────┐
-  ┌────┴──────────┐             │  Business Safe 2-of-3 │──▶ payees (staff, suppliers)
-  │ Extractor     │             └──────────┬───────────┘──▶ MockSignalCover (claim)
-  │ (no tools)    │                        │              ──▶ FlowCreditLine (draw; inflows swept via PaymentRouter)
-  └────▲──────────┘                        │              ──▶ MockMMFVault (ERC-4626)
-       │ untrusted                         ▼              ──▶ EvidenceRegistry (hashes)
-  emails, invoices, chats            Dashboard + arena (reads events)
+```mermaid
+flowchart TB
+    subgraph offchain["Off-chain"]
+        inbox["Emails, invoices, chats<br/>(untrusted)"]
+        extractor["Extractor<br/>(model, no tools)"]
+        planner["Planner<br/>(model, no tools)"]
+        check["Local policy check"]
+        executor["Executor<br/>(agent key)"]
+        owner["Owner"]
+        hko["HKO relayer<br/>(signal code)"]
+        gdacs["GDACS relayer<br/>(cyclone event)"]
+        dash["Dashboard and arena"]
+    end
+
+    subgraph onchain["On-chain: Base Sepolia"]
+        att["SignalAttestor"]
+        plan["PlanModule + guard<br/>base plan, storm plan,<br/>payees, caps, timelock"]
+        safe["Business Safe<br/>2-of-3"]
+        payees["Staff and suppliers"]
+        cover["MockSignalCover"]
+        credit["FlowCreditLine"]
+        router["PaymentRouter"]
+        vault["MockMMFVault<br/>(ERC-4626)"]
+        ev["EvidenceRegistry"]
+    end
+
+    inbox --> extractor
+    extractor -- "fields only" --> planner
+    planner -- "typed actions" --> check
+    check --> executor
+    executor -- "executeTransfer / executeCall" --> plan
+    executor -.->|"over cap: Safe proposal"| owner
+    owner -- "signs plans (24 h timelock), co-signs" --> safe
+    hko -- "signed attestation" --> att
+    gdacs -- "signed attestation" --> att
+    att -- "isStorm" --> plan
+    plan -- "execTransactionFromModule" --> safe
+    safe -- "pays" --> payees
+    safe -- "claims" --> cover
+    safe -- "draws" --> credit
+    safe -- "deposits, withdraws" --> vault
+    safe -- "anchors" --> ev
+    router -- "inflows minus sweep" --> safe
+    router -- "sweep, paused in storm" --> credit
+    onchain -.->|"events"| dash
 ```
 
 Key decisions (already made, don't reopen without a reason):
@@ -193,6 +221,39 @@ Spec: [specs/agent.md](specs/agent.md), sections "Relayers" and "Replay".
 6. **20 Oct:** final check against section 1 and submit.
 
 ## 6. Day-by-day schedule
+
+```mermaid
+gantt
+    title Build plan, 10 to 20 Oct 2026
+    dateFormat YYYY-MM-DD
+    axisFormat %d %b
+    section Contracts
+    PlanModule and tests             :a1, 2026-10-10, 3d
+    M1 Foundations                   :milestone, m1, 2026-10-12, 0d
+    SignalAttestor and guard         :a2, 2026-10-12, 2d
+    Mocks and deploy                 :a3, 2026-10-12, 3d
+    FISCO port and Yagi (stretch)    :a4, 2026-10-17, 3d
+    section Agent
+    Keys and plumbing                :b1, 2026-10-10, 2d
+    Relayers and replay runner       :b2, 2026-10-12, 3d
+    M2 Storm trigger                 :milestone, m2, 2026-10-14, 0d
+    Extractor, planner, executor     :b3, 2026-10-12, 4d
+    Storm and everyday loops         :b4, 2026-10-14, 3d
+    M3 Replay works                  :milestone, m3, 2026-10-16, 0d
+    After-storm drafts               :b5, 2026-10-15, 3d
+    section Dashboard and red team
+    Dashboard                        :c1, 2026-10-15, 3d
+    Attack suite and benchmark       :c2, 2026-10-15, 4d
+    Attack arena                     :c3, 2026-10-16, 3d
+    M4 Security and freeze           :milestone, m4, 2026-10-18, 0d
+    section Pitch and docs
+    Register and email organizers    :d1, 2026-10-10, 1d
+    Fixtures and Yagi research       :d2, 2026-10-11, 2d
+    Technical document               :d3, 2026-10-16, 4d
+    Security self-assessment         :d4, 2026-10-17, 2d
+    Deck, video, rehearsal           :d5, 2026-10-17, 3d
+    M5 Submit                        :milestone, m5, 2026-10-20, 0d
+```
 
 | Day | A. Contracts | B. Agent | C. Dashboard & red team | D. Pitch & docs |
 | --- | --- | --- | --- | --- |
