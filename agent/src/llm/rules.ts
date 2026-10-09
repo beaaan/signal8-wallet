@@ -41,6 +41,10 @@ export function extractFields(text: string): ExtractedInvoice {
 
   const dueRaw = /\bdue(?:\s+date)?\s*(?:on|by|:)?\s*(\d{1,2}\s+[A-Za-z]{3,9}\.?\s+\d{4}|\d{4}-\d{2}-\d{2})/i.exec(text)?.[1];
   const dueDate = dueRaw ? isoDate(dueRaw) : undefined;
+  // Invoice or delivery date. Without a year, borrow the first year written anywhere in the text.
+  const issue = /\b(?:delivered|dated|invoice date|date)\s*(?:on|:)?\s*(\d{1,2}\s+[A-Za-z]{3,9}\.?)(?:\s+(\d{4}))?|\b(?:dated|invoice date|date)\s*:?\s*(\d{4}-\d{2}-\d{2})/i.exec(text);
+  const year = issue?.[2] ?? /\b(20\d{2})\b/.exec(text)?.[1];
+  const issueDate = issue?.[3] ?? (issue?.[1] && year ? isoDate(`${issue[1].replace(/\.$/, "")} ${year}`) : undefined);
 
   const payeeName =
     /((?:[A-Z][a-z'&]+\s){1,3}(?:Flour|Meats|Foods|Trading|Bakery|Supplies|Ltd|Limited|Company|Co\.))/.exec(text)?.[1] ??
@@ -60,6 +64,7 @@ export function extractFields(text: string): ExtractedInvoice {
   const addr = ADDRESS.exec(text)?.[0];
   if (addr) out.payeeAddress = addr as `0x${string}`;
   if (dueDate) out.dueDate = dueDate;
+  if (issueDate) out.issueDate = issueDate;
   if (invoiceId) out.invoiceId = invoiceId.slice(0, 64);
   return out;
 }

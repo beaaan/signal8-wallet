@@ -27,7 +27,13 @@ export const PATHS = {
   redteam: resolve(REPO_ROOT, "redteam"),
 };
 
-export type Network = "anvil" | "base-sepolia";
+/** "anvil" or "anvil-<name>" (a local chain; the name selects deployments/<name>.json), or "base-sepolia". */
+export type Network = string;
+
+/** Local anvil chains: public dev keys allowed, arena allowed. */
+export function isLocalNetwork(network: string): boolean {
+  return network === "anvil" || network.startsWith("anvil-");
+}
 export type KeyRole = "agent" | "hkoRelayer" | "gdacsRelayer" | "demoClient";
 
 export const KEY_ENV: Record<KeyRole, string> = {
@@ -72,7 +78,11 @@ export interface Config {
   network: Network;
   rpcUrl: string;
   chainId: number;
+  /** anvil or anvil-<name>: dev-key fallback, arena, evm_mine. */
+  local: boolean;
   model: { provider: "anthropic" | "rules"; name: string; hasKey: boolean };
+  /** Safe Transaction Service (base-sepolia proposals); the key itself is read with safeApiKey(). */
+  safe: { address?: `0x${string}`; hasApiKey: boolean };
   logDir: string;
   stateDir: string;
   planBookPath: string;
@@ -92,19 +102,21 @@ export function loadEnvFile(path: string = PATHS.env): void {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { rpcUrl?: string } = {}): Config {
   if (env === process.env) loadEnvFile();
-  const network = (env.NETWORK || "anvil") as Network;
-  if (network !== "anvil" && network !== "base-sepolia") throw new Error(`NETWORK must be anvil or base-sepolia, not "${network}"`);
-  const rpcUrl =
-    opts.rpcUrl ||
-    env.RPC_URL ||
-    (network === "anvil" ? "http://127.0.0.1:8545" : env.BASE_SEPOLIA_RPC || "https://sepolia.base.org");
+  const network = env.NETWORK || "anvil";
+  const local = isLocalNetwork(network);
+  if (!local && network !== "base-sepolia") throw new Error(`NETWORK must be anvil, anvil-<name> or base-sepolia, not "${network}"`);
+  const rpcUrl = opts.rpcUrl || env.RPC_URL || (local ? "http://127.0.0.1:8545" : env.BASE_SEPOLIA_RPC || "https://sepolia.base.org");
+  const safeAddress = env.SAFE_ADDRESS?.trim();
+  if (safeAddress && !/^0x[0-9a-fA-F]{40}$/.test(safeAddress)) throw new Error("SAFE_ADDRESS is not an address");
   const provider = (env.MODEL_PROVIDER || (env.MODEL_API_KEY ? "anthropic" : "rules")) as Config["model"]["provider"];
   if (provider !== "anthropic" && provider !== "rules") throw new Error(`MODEL_PROVIDER must be anthropic or rules`);
   return {
     network,
     rpcUrl,
-    chainId: network === "anvil" ? 31337 : 84532,
+    chainId: local ? 31337 : 84532,
+    local,
     model: { provider, name: env.MODEL_NAME || DEFAULT_MODEL, hasKey: Boolean(env.MODEL_API_KEY) },
+    safe: { address: safeAddress ? (safeAddress as `0x${string}`) : undefined, hasApiKey: Boolean(env.SAFE_API_KEY?.trim()) },
     logDir: env.LOG_DIR ? resolve(env.LOG_DIR) : resolve(AGENT_DIR, "logs"),
     stateDir: env.STATE_DIR ? resolve(env.STATE_DIR) : resolve(AGENT_DIR, "state"),
     planBookPath: env.PLAN_BOOK ? resolve(env.PLAN_BOOK) : existsSync(PATHS.planBook) ? PATHS.planBook : PATHS.planBookExample,
@@ -123,8 +135,14 @@ export function secretKey(role: KeyRole, network: Network, env: NodeJS.ProcessEn
     if (!/^0x[0-9a-fA-F]{64}$/.test(value)) throw new Error(`${KEY_ENV[role]} is not a 32-byte hex key`);
     return value as `0x${string}`;
   }
-  if (network === "anvil") return ANVIL_KEYS[role];
+  if (isLocalNetwork(network)) return ANVIL_KEYS[role];
   throw new Error(`${KEY_ENV[role]} is not set (required on ${network}; run npm run keys:new)`);
+}
+
+/** The Safe Transaction Service API key; only the Safe proposer reads it. */
+export function safeApiKey(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  if (env === process.env) loadEnvFile();
+  return env.SAFE_API_KEY?.trim() || undefined;
 }
 
 /** The model API key; only the model provider reads it. */

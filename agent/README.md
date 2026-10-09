@@ -10,12 +10,16 @@ npm run replay -- --event ragasa-2025 --speed 600 --dry-run      # prints the ti
 npm run plan:hash -- ../data/fixtures/plans/plan-book.example.json
 npm run hko:now        # current HKO tropical cyclone signal
 npm run gdacs:now      # current GDACS cyclone events and the one for HK
+npm run redteam        # every redteam/ case through the offline pipeline; writes ../redteam/results/summary.json
+npm run relayer:hko    # one HKO observation and what the live relayer would do (no transaction)
+npm run relayer:gdacs  # same for GDACS
 ```
 
 ## Run locally against anvil
 
 1. Start anvil and deploy the contracts (see `../contracts/README.md`); this writes `../contracts/deployments/anvil.json`.
-2. Nothing else is needed: with `NETWORK=anvil` (the default) the agent uses anvil's public dev keys for any role whose key is not in `../.env` (agent #5, HKO relayer #6, GDACS relayer #7, demo client #8). On any other network a missing key is an error.
+   A second local chain gets its own name: `NETWORK=anvil-test forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8565 --broadcast` writes `deployments/anvil-test.json`, and the agent reads it with `NETWORK=anvil-test RPC_URL=http://127.0.0.1:8565`. Every `anvil-<name>` network is treated as local.
+2. Nothing else is needed: with `NETWORK=anvil` (the default) or `anvil-<name>` the agent uses anvil's public dev keys for any role whose key is not in `../.env` (agent #5, HKO relayer #6, GDACS relayer #7, demo client #8). On any other network a missing key is an error.
 3. Full Ragasa replay, with one ordinary day first:
 
    ```bash
@@ -24,10 +28,40 @@ npm run gdacs:now      # current GDACS cyclone events and the one for HK
    npm run evidence       # markdown rows for docs/EVIDENCE.md from the latest run
    ```
 
+   The ordinary day matches the customer payment to `data/fixtures/receivables.json`, pays due invoices, sweeps to the vault and reconciles its ledger with the chain before anchoring the daily report (see below). At storm end the held supplier payments become owner proposals and the drafts are written to `logs/drafts/<runId>/`. The run summary and `logs/run-<id>.json` (`storm` key) state the cover payout read from the cover's `Claimed` event (PlanModule's `Executed` event carries 0 for a claim).
+
    The runner checks today's `spentToday` / `spentAllToday` first and refuses if the run would not fit the caps; the whole run lands in one chain day, so run it again on a fresh chain or tomorrow (UTC). Rehearse without using up a chain's day on a fork: `anvil --fork-url <rpc> --port 8555` and `--rpc http://127.0.0.1:8555`.
-4. API for the dashboard and arena: `npm run serve` (port `AGENT_API_PORT`, default 8787). The arena (`POST /api/arena`) only runs when `NETWORK=anvil`.
+4. API for the dashboard and arena: `npm run serve` (port `AGENT_API_PORT`, default 8787). The arena (`POST /api/arena`) only runs on a local network (`anvil`, `anvil-<name>`).
 
 Base Sepolia: `npm run keys:new` writes fresh keys for the agent, both relayers and the demo client into `../.env` (only where empty; never printed) and prints the addresses to fund. Set `NETWORK=base-sepolia`.
+
+## Owner proposals (Safe Transaction Service)
+
+Anything outside the active plan (over a cap, a payee in the other plan, `propose_to_owner`, ordinary-day payroll, a plan change) becomes an owner proposal; the agent never calls the Safe itself.
+
+- Always: one line in `logs/proposals.jsonl` with the Safe transactions the owners would sign (`token.transfer`, vault `approve`+`deposit`/`withdraw`, `draw`, `claim`, `anchor`, or `PlanModule.queueChange(setter)` for a plan change).
+- On `base-sepolia` with `SAFE_API_KEY` (and `SAFE_ADDRESS`, which must equal the deployment's Safe): `exec/safeProposer.ts` also builds the Safe transaction with protocol-kit (MultiSend for several calls), takes the next nonce from the service, signs the safeTxHash with the agent key **as a delegate** and calls api-kit `proposeTransaction`. Two owners still sign in Safe Wallet. If the key is missing or the service fails, the proposal stays logged and the decision line says so.
+- The agent address must first be added as a delegate of the Safe (by an owner, in Safe Wallet or with api-kit `addSafeDelegate`).
+- **Not tested live.** The service client and signer are injected and unit-tested with fakes (`test/safeProposer.test.ts`: nonce from the service, signature recovers to the agent, fallback on errors). There is no Safe Transaction Service for anvil, so the proposer has not been run against the real service from this environment.
+
+## Owner's records and red team
+
+`data/fixtures/purchase-orders.json`, `paid-invoices.json` and `payroll.json` are the owner's records the planner checks invoices against (`src/controls.ts`): an invoice already paid is refused; a re-issue (same supplier, amount and issue date, new number), an amount above its purchase order, or no PO for a supplier that requires one becomes an owner proposal; a payroll message on an ordinary day becomes one proposal for payroll.json's staff when the totals match. Executed supplier payments join the paid history for the session.
+
+`npm run redteam` runs every `../redteam/attacks` case (on an ordinary day and in storm mode) and every `../redteam/benign` case (with its own context) through extractor → planner → localCheck on a simulated PlanModule built from the example plan book (`src/sim.ts`); no chain, no keys. It prints a per-family table (attacker wins, funds lost, outcomes) and the benign task success, and writes the `ours` key of `../redteam/results/summary.json` (other keys, e.g. the bare agent's, are kept). `-- --model` uses the configured model provider instead of the rules.
+
+## After-storm drafts
+
+`src/drafts.ts` writes, at storm end, Markdown drafts the owner reviews, signs and sends (the agent never sends anything): an insurance claim letter (English, and Traditional Chinese for HK) citing the cover event id, the payout tx and the PRE_STORM hash; a deadline list (payroll, held supplier payments with due dates, credit repayment, claim window); and for a Vietnamese region (Yagi) a Circular 53/2024/TT-NHNN restructuring request in Vietnamese. Files go to `logs/drafts/<runId>/`, and each is a decision line (stage `owner`, outcome `proposed`, action `draft`). Preview without a chain: `npx tsx src/drafts.ts --event yagi-2024`. The 30-day claim window, the 10% sweep and the Circular 53 conditions are demo assumptions to check against the real policy, loan and circular.
+
+## Everyday: inflows and reconciliation
+
+- `loops/inflows.ts` reads `PaymentRouter` `Inflow` events since a checkpoint (`state/inflows-<network>.json`; a replay starts at its own first block), matches `invoiceRef` = keccak256(id) (or id#runId in replays) to `data/fixtures/receivables.json`, logs matches and flags short payments, overpayments and unknown refs for the owner. Partial payments add up.
+- `loops/reconcile.ts`: at end of day the ledger (executed actions recorded by the executor, plus inflows at amount − swept) is compared with the chain (Safe balance, vault `maxWithdraw`, `spentToday` per plan). The daily report, with the result, is anchored first; on a mismatch the agent then calls `PlanModule.pause()` with its own key, logs it, appends to `logs/alerts.jsonl` and prints an alert. The replay stops there. Tested with a fake chain reader (`test/reconcile.test.ts`).
+
+## Live relayers
+
+`npm run relayer:hko -- --live` polls the HKO warnsum every 60 s, attests when the level changes and re-attests every 6 h while it is 8 or above. `npm run relayer:gdacs -- --live` polls GDACS every 60 s and attests the current Orange/Red tropical-cyclone event for the deployment's region (HK accepts CHN and HKG), re-attesting every 6 h while it is current (a tracked event downgraded to Green is attested; one that stops being current lapses). Both start from the attestor's `latest(source, region)`, keep polling through fetch or submit errors, and log to `logs/relayer-<source>.jsonl`. Without `--live` they make one observation and print the decision (no transaction). The scheduling is tested with a fake clock and fetch (`test/live.test.ts`).
 
 ## Model
 
@@ -42,16 +76,22 @@ Base Sepolia: `npm run keys:new` writes fresh keys for the agent, both relayers 
 | `src/relayers/` | `hko.ts` (parser + attestation), `gdacs.ts` (event list, region mapping, event id), `sign.ts` (EIP-712, nonces in `state/nonces.json`), `submit.ts` (attest from the relayer's own key) |
 | `src/llm/` | `provider.ts`, `rules.ts`, `anthropic.ts`, `extractor.ts`, `planner.ts` |
 | `src/policy/localCheck.ts` | PlanModule's checks, same order and error names |
-| `src/exec/` | `executor.ts` (typed PlanModule calls; proposals to `logs/proposals.jsonl`), `refs.ts` (deterministic refs) |
+| `src/exec/` | `executor.ts` (typed PlanModule calls, `pause()`), `safeProposer.ts` (owner proposals: log + Safe Transaction Service as delegate), `calls.ts` (action → call), `refs.ts` (deterministic refs) |
+| `src/controls.ts` | purchase orders, paid invoices and payroll the planner checks against |
 | `src/pipeline.ts` | untrusted text → extractor → planner → executor |
-| `src/loops/` | `storm.ts` (state machine, forecast), `everyday.ts` (one ordinary day) |
+| `src/loops/` | `storm.ts` (state machine, forecast, storm record), `everyday.ts` (one ordinary day), `inflows.ts` (Inflow matching), `reconcile.ts` (end-of-day check, pause) |
+| `src/ledger.ts` | the day's ledger and the reconciliation arithmetic |
+| `src/drafts.ts` | after-storm drafts for the owner |
+| `src/relayers/live.ts` | live HKO and GDACS relayers (`npm run relayer:hko`, `relayer:gdacs`) |
+| `src/sim.ts`, `src/redteam.ts` | offline PlanModule simulation; `npm run redteam` |
 | `src/replay/` | `runner.ts` (CLI, dry run), `timeline.ts`, `run.ts` (real mode, `logs/run-<id>.json`) |
 | `src/log.ts` | `logs/decisions.jsonl` |
 | `src/server.ts`, `src/evidence.ts`, `src/keys.ts` | `npm run serve`, `npm run evidence`, `npm run keys:new` |
 
 Logs (`logs/`) and state (`state/`) are gitignored; `LOG_DIR` and `STATE_DIR` override them.
 
-## Not built yet
+## Not built yet, or not verified
 
-- Safe proposals through Safe API Kit (`proposeTransaction` as a delegate) on Base Sepolia: proposals are only written to `logs/proposals.jsonl` for now (TODO in `exec/executor.ts`).
-- `drafts.ts` (insurance claim, deadline list), `planCompiler.ts`, inflow matching and the reconciliation `pause()` in the everyday loop, live-mode relayer polling and 6-hourly re-attestation.
+- Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is a manual owner step.
+- `planCompiler.ts` (should) and the explanations (stretch).
+- The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only.

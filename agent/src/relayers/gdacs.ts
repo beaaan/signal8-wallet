@@ -2,6 +2,7 @@
 // Spec: docs/specs/agent.md#gdacs-relayersgdacsts
 //
 // Live check:  npx tsx src/relayers/gdacs.ts [fromDate] [toDate]
+// Live relayer (attest Orange/Red, re-attest every 6 h while current): npm run relayer:gdacs -- --live
 // Tests: test/gdacs.test.ts
 
 import { keccak256, toBytes } from "viem";
@@ -119,9 +120,9 @@ export function eventFromReplay(g: { eventId: string; alertLevel: string; affect
   };
 }
 
-export async function fetchGdacsEvents(fromDate: string, toDate: string, base = GDACS_EVENTS_URL): Promise<GdacsEvent[]> {
+export async function fetchGdacsEvents(fromDate: string, toDate: string, base = GDACS_EVENTS_URL, fetchImpl: typeof fetch = fetch): Promise<GdacsEvent[]> {
   const url = `${base}?eventlist=TC&fromDate=${encodeURIComponent(fromDate)}&toDate=${encodeURIComponent(toDate)}`;
-  const res = await fetch(url, { headers: { accept: "application/json" } });
+  const res = await fetchImpl(url, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`gdacs: HTTP ${res.status}`);
   return parseGdacsEvents(await res.json());
 }

@@ -15,6 +15,7 @@ Fields:
 - amount: the amount due as a plain decimal string without separators or currency (e.g. "1250.50"); "0" if none.
 - currency: HKD if HK$ or HKD is written, VND for dong, otherwise USD.
 - dueDate: ISO date (YYYY-MM-DD) if a due date is written, else null.
+- issueDate: ISO date of the invoice or of the delivery it bills, if written with a year, else null.
 - invoiceId: the invoice number as written, else null.`;
 
 const PLAN_SYSTEM = `You plan payments for a small shop's treasury agent. You receive one invoice's validated fields, the payee registry and the active plan, as JSON.
@@ -33,9 +34,10 @@ const EXTRACT_SCHEMA = {
     amount: { type: "string" },
     currency: { type: "string", enum: ["USD", "HKD", "VND"] },
     dueDate: { type: ["string", "null"] },
+    issueDate: { type: ["string", "null"] },
     invoiceId: { type: ["string", "null"] },
   },
-  required: ["kind", "payeeName", "payeeAddress", "amount", "currency", "dueDate", "invoiceId"],
+  required: ["kind", "payeeName", "payeeAddress", "amount", "currency", "dueDate", "issueDate", "invoiceId"],
   additionalProperties: false,
 };
 

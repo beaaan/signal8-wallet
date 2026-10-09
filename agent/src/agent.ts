@@ -1,7 +1,9 @@
 // Wiring: config + deployment + plan book → chain, decision log, executor, provider and pipeline deps.
-import { connect, isStorm, readBalances, readPlan, readSnapshot, type Chainish } from "./chain.ts";
-import { loadConfig, loadDeployment, type Config } from "./config.ts";
+import { addressOf, connect, currentEventId, isStorm, readBalances, readPlan, readSnapshot, type Chainish } from "./chain.ts";
+import { loadControls } from "./controls.ts";
+import { loadConfig, loadDeployment, safeApiKey, secretKey, type Config } from "./config.ts";
 import { Executor } from "./exec/executor.ts";
+import { apiKitClient, lazySigner, protocolKitSigner, SafeProposer } from "./exec/safeProposer.ts";
 import { makeProvider, plannerPlans, registryFrom, type ModelProvider } from "./llm/provider.ts";
 import { DecisionLog } from "./log.ts";
 import type { StormChain } from "./loops/storm.ts";
@@ -31,7 +33,7 @@ export function makeAgent(opts: { rpcUrl?: string; onTx?: (label: string, tx: He
   const book = loadPlanBook(cfg.planBookPath);
   if (book.region !== dep.region) throw new Error(`plan book region ${book.region} does not match deployment region ${dep.region}`);
   const names = new Map(book.payees.map((p) => [p.address.toLowerCase(), p.name.replace(/ \(fictional\)$/, "")]));
-  const sink = new Executor(c, log, { names, onTx: opts.onTx });
+  const sink = new Executor(c, log, { names, onTx: opts.onTx, proposer: makeProposer(c) });
   const provider = makeProvider(cfg);
   const pipeline: PipelineDeps = {
     provider,
@@ -39,6 +41,7 @@ export function makeAgent(opts: { rpcUrl?: string; onTx?: (label: string, tx: He
     log,
     payees: registryFrom(book),
     plans: plannerPlans(book),
+    controls: loadControls(),
     state: async () => {
       const storm = await isStorm(c);
       return { activePlan: storm ? "storm" : "base", holdSupplierPayments: storm };
@@ -46,6 +49,7 @@ export function makeAgent(opts: { rpcUrl?: string; onTx?: (label: string, tx: He
   };
   const stormChain: StormChain = {
     planHashes: async () => Promise.all([readPlan(c, 0), readPlan(c, 1)]).then((ps) => ps.map((p) => p.planHash)),
+    eventId: () => currentEventId(c),
     balances: () => readBalances(c),
     creditRoom: async () => {
       const s = await readSnapshot(c);
@@ -54,4 +58,20 @@ export function makeAgent(opts: { rpcUrl?: string; onTx?: (label: string, tx: He
     },
   };
   return { cfg, c, log, sink, provider, book, localPlanHash: planHash(book), names, pipeline, stormChain };
+}
+
+/**
+ * Base Sepolia with SAFE_API_KEY: owner proposals go to the Safe Transaction Service, signed by the agent as a
+ * delegate. Anywhere else (anvil, or no key) they are only logged to logs/proposals.jsonl.
+ */
+export function makeProposer(c: Chainish): SafeProposer | undefined {
+  const apiKey = safeApiKey();
+  if (c.cfg.local || !apiKey) return undefined;
+  const safe = c.cfg.safe.address ?? c.dep.contracts.Safe;
+  if (safe.toLowerCase() !== c.dep.contracts.Safe.toLowerCase()) {
+    throw new Error(`SAFE_ADDRESS ${safe} differs from the deployment's Safe ${c.dep.contracts.Safe}`);
+  }
+  const sender = addressOf(c, "agent");
+  const signer = lazySigner(sender, () => protocolKitSigner(c.cfg.rpcUrl, secretKey("agent", c.cfg.network), sender, safe));
+  return new SafeProposer(safe, apiKitClient(c.dep.chainId, apiKey), signer);
 }

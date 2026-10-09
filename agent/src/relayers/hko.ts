@@ -3,7 +3,7 @@
 // buildHkoAttestation turns a signal into the SignalAttestation the HKO relayer signs (relayers/sign.ts)
 // and submits (relayers/submit.ts).
 //
-// Run once:  npm run hko:now
+// Run once:  npm run hko:now     Live relayer (poll 60 s, attest on change, re-attest every 6 h at ≥ 8): npm run relayer:hko -- --live
 // (on Node 22 without tsx: NODE_USE_ENV_PROXY=1 node --experimental-strip-types src/relayers/hko.ts)
 // Parser tests: test/hko.test.ts
 
@@ -82,8 +82,8 @@ export function buildHkoAttestation(
   };
 }
 
-export async function fetchHkoSignal(url: string = HKO_WARNSUM_URL): Promise<HkoSignal> {
-  const res = await fetch(url, { headers: { accept: "application/json" } });
+export async function fetchHkoSignal(url: string = HKO_WARNSUM_URL, fetchImpl: typeof fetch = fetch): Promise<HkoSignal> {
+  const res = await fetchImpl(url, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`warnsum: HTTP ${res.status}`);
   return parseWarnsum(await res.json());
 }
