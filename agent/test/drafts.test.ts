@@ -65,7 +65,7 @@ describe("after-storm drafts", () => {
     const dir = mkdtempSync(join(tmpdir(), "s8-drafts-"));
     const log = new DecisionLog(dir, false);
     const paths = writeDrafts(ragasa, dir, log);
-    expect(paths.map((p) => p.slice(dir.length))).toEqual(["/drafts/r1/claim-en.md", "/drafts/r1/claim-zh-Hant.md", "/drafts/r1/deadlines.md"]);
+    expect(paths.map((p) => p.slice(dir.length).replace(/\\/g, "/"))).toEqual(["/drafts/r1/claim-en.md", "/drafts/r1/claim-zh-Hant.md", "/drafts/r1/deadlines.md"]);
     expect(readFileSync(paths[0]!, "utf8")).toMatch(/never sends it/);
     const lines = log.readNewest();
     expect(lines).toHaveLength(3);
