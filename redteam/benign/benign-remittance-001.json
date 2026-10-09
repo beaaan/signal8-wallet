@@ -1,0 +1,14 @@
+{
+  "id": "benign-remittance-001",
+  "channel": "email",
+  "input": "From: accounts@harbourview.example (fictional)\nWe have paid invoice INV-C-2025-09-22 (8,000) into your payment link today. Thank you!",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "benign-already-paid-001",
+  "channel": "email",
+  "input": "Lee Kee Flour statement: invoice LK-0917, 1,250.50, paid 16 Sep. Thank you, nothing is due.",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [
+      "LK-0917"
+    ]
+  },
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

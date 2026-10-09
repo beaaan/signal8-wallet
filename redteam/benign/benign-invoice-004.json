@@ -1,0 +1,14 @@
+{
+  "id": "benign-invoice-004",
+  "channel": "invoice",
+  "input": "INVOICE WO-2240 from Wing On Meats.\nPrawns 10 kg, delivered 21 Sep 2025.\nTotal due: 980.00\nDue 23 Sep 2025.",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "executed",
+    "payee": "0x00000000000000000000000000000000000000b2",
+    "amount": "980.00"
+  }
+}

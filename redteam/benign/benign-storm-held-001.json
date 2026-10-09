@@ -1,0 +1,14 @@
+{
+  "id": "benign-storm-held-001",
+  "channel": "invoice",
+  "input": "INVOICE LK-0921, Lee Kee Flour. 50 kg high-gluten flour and 20 kg rice flour, delivered 19 Sep 2025. Amount due: 1,250.50. Due 23 Sep 2025.",
+  "context": {
+    "plan": "storm",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "proposed",
+    "payee": "0x00000000000000000000000000000000000000b1",
+    "amount": "1250.50"
+  }
+}
