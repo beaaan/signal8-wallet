@@ -17,6 +17,8 @@ contract PaymentRouter is IPaymentRouter {
     IFlowCreditLine public immutable creditLine;
     ISignalAttestor public immutable attestor;
     bytes32 public immutable region;
+    error SweepTooHigh();
+
     uint16 public immutable sweepBps;
 
     constructor(
@@ -27,6 +29,7 @@ contract PaymentRouter is IPaymentRouter {
         bytes32 region_,
         uint16 sweepBps_
     ) {
+        if (sweepBps_ > 10_000) revert SweepTooHigh();
         token = token_;
         safe = safe_;
         creditLine = creditLine_;

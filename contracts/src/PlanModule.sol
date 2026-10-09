@@ -156,8 +156,10 @@ contract PlanModule is IPlanModule {
     /// @notice Claim the typhoon cover during a storm. The cover pays only the Safe, once per event.
     function claimCover(bytes32 ref) external {
         _checkAction(STORM, ACT_COVER_CLAIM, ref);
+        uint256 before = IERC20(token).balanceOf(safe);
         _exec(cover, abi.encodeWithSelector(IMockSignalCover.claim.selector));
-        emit Executed(STORM, ACT_COVER_CLAIM, cover, 0, ref);
+        // the payout the Safe received, so the event carries a real amount like every other action
+        emit Executed(STORM, ACT_COVER_CLAIM, cover, IERC20(token).balanceOf(safe) - before, ref);
     }
 
     /// @notice Anchor a report hash in the evidence registry. Moves no money.
@@ -259,6 +261,16 @@ contract PlanModule is IPlanModule {
 
     function spentAllToday() external view returns (uint256) {
         return spentAllOnDay[_today()];
+    }
+
+    /// @notice Most the plan can still pay today: the lower of its daily cap and the ceiling across plans.
+    function remainingToday(uint8 planId) external view returns (uint256) {
+        if (planId >= PLAN_COUNT) revert UnknownPlan();
+        uint256 day = _today();
+        uint256 cap = plans[planId].dailyCap;
+        uint256 plan = spentOnDay[planId][day] >= cap ? 0 : cap - spentOnDay[planId][day];
+        uint256 all = spentAllOnDay[day] >= dailyCeiling ? 0 : dailyCeiling - spentAllOnDay[day];
+        return plan < all ? plan : all;
     }
 
     // ------------------------------------------------------------------ internals

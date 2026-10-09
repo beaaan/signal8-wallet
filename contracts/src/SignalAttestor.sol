@@ -19,6 +19,7 @@ contract SignalAttestor is ISignalAttestor {
     bytes32 public constant HKO = keccak256("HKO");
     bytes32 public constant GDACS = keccak256("GDACS");
     bytes32 public constant NCHMF = keccak256("NCHMF");
+    bytes32 public constant HK = keccak256("HK"); // the only region HKO speaks for; NCHMF covers the others
 
     bytes32 public constant ATTESTATION_TYPEHASH =
         keccak256(
@@ -40,6 +41,8 @@ contract SignalAttestor is ISignalAttestor {
     mapping(address => uint64) public lastNonce;
     mapping(bytes32 => mapping(bytes32 => Latest)) internal _latest; // source => region => latest
     mapping(bytes32 => uint256) public queuedAt;
+    /// @notice GDACS event id fixed when the region's storm started; credit caps and cover claims key on it.
+    mapping(bytes32 => bytes32) public stormEvent;
 
     event RelayerSet(bytes32 indexed source, address relayer);
     event ChangeQueued(bytes32 indexed id, bytes data, uint256 eta);
@@ -75,6 +78,8 @@ contract SignalAttestor is ISignalAttestor {
         if (issued > block.timestamp) revert FutureAttestation();
         if (block.timestamp - issued > MAX_AGE * timeUnit) revert StaleAttestation();
         if (a.source != GDACS && a.eventId != bytes32(0)) revert UnexpectedEventId();
+        if (a.source == GDACS && a.level > 0 && a.eventId == bytes32(0)) revert MissingEventId();
+        if (a.source != GDACS && a.source != _localSource(a.region)) revert WrongRegion();
         if (!_validLevel(a.source, a.level)) revert BadLevel();
 
         bool before = isStorm(a.region);
@@ -84,9 +89,14 @@ contract SignalAttestor is ISignalAttestor {
 
         bool afterwards = isStorm(a.region);
         if (afterwards != before) {
-            bytes32 eventId = _latest[GDACS][a.region].eventId;
-            if (afterwards) emit StormStarted(a.region, eventId);
-            else emit StormEnded(a.region, eventId);
+            if (afterwards) {
+                // Pinned for the whole storm: a GDACS re-attestation with another id cannot reset the
+                // per-event credit cap or let the cover pay twice.
+                stormEvent[a.region] = _latest[GDACS][a.region].eventId;
+                emit StormStarted(a.region, stormEvent[a.region]);
+            } else {
+                emit StormEnded(a.region, stormEvent[a.region]);
+            }
         }
     }
 
@@ -100,8 +110,10 @@ contract SignalAttestor is ISignalAttestor {
         return local.level >= 8 && _fresh(local.issuedAt, LOCAL_TTL) && g.level >= 2 && _fresh(g.issuedAt, GDACS_TTL);
     }
 
+    /// @notice The storm's pinned event id while storm mode is on, otherwise the latest GDACS event id.
     function currentEvent(bytes32 region) external view returns (bytes32 eventId, uint8 hkoLevel) {
-        return (_latest[GDACS][region].eventId, _localLatest(region).level);
+        eventId = isStorm(region) ? stormEvent[region] : _latest[GDACS][region].eventId;
+        return (eventId, _localLatest(region).level);
     }
 
     function latest(bytes32 source, bytes32 region)
@@ -181,10 +193,13 @@ contract SignalAttestor is ISignalAttestor {
         return err == ECDSA.RecoverError.NoError ? signer : address(0);
     }
 
+    /// @dev One local source per region, so one local relayer can never switch another region's storm mode.
+    function _localSource(bytes32 region) internal pure returns (bytes32) {
+        return region == HK ? HKO : NCHMF;
+    }
+
     function _localLatest(bytes32 region) internal view returns (Latest memory) {
-        Latest memory h = _latest[HKO][region];
-        Latest memory n = _latest[NCHMF][region];
-        return n.issuedAt > h.issuedAt ? n : h;
+        return _latest[_localSource(region)][region];
     }
 
     function _fresh(uint64 issuedAt, uint256 ttl) internal view returns (bool) {
@@ -199,6 +214,14 @@ contract SignalAttestor is ISignalAttestor {
     }
 
     function _setRelayer(bytes32 source, address relayer) internal {
+        // Two independent sources need two keys: one address may not sign for two sources.
+        if (relayer != address(0)) {
+            if (
+                (source != HKO && relayers[HKO] == relayer) ||
+                (source != GDACS && relayers[GDACS] == relayer) ||
+                (source != NCHMF && relayers[NCHMF] == relayer)
+            ) revert RelayerInUse();
+        }
         relayers[source] = relayer;
         emit RelayerSet(source, relayer);
     }

@@ -40,12 +40,17 @@ abstract contract Fixture is Test {
     PlanModule internal module;
 
     function _deploy(uint256 timeUnit) internal {
+        attestor = new MockAttestor();
+        _deployWith(timeUnit, address(attestor));
+    }
+
+    /// @dev Same demo configuration against any attestor (the real SignalAttestor in Integration.t.sol).
+    function _deployWith(uint256 timeUnit, address attestor_) internal {
         safe = new LocalSafe(owner);
         usd = new MockUSD();
         vault = new MockMMFVault(IERC20Metadata(address(usd)));
         credit = new FlowCreditLine(usd, address(safe), 50_000 * USD);
-        attestor = new MockAttestor();
-        cover = new MockSignalCover(usd, address(safe), 20_000 * USD, ISignalAttestor(address(attestor)), REGION);
+        cover = new MockSignalCover(usd, address(safe), 20_000 * USD, ISignalAttestor(attestor_), REGION);
         evidence = new EvidenceRegistry();
 
         PlanModule.PayeeInit[] memory payees = new PlanModule.PayeeInit[](3);
@@ -60,7 +65,7 @@ abstract contract Fixture is Test {
             timeUnit: timeUnit,
             agent: agent,
             guardian: guardian,
-            attestor: address(attestor),
+            attestor: attestor_,
             targets: PlanModule.Targets(address(vault), address(credit), address(cover), address(evidence)),
             basePlan: IPlanModule.Plan(5_000 * USD, 15_000 * USD, 0, ACT_PAY | ACT_VAULT_DEPOSIT | ACT_VAULT_WITHDRAW, true, PLAN_HASH),
             stormPlan: IPlanModule.Plan(
