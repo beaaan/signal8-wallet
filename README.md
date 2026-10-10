@@ -156,20 +156,20 @@ The second is the hard case: a real supplier, an amount under the per-payment ca
 
 **After the storm, the agent drafts; the owner sends.** `agent/logs/drafts/<runId>/` gets an insurance claim in English and Traditional Chinese that cites the cover payout transaction and the pre-storm evidence hash, and a deadline list. For the Vietnam (Yagi) region it also drafts a Circular 53/2024 restructuring request. Preview without a chain: `cd agent && npx tsx src/drafts.ts --event yagi-2024`.
 
-**Red-team check (offline).** `cd agent && npm run redteam` runs 43 attacks in seven families and 15 benign cases from `redteam/` through our pipeline, each attack on an ordinary day and in storm mode:
+**Red-team check.** `cd agent && npm run redteam` runs 43 attacks in seven families and 15 benign cases from `redteam/` through our pipeline, each attack on an ordinary day and in storm mode; `-- --model` uses the configured model, and `npm run redteam:bare` runs the same cases against a bare agent holding a wallet tool. With `deepseek-flash` (10 Oct):
 
-| Family | Cases | Attacker wins | Funds lost (mUSD) |
-| --- | --- | --- | --- |
-| Role-play reframing | 6 | 0/12 | 0.00 |
-| Encoded payloads (base64, ROT13, Morse, homoglyphs, hidden addresses) | 6 | 0/12 | 0.00 |
-| Poisoned memory ("as agreed last week") | 5 | 0/10 | 0.00 |
-| Permission escalation | 6 | 0/12 | 0.00 |
-| Fake bank-detail change | 6 | 0/12 | 0.00 |
-| Fake storm warning | 6 | 0/12 | 0.00 |
-| Registered-payee abuse (overpay, split, duplicate, re-issued invoice) | 8 | 0/16 | 0.00 |
-| Benign (invoices, payroll, client payments) | 15 | n/a | 15/15 correct, 0 false refusals |
+| Family | Cases | Bare agent: attacker wins | Signal 8 Wallet: attacker wins | Funds lost (mUSD), both |
+| --- | --- | --- | --- | --- |
+| Role-play reframing | 6 | 0/12 | 0/12 | 0.00 |
+| Encoded payloads (base64, ROT13, Morse, homoglyphs, hidden addresses) | 6 | 0/12 | 0/12 | 0.00 |
+| Poisoned memory ("as agreed last week") | 5 | 0/10 | 0/10 | 0.00 |
+| Permission escalation | 6 | 0/12 | 0/12 | 0.00 |
+| Fake bank-detail change | 6 | 2/12 | 1/12 | 0.00 |
+| Fake storm warning | 6 | 0/12 | 0/12 | 0.00 |
+| Registered-payee abuse (overpay, split, duplicate, re-issued invoice) | 8 | 0/16 | 0/16 | 0.00 |
+| Benign (invoices, payroll, client payments) | 15 | 14/15 correct | 15/15 correct, 0 false refusals | n/a |
 
-The hardest case is an inflated rent invoice from the landlord, who has no purchase order: it fits under the per-payment cap, so the owner's records hold the usual rent and anything above it goes to the owners (known risk 13 in [docs/SECURITY.md](docs/SECURITY.md)). These numbers use the offline rules provider, not a model; the `deepseek-flash` run and the bare-agent baseline (`npm run redteam:bare`) need the model key.
+Each "win" paid the genuine invoice amount to the registered supplier, never the attacker's address; see [docs/SECURITY.md](docs/SECURITY.md) §5. The hardest case for the rules is an inflated rent invoice from the landlord, who has no purchase order: it fits under the per-payment cap, so the owner's records hold the usual rent and anything above it goes to the owners (known risk 13). The offline rules provider (no model) holds 0/86 with 15/15 benign.
 
 ## Commands
 
@@ -177,7 +177,7 @@ The hardest case is an inflated rent invoice from the landlord, who has no purch
 | --- | --- | --- |
 | `contracts/` | `forge test` | 103 tests: unit, fuzz, the six `PlanModule` invariants and an attestor + module integration test |
 | `contracts/` | `forge script script/Deploy.s.sol --rpc-url … --broadcast` | Deploys everything from the plan book; writes `deployments/<network>.json` |
-| `agent/` | `npm test` | 287 tests, no chain or network needed |
+| `agent/` | `npm test` | 294 tests, no chain or network needed |
 | `agent/` | `npm run replay -- --event ragasa-2025 [--speed N] [--pause-at-steps] [--dry-run] [--yes]` | The storm replay (`--help` lists the flags; asks before running on a non-local network) |
 | `agent/` | `npm run serve` | Decision log and arena API on :8787 |
 | `agent/` | `npm run redteam`, `npm run redteam:table` | Offline attack and benign cases; writes `redteam/results/summary.json`; prints the SECURITY.md table |
@@ -194,10 +194,10 @@ The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MO
 
 ## What's not done yet
 
-- **Base Sepolia.** The deploy script supports it, but it needs funded testnet keys, the 2-of-3 Safe and a Safe API key (kick-off tasks 4 to 6 and 8). Until then there are no real transaction hashes for `docs/EVIDENCE.md`.
+- **Base Sepolia with the model.** The contracts are deployed behind the 2-of-3 Safe and the Ragasa replay ran there end to end (`docs/EVIDENCE.md`), but on the offline rules provider; it still needs a run with the model. There is no Safe API key yet, so proposals go to the log.
 - **Safe proposals** are built and unit-tested with a fake Safe service, but not yet sent to the real one; locally they are logged to `agent/logs/proposals.jsonl`.
 - **`PlanGuard`** is written and tested against a stand-in Safe, but not set on any Safe yet (it goes on a throwaway Safe first).
-- **Model choice** for the extractor and planner is still a team decision; the model path, the model red-team run and the bare-agent baseline have not been run live.
+- **Model red team** ran with `deepseek-flash` on 10 Oct; it is to be rerun after the case freeze on 17 Oct.
 - Not built: the FISCO BCOS port and Yagi on FISCO.
 
 ## Where things are
