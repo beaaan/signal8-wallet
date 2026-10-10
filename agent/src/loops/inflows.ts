@@ -42,12 +42,21 @@ export interface InflowSource {
   inflows(fromBlock: bigint, toBlock: bigint): Promise<InflowEvent[]>;
 }
 
+/** Blocks per eth_getLogs call. */
+const LOG_RANGE = 200n;
+
 export function chainInflows(c: Chainish): InflowSource {
   return {
     latestBlock: () => c.pub.getBlockNumber({ cacheTime: 0 }),
     async inflows(fromBlock, toBlock) {
-      const logs = await c.pub.getContractEvents({ address: c.dep.contracts.PaymentRouter, abi: paymentRouterAbi, eventName: "Inflow", fromBlock, toBlock });
-      return logs.map((l) => ({ invoiceRef: l.args.invoiceRef!, amount: l.args.amount!, swept: l.args.swept!, tx: l.transactionHash!, block: l.blockNumber! }));
+      const out: InflowEvent[] = [];
+      // public Base Sepolia RPCs cap eth_getLogs at 200 blocks, and a checkpoint can be hours old
+      for (let from = fromBlock; from <= toBlock; from += LOG_RANGE) {
+        const to = from + LOG_RANGE - 1n < toBlock ? from + LOG_RANGE - 1n : toBlock;
+        const logs = await c.pub.getContractEvents({ address: c.dep.contracts.PaymentRouter, abi: paymentRouterAbi, eventName: "Inflow", fromBlock: from, toBlock: to });
+        out.push(...logs.map((l) => ({ invoiceRef: l.args.invoiceRef!, amount: l.args.amount!, swept: l.args.swept!, tx: l.transactionHash!, block: l.blockNumber! })));
+      }
+      return out;
     },
   };
 }

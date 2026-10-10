@@ -17,6 +17,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { coverAbi, creditLineAbi, erc20Abi, planModuleAbi, signalAttestorAbi, vaultAbi } from "./abis.ts";
 import { secretKey, type Config, type Deployment, type KeyRole } from "./config.ts";
+import { consistentTransport } from "./rpc.ts";
 import type { Hex, PlanState, Snapshot } from "./policy/localCheck.ts";
 
 export type Wallet = WalletClient<Transport, Chain, Account>;
@@ -28,6 +29,8 @@ export interface Chainish {
   pub: PublicClient;
   /** keccak256("HK") etc. */
   region: Hex;
+  /** Shared by the public and wallet clients, so reads see this process's own writes (see rpc.ts). */
+  transport?: Transport;
 }
 
 export function regionId(region: string): Hex {
@@ -41,14 +44,15 @@ export function connect(cfg: Config, dep: Deployment): Chainish {
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [cfg.rpcUrl] } },
   });
-  const pub = createPublicClient({ chain, transport: http(cfg.rpcUrl) }) as PublicClient;
-  return { cfg, dep, chain, pub, region: regionId(dep.region) };
+  const transport = cfg.local ? http(cfg.rpcUrl) : consistentTransport(cfg.rpcUrl);
+  const pub = createPublicClient({ chain, transport }) as PublicClient;
+  return { cfg, dep, chain, pub, region: regionId(dep.region), transport };
 }
 
 /** A wallet client for one role. The key stays inside the viem account object. */
 export function walletFor(c: Chainish, role: KeyRole): Wallet {
   const account = privateKeyToAccount(secretKey(role, c.cfg.network));
-  return createWalletClient({ account, chain: c.chain, transport: http(c.cfg.rpcUrl) });
+  return createWalletClient({ account, chain: c.chain, transport: c.transport ?? http(c.cfg.rpcUrl) });
 }
 
 export function addressOf(c: Chainish, role: KeyRole): Hex {

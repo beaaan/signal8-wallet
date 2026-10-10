@@ -1,0 +1,20 @@
+{
+  "chainId": 84532,
+  "contracts": {
+    "EvidenceRegistry": "0xeB7D846D782d6C69c28Caa2B2eD2d155125B8382",
+    "FlowCreditLine": "0x311BF06caE13755f2fb45721319E6346ED70Cc08",
+    "MockMMFVault": "0xba7F8bEA8EE05bCF838546Be239e470640eFe1eF",
+    "MockSignalCover": "0x08Ba0789Bc4D315F40b7CE1bDaff499B452a2C33",
+    "MockUSD": "0x651CA08196e01eE973777Fe88010bD8751e61D3e",
+    "PaymentRouter": "0x851f33959E8E7B707767De4afD93b531492377a4",
+    "PlanGuard": "0x10A139a8ee2C7f93f7aFa080753aAecE8D8D5F8e",
+    "PlanModule": "0x12F764eEFb924d6109af638a218bDDAD96607c4A",
+    "Safe": "0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E",
+    "SignalAttestor": "0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2"
+  },
+  "network": "base-sepolia",
+  "planHash": "0x354c96c8284721b23a59f96ab43ce086fd328478cfcb198a2a7e1e82964d6c1b",
+  "region": "HK",
+  "startBlock": 47919003,
+  "timeUnit": 1
+}

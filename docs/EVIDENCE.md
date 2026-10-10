@@ -6,16 +6,18 @@ Topic F requires real transaction hashes. `npm run evidence` prints the rows fro
 
 | Contract | Address | Deploy tx |
 | --- | --- | --- |
-| Business Safe (2-of-3) | | |
-| PlanModule | | |
-| SignalAttestor | | |
-| PlanGuard | | |
-| MockUSD | | |
-| MockSignalCover | | |
-| FlowCreditLine | | |
-| PaymentRouter | | |
-| MockMMFVault | | |
-| EvidenceRegistry | | |
+| Business Safe (2-of-3) | [`0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E) | [`0xc4839217…`](https://sepolia.basescan.org/tx/0xc4839217606dbec38d74ad859a35905793fe15374bd234d2a25da51efdfe0b9f) |
+| PlanModule | [`0x12F764eEFb924d6109af638a218bDDAD96607c4A`](https://sepolia.basescan.org/address/0x12F764eEFb924d6109af638a218bDDAD96607c4A) | [`0x82862cfe…`](https://sepolia.basescan.org/tx/0x82862cfe86ddf4a89796fd92691ec108fd7803d9827f4a7f6c6a1e64cbba5a08) |
+| SignalAttestor | [`0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2`](https://sepolia.basescan.org/address/0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2) | [`0x674ab2f3…`](https://sepolia.basescan.org/tx/0x674ab2f3adbf247afde6fb6607301d7662892024cb181f5b0903a32a08735bdd) |
+| PlanGuard | [`0x10A139a8ee2C7f93f7aFa080753aAecE8D8D5F8e`](https://sepolia.basescan.org/address/0x10A139a8ee2C7f93f7aFa080753aAecE8D8D5F8e) | [`0xf3917ee9…`](https://sepolia.basescan.org/tx/0xf3917ee9266b7e8a0e0e711d79306a374cafd7a57c0c4b24775f834b970f23e2) |
+| MockUSD | [`0x651CA08196e01eE973777Fe88010bD8751e61D3e`](https://sepolia.basescan.org/address/0x651CA08196e01eE973777Fe88010bD8751e61D3e) | [`0x7342361f…`](https://sepolia.basescan.org/tx/0x7342361f420a88bfe13a2d4b995dac7856a914a2a0f1cf3e0da752ca329da760) |
+| MockSignalCover | [`0x08Ba0789Bc4D315F40b7CE1bDaff499B452a2C33`](https://sepolia.basescan.org/address/0x08Ba0789Bc4D315F40b7CE1bDaff499B452a2C33) | [`0x443ad4c5…`](https://sepolia.basescan.org/tx/0x443ad4c508055a06fc8400883614b644a7daac56954f04eb136265c644a2763c) |
+| FlowCreditLine | [`0x311BF06caE13755f2fb45721319E6346ED70Cc08`](https://sepolia.basescan.org/address/0x311BF06caE13755f2fb45721319E6346ED70Cc08) | [`0xad9e12a2…`](https://sepolia.basescan.org/tx/0xad9e12a23b414bf1d31c7406e0203b4a2dfa4e9ca13cdf3d382a447919d3fff1) |
+| PaymentRouter | [`0x851f33959E8E7B707767De4afD93b531492377a4`](https://sepolia.basescan.org/address/0x851f33959E8E7B707767De4afD93b531492377a4) | [`0xa131a853…`](https://sepolia.basescan.org/tx/0xa131a85399f05f6f181c9cabaddbc0bd9ba3522819f6aebbca605663d695500f) |
+| MockMMFVault | [`0xba7F8bEA8EE05bCF838546Be239e470640eFe1eF`](https://sepolia.basescan.org/address/0xba7F8bEA8EE05bCF838546Be239e470640eFe1eF) | [`0x4cf6b52e…`](https://sepolia.basescan.org/tx/0x4cf6b52eee5b1a7f5d2d12faa14de932f5f2c2e1799cbae67fc37e0076c0854a) |
+| EvidenceRegistry | [`0xeB7D846D782d6C69c28Caa2B2eD2d155125B8382`](https://sepolia.basescan.org/address/0xeB7D846D782d6C69c28Caa2B2eD2d155125B8382) | [`0xcd5a1568…`](https://sepolia.basescan.org/tx/0xcd5a15686d3ee2f5c129d183047c8d1154de3861be4586c6e9e4e9a4eb4e643a) |
+
+Safe v1.4.1 (SafeL2 singleton, canonical SafeProxyFactory). Owners enabled PlanModule with two signatures in [`0x630e9e9d…`](https://sepolia.basescan.org/tx/0x630e9e9daaec9ee6b78b66c79a3e3d046dad9a6a677fe4c965ad1c8eb3cd4967). PlanGuard is deployed but not set on the Safe (SECURITY.md known risk 7). The three owner keys are testnet keys held together for now (SECURITY.md known risk 19).
 
 ## Ragasa replay (Base Sepolia)
 
