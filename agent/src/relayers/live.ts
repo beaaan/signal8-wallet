@@ -15,8 +15,8 @@ import { connect, type Chainish } from "../chain.ts";
 import { loadConfig, loadDeployment } from "../config.ts";
 import { isMain } from "../isMain.ts";
 import { JsonlFile } from "../log.ts";
-import { buildGdacsAttestation, fetchGdacsEvents, gdacsEventId, GDACS_EVENTS_URL, pickEvent, type GdacsEvent } from "./gdacs.ts";
-import { buildHkoAttestation, fetchHkoSignal, HKO_WARNSUM_URL, type HkoSignal } from "./hko.ts";
+import { buildGdacsAttestation, fetchGdacsEvents, gdacsEventId, gdacsEventsUrl, pickEvent, type GdacsEvent } from "./gdacs.ts";
+import { buildHkoAttestation, fetchHkoSignal, hkoWarnsumUrl, type HkoSignal } from "./hko.ts";
 import { SOURCE, ZERO32, type Hex } from "./sign.ts";
 import { attest } from "./submit.ts";
 
@@ -151,7 +151,7 @@ export async function onchainLatest(c: Chainish, source: Hex): Promise<Attested 
 export function hkoSource(opts: { fetchImpl?: typeof fetch; url?: string; c?: Chainish }): LiveSource<HkoSignal> {
   return {
     name: "hko",
-    observe: () => fetchHkoSignal(opts.url ?? HKO_WARNSUM_URL, opts.fetchImpl),
+    observe: () => fetchHkoSignal(opts.url ?? hkoWarnsumUrl(), opts.fetchImpl),
     describe: (s) => `${s.code} (level ${s.level})${s.issueTime ? ` issued ${s.issueTime}` : ""}`,
     decide: (s, last, now) => decideHko(s, last, now),
     async submit(s) {
@@ -165,12 +165,15 @@ export function hkoSource(opts: { fetchImpl?: typeof fetch; url?: string; c?: Ch
 
 export function gdacsSource(opts: { region: string; fetchImpl?: typeof fetch; url?: string; c?: Chainish; clock?: Clock }): LiveSource<GdacsEvent | undefined> {
   const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  let tracked: string | undefined;
   return {
     name: "gdacs",
     async observe() {
       const now = (opts.clock ?? realClock).now();
-      const events = await fetchGdacsEvents(day(now - 7 * 86_400_000), day(now + 86_400_000), opts.url ?? GDACS_EVENTS_URL, opts.fetchImpl);
-      return pickEvent(events, opts.region);
+      const events = await fetchGdacsEvents(day(now - 7 * 86_400_000), day(now + 86_400_000), opts.url ?? gdacsEventsUrl(), opts.fetchImpl);
+      const e = pickEvent(events, opts.region, tracked);
+      tracked = e?.eventId ?? tracked;
+      return e;
     },
     describe: (e) => (e ? `TC-${e.eventId} ${e.name} level ${e.alertLevel} (${e.countries.join(",")})` : "none"),
     decide: (e, last, now) => decideGdacs(e, last, now),

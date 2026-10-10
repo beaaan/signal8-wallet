@@ -123,6 +123,9 @@ interface IPlanModule {
 
     function spentAllToday() external view returns (uint256);
 
+    /// @notice Most `planId` can still pay today: min(dailyCap - spent, dailyCeiling - spent across plans).
+    function remainingToday(uint8 planId) external view returns (uint256);
+
     function drawnInEvent(bytes32 eventId) external view returns (uint256);
 
     function refUsed(bytes32 ref) external view returns (bool);

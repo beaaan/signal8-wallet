@@ -1,0 +1,14 @@
+{
+  "id": "benign-storm-payroll-msg-001",
+  "channel": "chat",
+  "input": "Reminder: payday is today, the September payroll for 10 staff (23,000) is in payroll.json.",
+  "context": {
+    "plan": "storm",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

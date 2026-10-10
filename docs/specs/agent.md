@@ -1,6 +1,6 @@
 # Agent, relayer and replay specs
 
-TypeScript on Node 22. Libraries: `viem` (chain), `@safe-global/protocol-kit` and `@safe-global/api-kit` (Safe), `zod` (schemas), a model SDK for the extractor and planner.
+TypeScript on Node 22. Libraries: `viem` (chain), `@safe-global/protocol-kit` and `@safe-global/api-kit` (Safe), `zod` (schemas), the Anthropic SDK or any OpenAI-compatible Chat Completions API (plain `fetch`) for the extractor and planner.
 
 ## Process layout
 
@@ -25,7 +25,7 @@ agent/src/
   loops/
     everyday.ts        match inflows, pay due bills, sweep, reconcile
     storm.ts           brace, claim, payroll, credit draw, lock
-  forecast.ts          13-week cash forecast
+  (storm.ts)           13-week cash forecast
   drafts.ts            insurance claim, Circular 53 request, deadline list
   log.ts               decisions.jsonl (every action, refusal and reason)
   types.ts             zod schemas (below)
@@ -70,7 +70,7 @@ How the executor maps each action (there is no generic call; see [contracts.md](
 
 | Action | `PlanModule` function | `ref` |
 | --- | --- | --- |
-| `pay` | `pay(planId, payee, amount, ref)` | supplier: `keccak256(invoiceId)`; payroll: `keccak256(abi.encode(employee, payPeriod))` |
+| `pay` | `pay(planId, payee, amount, ref)` | supplier: `keccak256(abi.encode(payee, invoiceId))` with the id upper-cased and stripped to A–Z and 0–9 (so "lk 0917" is "LK-0917", and two suppliers may share a number); payroll: `keccak256(abi.encode(employee, payPeriod))` |
 | `vault_deposit` | `vaultDeposit(BASE, amount, ref)` | `keccak256(actionId)` |
 | `vault_withdraw` | `vaultWithdraw(planId, amount, ref)` | `keccak256(actionId)` |
 | `credit_draw` | `creditDraw(amount, ref)` | `keccak256(actionId)` |
@@ -107,7 +107,7 @@ EIP-712 with viem `signTypedData`, domain and types exactly as in [contracts.md]
 ## Replay (`replay/runner.ts`)
 
 ```
-npm run replay -- --event ragasa-2025 --speed 600 [--run-id <id>] [--rpc <url>] [--pause-at-steps] [--dry-run]
+npm run replay -- --event ragasa-2025 --speed 600 [--run-id <id>] [--rpc <url>] [--pause-at-steps] [--skip-everyday] [--dry-run] [--yes]
 ```
 
 - Loads `data/replays/<event>.json` (format below) and converts timeline times to a compressed clock.
@@ -117,8 +117,9 @@ npm run replay -- --event ragasa-2025 --speed 600 [--run-id <id>] [--rpc <url>] 
 - **Caps.** The whole run lands in one chain day, so the demo plans' caps are sized for one full run (see [contracts.md](contracts.md#caps-and-the-compressed-replay)). Before starting, the runner reads `spentToday` and `spentAllToday` and refuses to start if the run would not fit.
 - **Rehearsals** use `--rpc http://127.0.0.1:8545` against `anvil --fork-url $BASE_SEPOLIA_RPC`, so they don't use up the live deployment's day.
 - `--pause-at-steps` waits for Enter at each signal change (for the live demo).
-- `--dry-run` runs everything except sending transactions.
-- At the end it prints every transaction hash and appends them to `docs/EVIDENCE.md` (`npm run evidence`).
+- `--dry-run` prints the timeline on the compressed clock and sends nothing (CI uses it). An unknown flag or a bad `--speed` stops the runner before anything runs; on a public testnet it asks before sending unless `--yes`.
+- Before the ordinary day it checks that the local plan book hashes to the on-chain `planHash` and refuses to start otherwise.
+- At the end it prints every successful transaction hash; `npm run evidence -- --write` puts them in `docs/EVIDENCE.md`.
 
 Replay file format (see `data/replays/ragasa-2025.json`):
 
@@ -143,7 +144,7 @@ Deterministic state machine; the planner only fills amounts.
 
 | On | Do |
 | --- | --- |
-| level 1 | read storm plan hash; notify the owner with a 3-line summary |
+| level 1 | read storm plan hash; notify the owner with a one-line summary |
 | level 3 (rising) | `vault_withdraw` to reach the storm buffer; pause scheduled non-urgent payments locally; `anchor PRE_STORM` (hash of photos + warning snapshot) |
 | storm starts (attestor event) | `cover_claim`; re-run forecast |
 | payday while storm | `pay` each employee under the storm plan (staff are storm-plan payees); if forecast < buffer then `credit_draw` sized by forecast, capped by `creditCapPerEvent` |

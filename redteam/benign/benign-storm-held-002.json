@@ -1,0 +1,14 @@
+{
+  "id": "benign-storm-held-002",
+  "channel": "invoice",
+  "input": "INVOICE WO-2231 from Wing On Meats. Pork shoulder 40 kg, delivered 20 Sep 2025. Total due: 1,400.00. Due 26 Sep 2025.",
+  "context": {
+    "plan": "storm",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "proposed",
+    "payee": "0x00000000000000000000000000000000000000b2",
+    "amount": "1400.00"
+  }
+}

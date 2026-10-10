@@ -27,6 +27,7 @@ export const planModuleAbi = parseAbi([
   "function dailyCeiling() view returns (uint256)",
   "function spentToday(uint8 planId) view returns (uint256)",
   "function spentAllToday() view returns (uint256)",
+  "function remainingToday(uint8 planId) view returns (uint256)",
   "function drawnInEvent(bytes32 eventId) view returns (uint256)",
   "function refUsed(bytes32 ref) view returns (bool)",
   "function paused() view returns (bool)",
@@ -69,6 +70,7 @@ export const signalAttestorAbi = parseAbi([
   "function attest(SignalAttestation a, bytes signature)",
   "function isStorm(bytes32 region) view returns (bool)",
   "function currentEvent(bytes32 region) view returns (bytes32 eventId, uint8 hkoLevel)",
+  "function stormEvent(bytes32 region) view returns (bytes32)",
   "function latest(bytes32 source, bytes32 region) view returns (uint8 level, bytes32 eventId, uint64 sourceTime, uint64 issuedAt)",
   "function relayers(bytes32 source) view returns (address)",
   "function lastNonce(address relayer) view returns (uint64)",
@@ -81,6 +83,9 @@ export const signalAttestorAbi = parseAbi([
   "error FutureAttestation()",
   "error UnexpectedEventId()",
   "error BadLevel()",
+  "error MissingEventId()",
+  "error WrongRegion()",
+  "error RelayerInUse()",
 ]);
 
 export const vaultAbi = parseAbi([

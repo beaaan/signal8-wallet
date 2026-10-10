@@ -11,7 +11,8 @@ const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
 export const PurchaseOrders = z.object({
   note: z.string().optional(),
-  suppliers: z.record(z.string(), z.object({ requiresPO: z.boolean() }).strict()),
+  /** usualAmount: for a supplier without purchase orders (the landlord), an invoice above it goes to the owners. */
+  suppliers: z.record(z.string(), z.object({ requiresPO: z.boolean(), usualAmount: amount.optional() }).strict()),
   orders: z.array(z.object({ po: z.string(), supplier: z.string(), invoiceId: z.string().optional(), amount, item: z.string().optional() }).strict()),
 });
 export type PurchaseOrder = z.infer<typeof PurchaseOrders>["orders"][number];
@@ -24,6 +25,7 @@ export type PaidInvoice = z.infer<typeof PaidInvoices>["paid"][number];
 
 export interface PayeeControls {
   requiresPO: Record<string, boolean>; // payee id → needs a purchase order
+  usualAmount?: Record<string, string>; // payee id → the most an invoice may ask without the owners (no PO to compare)
   orders: PurchaseOrder[];
   /** Grows as the agent pays invoices, so a re-issue later the same session is caught too. */
   paid: PaidInvoice[];
@@ -36,6 +38,7 @@ export function loadControls(paths = { orders: `${PATHS.fixtures}/purchase-order
   const payroll = existsSync(paths.payroll) ? loadPayroll(paths.payroll) : undefined;
   return {
     requiresPO: Object.fromEntries(Object.entries(orders.suppliers).map(([k, v]) => [k, v.requiresPO])),
+    usualAmount: Object.fromEntries(Object.entries(orders.suppliers).flatMap(([k, v]) => (v.usualAmount ? [[k, v.usualAmount]] : []))),
     orders: orders.orders,
     paid,
     payroll: payroll && { period: payroll.payPeriod, total: plain(payrollTotal(payroll)), staff: payroll.staff },

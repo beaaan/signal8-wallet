@@ -248,6 +248,29 @@ contract PlanModuleTest is Fixture {
         vm.stopPrank();
     }
 
+    function test_ClaimCoverEmitsThePayout() public {
+        _storm(true, EVENT_A);
+        vm.expectEmit(true, true, true, true);
+        emit Executed(STORM, ACT_COVER_CLAIM, address(cover), 20_000 * USD, "k1");
+        vm.prank(agent);
+        module.claimCover("k1");
+    }
+
+    function test_RemainingTodayIsTheTighterLimit() public {
+        assertEq(module.remainingToday(BASE), 15_000 * USD);
+        vm.startPrank(agent);
+        module.pay(BASE, supplier, 5_000 * USD, "r1");
+        assertEq(module.remainingToday(BASE), 10_000 * USD);
+        _storm(true, EVENT_A);
+        for (uint256 i = 0; i < 8; i++) module.pay(STORM, staff, 3_000 * USD, keccak256(abi.encode(i)));
+        vm.stopPrank();
+        // 29,000 of the 35,000 ceiling spent: the ceiling now binds the base plan
+        assertEq(module.remainingToday(BASE), 6_000 * USD);
+        assertEq(module.remainingToday(STORM), 1_000 * USD);
+        vm.expectRevert(IPlanModule.UnknownPlan.selector);
+        module.remainingToday(2);
+    }
+
     function test_ClaimCoverNeedsStorm() public {
         vm.prank(agent);
         vm.expectRevert(IPlanModule.StormNotActive.selector);

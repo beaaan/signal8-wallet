@@ -74,6 +74,13 @@ const PATHS: Record<string, React.ReactNode> = {
     </>
   ),
   timeline: <path d="M4 6h16M4 12h10M4 18h13" />,
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4" />
+    </>
+  ),
+  chevron: <path d="m9 6 6 6-6 6" />,
 };
 
 export function Icon({ name, size = 20, label }: { name: Kind | string; size?: number; label?: string }) {

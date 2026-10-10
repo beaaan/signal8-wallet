@@ -20,6 +20,16 @@ describe("config", () => {
     expect(JSON.stringify(cfg)).not.toContain("sk-test");
   });
 
+  it("an OpenAI-compatible provider needs an https base URL and a model name", () => {
+    const env = { MODEL_API_KEY: "sk-test", MODEL_PROVIDER: "openai", MODEL_BASE_URL: "https://api.deepseek.com/", MODEL_NAME: "deepseek-flash", MODEL_REASONING_EFFORT: "low" };
+    expect(loadConfig(env).model).toEqual({ provider: "openai", name: "deepseek-flash", hasKey: true, baseUrl: "https://api.deepseek.com", reasoningEffort: "low" });
+    expect(() => loadConfig({ ...env, MODEL_BASE_URL: "" })).toThrow(/MODEL_BASE_URL/);
+    expect(() => loadConfig({ ...env, MODEL_BASE_URL: "http://api.example.com" })).toThrow(/https/);
+    expect(loadConfig({ ...env, MODEL_BASE_URL: "http://127.0.0.1:11434/v1" }).model.baseUrl).toBe("http://127.0.0.1:11434/v1");
+    expect(() => loadConfig({ ...env, MODEL_NAME: "" })).toThrow(/MODEL_NAME/);
+    expect(() => loadConfig({ ...env, MODEL_PROVIDER: "gemini" })).toThrow(/anthropic, openai or rules/);
+  });
+
   it("falls back to the anvil dev key for a role only on anvil", () => {
     expect(privateKeyToAccount(secretKey("agent", "anvil", {})).address).toBe("0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"); // anvil #5
     expect(() => secretKey("agent", "base-sepolia", {})).toThrow(/AGENT_PRIVATE_KEY/);

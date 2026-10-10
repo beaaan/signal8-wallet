@@ -1,5 +1,6 @@
 {
-  "planHash": "0x48287cea9e1d851f80ec971be37e8c29d98ec245fe4257f47f3bb1e2e2051b63",
+  "planHash": "0x354c96c8284721b23a59f96ab43ce086fd328478cfcb198a2a7e1e82964d6c1b",
+  "region": "HK",
   "dailyCeiling": "40000000000",
   "plans": {
     "base": {
@@ -8,7 +9,7 @@
       "creditCapPerEvent": "0",
       "actions": 7,
       "active": true,
-      "planHash": "0x48287cea9e1d851f80ec971be37e8c29d98ec245fe4257f47f3bb1e2e2051b63"
+      "planHash": "0x354c96c8284721b23a59f96ab43ce086fd328478cfcb198a2a7e1e82964d6c1b"
     },
     "storm": {
       "perTxCap": "3000000000",
@@ -16,7 +17,7 @@
       "creditCapPerEvent": "15000000000",
       "actions": 29,
       "active": true,
-      "planHash": "0x48287cea9e1d851f80ec971be37e8c29d98ec245fe4257f47f3bb1e2e2051b63"
+      "planHash": "0x354c96c8284721b23a59f96ab43ce086fd328478cfcb198a2a7e1e82964d6c1b"
     }
   },
   "payees": [

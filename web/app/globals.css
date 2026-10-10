@@ -338,6 +338,60 @@ details > summary {
   font-size: 13px;
 }
 
+/* a label that folds out its explanation (replaces title hovers) */
+.hint {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.hint.muted {
+  color: var(--muted);
+}
+
+.hint-text {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hint-text[hidden] {
+  display: none;
+}
+
+.copy {
+  min-height: 0;
+  padding: 4px;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.copy:hover {
+  color: var(--text);
+}
+
+.short-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ------------------------------------------------------------------ signal symbol */
 
 .signal {
@@ -588,6 +642,10 @@ details > summary {
   color: var(--muted);
 }
 
+.figure .hint-text {
+  order: 3;
+}
+
 .figure-value {
   white-space: nowrap;
   font-size: 30px;
@@ -616,8 +674,14 @@ details > summary {
 
 .bar-label {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   font-size: 13px;
+}
+
+.bar-label .hint-text {
+  order: 3;
+  flex-basis: 100%;
 }
 
 .bar-track {
@@ -773,6 +837,62 @@ details > summary {
   white-space: nowrap;
 }
 
+.row-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.row-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted);
+  opacity: 0.6;
+  transition: transform 0.15s;
+}
+
+.row-toggle[aria-expanded="true"] .row-chevron {
+  transform: rotate(90deg);
+}
+
+.row-more {
+  grid-column: 3 / -1;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.row-more p {
+  margin: 0 0 4px;
+}
+
+.row-children {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.row-children li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  color: var(--text);
+}
+
 .row-amount {
   display: flex;
   align-items: center;
@@ -804,6 +924,15 @@ details > summary {
 
 .more {
   margin-top: 10px;
+}
+
+/* presenter mode (?big=1 or the b key): everything larger for a projector */
+main:has(.dash-big) {
+  max-width: 1600px;
+}
+
+.dash-big {
+  zoom: 1.35;
 }
 
 /* ------------------------------------------------------------------ plan */
@@ -1096,6 +1225,21 @@ textarea {
   border: 0;
 }
 
+.arena-closed h2 {
+  margin-bottom: 4px;
+}
+
+.hash-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.hash-line .hash {
+  margin: 0;
+}
+
 .score {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
@@ -1201,6 +1345,9 @@ textarea {
   }
   .row-icon {
     display: none;
+  }
+  .row-more {
+    grid-column: 2 / -1;
   }
   .needs-amount {
     font-size: 17px;

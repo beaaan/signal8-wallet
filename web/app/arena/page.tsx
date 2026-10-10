@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import QRCode from "qrcode";
+import { fetchArenaHealth, isLocalNetwork } from "@/lib/agentApi";
 import { config } from "@/lib/config";
+import { Hint } from "../components/Hint";
 import ArenaClient from "./ArenaClient";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,8 @@ async function arenaUrl(): Promise<string> {
 }
 
 export default async function ArenaPage() {
-  const url = await arenaUrl();
+  const [url, health] = await Promise.all([arenaUrl(), fetchArenaHealth()]);
+  const closed = !health ? "The agent is not running." : !isLocalNetwork(health.network) ? "The agent is not on a local test chain." : null;
   const svg = await QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M" });
   const qrSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   return (
@@ -22,18 +25,21 @@ export default async function ArenaPage() {
       <div>
         <h1>Attack arena</h1>
         <p className="muted">Try to make the agent pay you. Fake invoices, phishing, chat: anything goes.</p>
+        <p className="muted small">
+          The board shows each outcome and the first 80 characters.{" "}
+          <Hint text="A separate local test chain, never the demo Safe. Each attempt goes through the same pipeline as real mail: a reader with no tools, a planner, the plan's limits, then the contract.">
+            Local test chain only.
+          </Hint>
+        </p>
       </div>
-      <p className="muted small" title="An Anvil fork, never the demo Safe. Each attempt goes through the same pipeline as real mail: a reader with no tools, a planner, the plan's limits, then the contract.">
-        Local test chain only. The board shows each outcome and the first 80 characters.
-      </p>
       <div className="arena-top">
         <figure className="qr">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <p className="qr-hint">Scan to play on your phone</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrSrc} alt={`QR code for ${url}`} width={200} height={200} />
           <figcaption className="mono small">{url}</figcaption>
         </figure>
-        <ArenaClient />
+        <ArenaClient closed={closed} />
       </div>
     </div>
   );

@@ -32,6 +32,9 @@ interface ISignalAttestor {
     error FutureAttestation();
     error UnexpectedEventId();
     error BadLevel();
+    error MissingEventId();
+    error WrongRegion();
+    error RelayerInUse();
     error NotOwner();
     error NotSelf();
     error NotQueued();
@@ -41,7 +44,8 @@ interface ISignalAttestor {
 
     function isStorm(bytes32 region) external view returns (bool);
 
-    /// @return eventId latest GDACS event id for the region; hkoLevel latest HKO/NCHMF level
+    /// @return eventId the event id pinned when the storm started while storm mode is on, else the latest GDACS
+    ///         event id for the region; hkoLevel latest level from the region's local source (HKO or NCHMF)
     function currentEvent(bytes32 region) external view returns (bytes32 eventId, uint8 hkoLevel);
 
     /// @notice Latest attestation stored for a source and region (zeros if none).

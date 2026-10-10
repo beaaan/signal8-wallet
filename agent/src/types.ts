@@ -3,7 +3,9 @@ import { z } from "zod";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "not an address") as unknown as z.ZodType<`0x${string}`>;
 const bytes32 = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "not bytes32") as unknown as z.ZodType<`0x${string}`>;
-const amount = z.string().regex(/^\d+(\.\d+)?$/, "amount must be a decimal string");
+// At most 15 integer digits and the token's 6 decimals: anything finer would be rounded when converted to units
+// (a "0.0000001" payment would execute as 0 and use up the invoice's ref).
+const amount = z.string().regex(/^\d{1,15}(\.\d{1,6})?$/, "amount must be a decimal string with at most 6 decimals");
 
 /** Output of the extractor (model call with no tools) for one email, invoice or chat message. */
 export const ExtractedInvoice = z

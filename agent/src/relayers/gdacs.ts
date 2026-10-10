@@ -10,7 +10,10 @@ import { isMain } from "../isMain.ts";
 import { toUnixSeconds } from "./hko.ts";
 import { SOURCE, type Hex, type SignalAttestation } from "./sign.ts";
 
-export const GDACS_EVENTS_URL = process.env.GDACS_EVENTS_URL ?? "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH";
+export const GDACS_EVENTS_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH";
+
+/** Read when called, not at import, so GDACS_EVENTS_URL in ../.env (loaded by loadConfig) takes effect. */
+export const gdacsEventsUrl = (): string => process.env.GDACS_EVENTS_URL || GDACS_EVENTS_URL;
 
 /** Region → ISO3 codes GDACS uses. GDACS lists Hong Kong as CHN (RAGASA-25 shows PHL, CHN). */
 export const REGION_COUNTRIES: Record<string, string[]> = {
@@ -80,8 +83,11 @@ export function affectsRegion(e: GdacsEvent, region: string): boolean {
 }
 
 /** The highest-alert current event affecting the region, if any. */
-export function pickEvent(events: GdacsEvent[], region: string): GdacsEvent | undefined {
-  return events.filter((e) => e.isCurrent && affectsRegion(e, region)).sort((a, b) => b.alertLevel - a.alertLevel)[0];
+/** The highest-alert current event for the region; on a tie, the one already tracked, so the event id does not flip. */
+export function pickEvent(events: GdacsEvent[], region: string, tracked?: string): GdacsEvent | undefined {
+  return events
+    .filter((e) => e.isCurrent && affectsRegion(e, region))
+    .sort((a, b) => b.alertLevel - a.alertLevel || Number(b.eventId === tracked) - Number(a.eventId === tracked))[0];
 }
 
 /** keccak256("TC-<id>"), or keccak256("TC-<id>#<runId>") in replays so each run is a new event on-chain. */
@@ -120,7 +126,7 @@ export function eventFromReplay(g: { eventId: string; alertLevel: string; affect
   };
 }
 
-export async function fetchGdacsEvents(fromDate: string, toDate: string, base = GDACS_EVENTS_URL, fetchImpl: typeof fetch = fetch): Promise<GdacsEvent[]> {
+export async function fetchGdacsEvents(fromDate: string, toDate: string, base = gdacsEventsUrl(), fetchImpl: typeof fetch = fetch): Promise<GdacsEvent[]> {
   const url = `${base}?eventlist=TC&fromDate=${encodeURIComponent(fromDate)}&toDate=${encodeURIComponent(toDate)}`;
   const res = await fetchImpl(url, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`gdacs: HTTP ${res.status}`);

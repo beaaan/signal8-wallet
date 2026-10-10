@@ -1,15 +1,24 @@
 import { encodeAbiParameters, keccak256, toBytes } from "viem";
 import { describe, expect, it } from "vitest";
-import { actionRef, invoiceRef, payrollRef, refFor, withRun } from "../src/exec/refs.ts";
+import { actionRef, invoiceRef, normaliseInvoiceId, payrollRef, refFor, withRun } from "../src/exec/refs.ts";
 
 const a1 = "0x00000000000000000000000000000000000000a1";
 const a2 = "0x00000000000000000000000000000000000000a2";
 
 describe("refs", () => {
-  it("supplier payment: keccak256(invoiceId)", () => {
-    const r = refFor({ type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b1", amount: "1250.50", ref: "LK-0917" });
-    expect(r).toBe(keccak256(toBytes("LK-0917")));
-    expect(r).toBe(invoiceRef("LK-0917"));
+  it("supplier payment: keccak256(abi.encode(payee, normalised invoiceId))", () => {
+    const b1 = "0x00000000000000000000000000000000000000b1";
+    const r = refFor({ type: "pay", plan: "base", payee: b1, amount: "1250.50", ref: "LK-0917" });
+    expect(r).toBe(keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [b1, "LK0917"])));
+    expect(r).toBe(invoiceRef(b1, "LK-0917"));
+  });
+
+  it("the same invoice written differently is one ref; the same number from another supplier is not", () => {
+    const b1 = "0x00000000000000000000000000000000000000b1";
+    for (const id of ["lk-0917", "LK 0917", "LK0917", " LK–0917 "]) expect(invoiceRef(b1, id)).toBe(invoiceRef(b1, "LK-0917"));
+    expect(invoiceRef("0x00000000000000000000000000000000000000b2", "LK-0917")).not.toBe(invoiceRef(b1, "LK-0917"));
+    expect(normaliseInvoiceId("lk-0921#r1")).toBe("LK0921#r1");
+    expect(invoiceRef(b1, "LK-0921#r1")).not.toBe(invoiceRef(b1, "LK-0921#r2"));
   });
 
   it("does not depend on the amount, so a resent invoice with another amount still collides", () => {

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { erc20Abi, planModuleAbi, vaultAbi } from "../src/abis.ts";
 import type { Deployment } from "../src/config.ts";
 import { JsonlFile } from "../src/log.ts";
+import { refFor } from "../src/exec/refs.ts";
 import { ProposalWriter, queueChangeTx, safeTxsFor, SafeProposer, type MetaTx, type Proposal, type ProposalApi, type SafeTxSigner } from "../src/exec/safeProposer.ts";
 
 const agent = privateKeyToAccount("0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba"); // anvil #5, public
@@ -133,5 +134,14 @@ describe("ProposalWriter", () => {
     expect((await w.write("in", "r", [pay])).note).toMatch(/Service error, logged only/);
     expect(lines(f).map((p) => p.status)).toEqual(["proposed", "service-error"]);
     expect(lines(f)[0]!.safeTxHash).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  it("remembers proposed payment refs per PlanModule, across restarts", async () => {
+    const f = file();
+    await new ProposalWriter(dep, f, true).write("in", "OverPerTxCap", [pay]);
+    const ref = refFor(pay).toLowerCase();
+    expect(new ProposalWriter(dep, f, true).proposedRefs().has(ref)).toBe(true);
+    const redeployed = { ...dep, contracts: { ...dep.contracts, PlanModule: a(0xfe) } };
+    expect(new ProposalWriter(redeployed, f, true).proposedRefs().has(ref)).toBe(false);
   });
 });

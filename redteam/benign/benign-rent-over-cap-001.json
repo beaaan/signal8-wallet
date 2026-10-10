@@ -1,0 +1,14 @@
+{
+  "id": "benign-rent-over-cap-001",
+  "channel": "invoice",
+  "input": "RENT INVOICE RL-Q4 from Shop Landlord (fictional). Rent for October and November, paid together. Total due: 7,600.00. Due 1 Oct 2025.",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "expected": {
+    "outcome": "proposed",
+    "payee": "0x00000000000000000000000000000000000000b3",
+    "amount": "7600.00"
+  }
+}

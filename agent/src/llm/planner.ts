@@ -8,10 +8,11 @@
 //   (purchase orders, invoices already paid, re-issues). Only payments, or owner proposals of payments, come out.
 
 import type { PayeeControls } from "../controls.ts";
-import type { PlainAction } from "../exec/calls.ts";
-import { PAYROLL_PREFIX } from "../exec/refs.ts";
+import { units, type PlainAction } from "../exec/calls.ts";
+import { normaliseInvoiceId, PAYROLL_PREFIX } from "../exec/refs.ts";
 import { PlannerOutput, type Action, type ExtractedInvoice } from "../types.ts";
-import type { ModelProvider, PlannerInput } from "./provider.ts";
+import type { ModelProvider, PlannerInput, RegistryPayee } from "./provider.ts";
+import { matchPayee } from "./rules.ts";
 
 export interface Batch {
   reason: string;
@@ -32,7 +33,7 @@ export function guard(input: PlannerInput): string | undefined {
   }
   if (inv.kind === "payroll") return "payroll is paid from payroll.json, not from messages";
   if (inv.kind !== "invoice") return "not an invoice";
-  if (Number(inv.amount) <= 0) return "no amount";
+  if (units(inv.amount) <= 0n) return "no amount";
   if (!PLAN_CURRENCIES.has(inv.currency)) return `currency ${inv.currency} does not match the plan token`;
   if (!inv.invoiceId) return "no invoice id, so no deterministic ref";
   return undefined;
@@ -47,7 +48,7 @@ function planPayroll(input: PlannerInput, controls?: PayeeControls): Planning {
   const p = controls?.payroll;
   if (!p) return { ok: false, reason: "no payroll.json to check the message against" };
   if (input.activePlan === "storm") return { ok: false, reason: "in a storm the payday loop pays staff under the storm plan" };
-  if (Number(inv.amount) !== Number(p.total)) return { ok: false, reason: `payroll total ${inv.amount} differs from payroll.json (${p.total})` };
+  if (units(inv.amount) !== units(p.total)) return { ok: false, reason: `payroll total ${inv.amount} differs from payroll.json (${p.total})` };
   const actions: PlainAction[] = p.staff.map((s) => ({ type: "pay", plan: "storm", payee: s.address, amount: s.amount, ref: `${PAYROLL_PREFIX}${p.period}` }));
   return {
     ok: true,
@@ -63,16 +64,35 @@ function reject(a: Action, input: PlannerInput): string | undefined {
   if (pay.type !== "pay") return `${pay.type} cannot come from an invoice`;
   const payee = input.payees.find((p) => p.address.toLowerCase() === pay.payee.toLowerCase());
   if (!payee) return "payee not in registry";
-  if (Number(pay.amount) !== Number(input.invoice.amount)) return "amount differs from the invoice";
+  // The invoice names its payee; the model may not move the payment to another registered payee (e.g. to dodge a
+  // purchase-order rule). With no literal address and no name match, applyNameCheck sends it to the owners.
+  const named = namedPayee(input);
+  if (named && named.address.toLowerCase() !== pay.payee.toLowerCase()) return `invoice names ${named.id}, not ${payee.id}`;
+  if (units(pay.amount) !== units(input.invoice.amount)) return "amount differs from the invoice";
   if (pay.ref !== input.invoice.invoiceId) return "ref is not the invoice id";
   if (a.type === "pay" && !payee.plans.includes(pay.plan)) return `payee is not in the ${pay.plan} plan`;
   if (a.type === "pay" && pay.plan !== input.activePlan) return "pay under a plan that is not active";
   return undefined;
 }
 
+/** The registry payee the invoice itself names: its literal address, else a deterministic name match. */
+function namedPayee(input: PlannerInput): RegistryPayee | undefined {
+  const inv = input.invoice;
+  if (inv.payeeAddress) return input.payees.find((p) => p.address.toLowerCase() === inv.payeeAddress!.toLowerCase());
+  return matchPayee(inv.payeeName, input.payees);
+}
+
+/** A payee only the model could match to the invoice's name is the owners' call, never an automatic payment. */
+function applyNameCheck(a: Action, input: PlannerInput): Action {
+  if (a.type !== "pay" || namedPayee(input)) return a;
+  const id = input.payees.find((p) => p.address.toLowerCase() === a.payee.toLowerCase())?.id ?? a.payee;
+  return { type: "propose_to_owner", reason: `"${input.invoice.payeeName.slice(0, 40)}" does not match the registry name of ${id}`, action: a };
+}
+
 /**
- * The owner's records: an invoice already paid is refused; a re-issue (same supplier, amount and date, new number),
- * an amount above its purchase order, or a missing PO where one is required turns the payment into an owner proposal.
+ * The owner's records: an invoice already paid is refused; a re-issue (same supplier and amount, same date or none,
+ * new number), an amount above its purchase order, a missing PO where one is required, or (without a PO) an amount
+ * above the supplier's usual amount turns the payment into an owner proposal.
  */
 export function applyControls(a: Action, input: PlannerInput, controls?: PayeeControls): { action?: Action; refuse?: string } {
   if (!controls) return { action: a };
@@ -81,16 +101,20 @@ export function applyControls(a: Action, input: PlannerInput, controls?: PayeeCo
   const inv = input.invoice;
   const supplier = input.payees.find((p) => p.address.toLowerCase() === pay.payee.toLowerCase())?.id;
   if (!supplier) return { action: a };
+  const id = inv.invoiceId ? normaliseInvoiceId(inv.invoiceId) : undefined;
   const mine = controls.paid.filter((p) => p.supplier === supplier);
-  const already = mine.find((p) => p.invoiceId === inv.invoiceId);
+  const already = mine.find((p) => normaliseInvoiceId(p.invoiceId) === id);
   if (already) return { refuse: `invoice ${already.invoiceId} already paid${already.paidOn ? ` on ${already.paidOn}` : ""}` };
 
   let reason: string | undefined;
-  const reissue = mine.find((p) => Number(p.amount) === Number(inv.amount) && p.issueDate && p.issueDate === inv.issueDate);
-  if (reissue) reason = `looks like a re-issue of ${reissue.invoiceId} (same supplier, amount and date)`;
-  const order = controls.orders.find((o) => o.supplier === supplier && o.invoiceId === inv.invoiceId);
-  if (!reason && order && Number(inv.amount) > Number(order.amount)) reason = `amount ${inv.amount} is above purchase order ${order.po} (${order.amount})`;
+  // Same supplier and amount as a paid invoice: a re-issue if the dates match, or if the new one has no date to tell them apart.
+  const reissue = mine.find((p) => units(p.amount) === units(inv.amount) && (inv.issueDate ? p.issueDate === inv.issueDate : true));
+  if (reissue) reason = `looks like a re-issue of ${reissue.invoiceId} (same supplier and amount, ${inv.issueDate ? "same date" : "no date on the new invoice"})`;
+  const order = controls.orders.find((o) => o.supplier === supplier && o.invoiceId !== undefined && normaliseInvoiceId(o.invoiceId) === id);
+  if (!reason && order && units(inv.amount) > units(order.amount)) reason = `amount ${inv.amount} is above purchase order ${order.po} (${order.amount})`;
   if (!reason && !order && controls.requiresPO[supplier]) reason = `no purchase order for ${inv.invoiceId}`;
+  const usual = controls.usualAmount?.[supplier];
+  if (!reason && !order && usual && units(inv.amount) > units(usual)) reason = `amount ${inv.amount} is above the usual ${usual} for ${supplier}`;
   if (!reason) return { action: a };
   return { action: { type: "propose_to_owner", reason, action: pay } };
 }
@@ -119,7 +143,7 @@ export async function plan(provider: ModelProvider, input: PlannerInput, control
       dropped.push("more than one payment for one invoice");
       continue;
     }
-    const c = applyControls(a, input, controls);
+    const c = applyControls(applyNameCheck(a, input), input, controls);
     if (c.refuse) return { ok: false, reason: c.refuse };
     actions.push(c.action!);
   }

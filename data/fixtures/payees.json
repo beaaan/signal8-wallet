@@ -1,0 +1,8 @@
+{
+  "note": "The owners' payee register for suppliers (fictional). Trusted input to the plan compiler: supplier addresses come only from here, staff addresses only from payroll.json, never from a policy or loan document.",
+  "payees": [
+    { "id": "supplier-flour", "name": "Lee Kee Flour (fictional)", "address": "0x00000000000000000000000000000000000000b1", "role": "supplier" },
+    { "id": "supplier-meat", "name": "Wing On Meats (fictional)", "address": "0x00000000000000000000000000000000000000b2", "role": "supplier" },
+    { "id": "supplier-landlord", "name": "Shop landlord (fictional)", "address": "0x00000000000000000000000000000000000000b3", "role": "supplier" }
+  ]
+}

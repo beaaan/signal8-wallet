@@ -275,6 +275,63 @@ contract SignalAttestorTest is Test {
         assertEq(att.relayers(HKO), newHko);
     }
 
+    // ------------------------------------------------------------------ one key per source, one source per region
+
+    function test_RevertSameKeyForTwoSources() public {
+        vm.expectRevert(ISignalAttestor.RelayerInUse.selector);
+        new SignalAttestor(84532, 1, owner, vm.addr(hkoKey), vm.addr(hkoKey), address(0));
+    }
+
+    function test_RevertRotatingToAnotherSourcesKey() public {
+        bytes memory data = abi.encodeWithSelector(SignalAttestor.setRelayer.selector, HKO, vm.addr(gdacsKey));
+        vm.startPrank(owner);
+        att.queueChange(data);
+        vm.warp(block.timestamp + 24 hours);
+        vm.expectRevert(ISignalAttestor.RelayerInUse.selector);
+        att.applyChange(data);
+        vm.stopPrank();
+    }
+
+    function test_RevertHkoOutsideHongKong() public {
+        ISignalAttestor.SignalAttestation memory a = _a(HKO, 8, bytes32(0), hkoKey);
+        a.region = keccak256("VN-QN-HP");
+        bytes memory sig = _sign(a, hkoKey);
+        vm.expectRevert(ISignalAttestor.WrongRegion.selector);
+        att.attest(a, sig);
+    }
+
+    function test_RevertNchmfForHongKong() public {
+        _gdacs(3);
+        _hko(3);
+        ISignalAttestor.SignalAttestation memory a = _a(NCHMF, 8, bytes32(0), nchmfKey);
+        bytes memory sig = _sign(a, nchmfKey);
+        vm.expectRevert(ISignalAttestor.WrongRegion.selector);
+        att.attest(a, sig);
+        assertFalse(att.isStorm(HK));
+    }
+
+    function test_RevertGdacsAlertWithoutEventId() public {
+        ISignalAttestor.SignalAttestation memory a = _a(GDACS, 3, bytes32(0), gdacsKey);
+        bytes memory sig = _sign(a, gdacsKey);
+        vm.expectRevert(ISignalAttestor.MissingEventId.selector);
+        att.attest(a, sig);
+        _attest(GDACS, 0, bytes32(0), gdacsKey); // "no event" needs no id
+    }
+
+    function test_EventIdIsPinnedForTheStorm() public {
+        _gdacs(3);
+        _hko(8);
+        _attest(GDACS, 3, keccak256("TC-other"), gdacsKey);
+        (bytes32 id, ) = att.currentEvent(HK);
+        assertEq(id, EVENT);
+        assertEq(att.stormEvent(HK), EVENT);
+        vm.expectEmit(true, true, false, false);
+        emit StormEnded(HK, EVENT);
+        _hko(3);
+        (id, ) = att.currentEvent(HK);
+        assertEq(id, keccak256("TC-other"));
+    }
+
     /// Fixed vector so agent/src/relayers/sign.ts can be checked against the same digest.
     function test_DigestVector() public {
         SignalAttestor fixedAtt = new SignalAttestor(31337, 1, owner, vm.addr(hkoKey), vm.addr(gdacsKey), address(0));

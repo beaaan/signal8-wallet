@@ -1,7 +1,7 @@
 // Chain reads through viem. Read-only: the website never signs or sends transactions. Server only.
 import { createPublicClient, http, keccak256, toBytes, type PublicClient } from "viem";
 import { attestorAbi, coverAbi, creditLineAbi, erc20Abi, feedEvents, planModuleAbi, vaultAbi } from "./abis";
-import { config } from "./config";
+import { config, hostOf } from "./config";
 import type { Deployment } from "./deployments";
 
 let client: PublicClient | null = null;
@@ -76,7 +76,7 @@ async function reachable(): Promise<{ chainId: number; blockNumber: bigint }> {
     const [chainId, blockNumber] = await Promise.all([c.getChainId(), c.getBlockNumber({ cacheTime: 0 })]);
     return { chainId, blockNumber };
   } catch (e) {
-    throw new ChainUnreachable(`RPC ${config.rpcUrl} is not answering (${shortError(e)}).`);
+    throw new ChainUnreachable(`RPC at ${hostOf(config.rpcUrl)} is not answering (${shortError(e)}).`);
   }
 }
 
@@ -223,10 +223,24 @@ const blockTimes = new Map<number, number>();
 const CHUNK = 5_000; // blocks per eth_getLogs call (public RPCs cap the range)
 const MAX_CHUNKS_PER_POLL = 20; // keep one request fast; the rest is picked up on the next poll
 
+// The deployment's start block. Its hash tells a restarted anvil (same addresses, same block numbers) from the
+// old one; its time is when this run began, so older agent log lines can be dropped. Re-read every few seconds.
+let start: { key: string; hash: string; time: number; at: number } | null = null;
+const START_TTL_MS = 3_000;
+
+/** Hash and time (unix seconds) of the deployment's start block. Throws when the RPC is down. */
+export async function readStart(d: Deployment): Promise<{ hash: string; time: number }> {
+  const key = `${d.chainId}:${d.startBlock}:${d.contracts.PlanModule.toLowerCase()}`;
+  if (start && start.key === key && Date.now() - start.at < START_TTL_MS) return start;
+  const blk = await getClient().getBlock({ blockNumber: BigInt(d.startBlock) });
+  start = { key, hash: blk.hash ?? "", time: Number(blk.timestamp), at: Date.now() };
+  return start;
+}
+
 async function scan(d: Deployment): Promise<void> {
   const c = getClient();
-  const key = `${d.chainId}:${d.startBlock}:${d.contracts.PlanModule.toLowerCase()}`;
-  const latest = Number(await c.getBlockNumber({ cacheTime: 0 }));
+  const [latest, s] = await Promise.all([c.getBlockNumber({ cacheTime: 0 }).then(Number), readStart(d)]);
+  const key = `${d.chainId}:${d.startBlock}:${d.contracts.PlanModule.toLowerCase()}:${s.hash}`;
   if (!cache || cache.key !== key || latest < cache.scannedTo) {
     // new deployment, or anvil was restarted / reset
     cache = { key, scannedTo: Math.max(0, d.startBlock) - 1, logs: [] };

@@ -3,7 +3,7 @@
 // variables that are missing or empty there (never overwrites). Prints the addresses to fund, never a key.
 // The guardian, deployer and Safe owner keys are not the backend's and are not generated here.
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { KEY_ENV, PATHS, type KeyRole } from "./config.ts";
 import { isMain } from "./isMain.ts";
@@ -46,6 +46,7 @@ if (isMain(import.meta.url)) {
     console.log("All agent backend keys are already set in .env; nothing changed.");
   } else {
     writeFileSync(PATHS.env, text, { mode: 0o600 });
+    chmodSync(PATHS.env, 0o600); // writeFileSync's mode only applies when it creates the file (it may be a copy of .env.example)
     console.log(`Wrote ${roles.length} new key(s) to .env (testnet only; never commit .env). Fund these addresses with Base Sepolia ETH:`);
     for (const r of roles) console.log(`  ${filled[r]}  ${ROLE_LABEL[r]}`);
   }

@@ -145,6 +145,14 @@ export async function runReplay(opts: RunOptions): Promise<number> {
   console.log(`Run id ${runId}: GDACS event TC-${file.gdacs.eventId}#${runId} → ${run.gdacs.saltedEventId}`);
   console.log(`Model provider: ${a.provider.name}`);
 
+  // The agent acts only under the plan the owners signed: check before the ordinary day, not just at Signal 1.
+  const onchain = await a.stormChain.planHashes();
+  if (!onchain.every((h) => h.toLowerCase() === a.localPlanHash.toLowerCase())) {
+    a.log.write({ input: "replay:start", stage: "localCheck", outcome: "refused", reason: "PlanHashMismatch", action: "plan_check", summary: "Local plan book does not match the signed on-chain plan; the agent will not act" });
+    console.error(`Refusing to start: the plan book hashes to ${a.localPlanHash.slice(0, 10)}…, the chain has ${onchain.map((h) => `${h.slice(0, 10)}…`).join(" / ")}. Redeploy from this plan book, or use the one that was deployed.`);
+    return 2;
+  }
+
   const refusal = await preflight(a, payrollTotal(payroll), opts.skipEveryday ? 0n : everydayEstimate(a));
   if (refusal) {
     console.error(`Refusing to start: ${refusal}. Wait for the next chain day (UTC) or rehearse on an anvil fork (--rpc).`);
@@ -284,7 +292,9 @@ export async function runReplay(opts: RunOptions): Promise<number> {
   }
   if (run.reconciliation) console.log(`Reconciliation: ${run.reconciliation.ok ? "ledger matches the chain" : `MISMATCH, paused ${run.reconciliation.pauseTx ?? "(pause failed)"}`}`);
   console.log(`\nTransactions (${txs.length}), run ${runId}:`);
-  for (const t of txs) console.log(`${String(t.n).padStart(3)}  ${t.tx}  ${t.signal ?? "-"}  ${t.label}`);
-  console.log(`\nWritten to ${outPath}. npm run evidence prints EVIDENCE.md rows.`);
+  // On Base Sepolia each hash is a Basescan link (most terminals make it clickable).
+  const explorer = a.c.dep.chainId === 84532 ? "https://sepolia.basescan.org/tx/" : "";
+  for (const t of txs) console.log(`${String(t.n).padStart(3)}  ${explorer}${t.tx}  ${t.signal ?? "-"}  ${t.label}`);
+  console.log(`\nWritten to ${outPath}. npm run evidence prints EVIDENCE.md rows; -- --write puts them in docs/EVIDENCE.md.`);
   return run.ok ? 0 : 1;
 }

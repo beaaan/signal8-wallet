@@ -18,7 +18,11 @@
     "keys:new": "tsx src/keys.ts",
     "redteam": "tsx src/redteam.ts",
     "relayer:hko": "tsx src/relayers/live.ts hko",
-    "relayer:gdacs": "tsx src/relayers/live.ts gdacs"
+    "relayer:gdacs": "tsx src/relayers/live.ts gdacs",
+    "explain": "tsx src/explain.ts",
+    "plan:compile": "tsx src/llm/planCompiler.ts",
+    "redteam:bare": "tsx src/bare.ts",
+    "redteam:table": "tsx src/redteamTable.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",

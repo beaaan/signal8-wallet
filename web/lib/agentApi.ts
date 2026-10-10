@@ -30,9 +30,10 @@ export interface ArenaAttempt {
 export const ARENA_CHANNELS = ["email", "invoice", "chat", "zalo"] as const;
 export type ArenaChannel = (typeof ARENA_CHANNELS)[number];
 export const ARENA_MAX_CHARS = 2000;
+const ARENA_TIMEOUT_MS = 60_000; // a little above the agent's own limit (50 s), after which it answers 202 { pending }
 
-async function getJson<T>(pathAndQuery: string): Promise<T> {
-  const res = await fetch(`${config.agentApiUrl}${pathAndQuery}`, {
+async function getJson<T>(base: string, pathAndQuery: string): Promise<T> {
+  const res = await fetch(`${base}${pathAndQuery}`, {
     cache: "no-store",
     signal: AbortSignal.timeout(config.timeoutMs),
   });
@@ -42,37 +43,63 @@ async function getJson<T>(pathAndQuery: string): Promise<T> {
 
 /** Newest first. Throws when the agent API is down. */
 export async function fetchDecisions(limit = 100): Promise<Decision[]> {
-  const body = await getJson<{ decisions?: Decision[] }>(`/api/decisions?limit=${limit}`);
+  const body = await getJson<{ decisions?: Decision[] }>(config.agentApiUrl, `/api/decisions?limit=${limit}`);
   return Array.isArray(body.decisions) ? body.decisions : [];
 }
 
-/** Newest first. Throws when the agent API is down. */
+/** Newest first, from the arena's agent. Throws when it is down. */
 export async function fetchArenaBoard(limit = 50): Promise<ArenaAttempt[]> {
-  const body = await getJson<{ attempts?: ArenaAttempt[] }>(`/api/arena/board?limit=${limit}`);
+  const body = await getJson<{ attempts?: ArenaAttempt[] }>(config.arenaAgentApiUrl, `/api/arena/board?limit=${limit}`);
   return Array.isArray(body.attempts) ? body.attempts : [];
 }
 
+/** Same rule as the agent's isLocalNetwork: the arena only runs against a local anvil chain. */
+export const isLocalNetwork = (network: string) => network === "anvil" || network.startsWith("anvil-");
+
+/** The arena agent's GET /api/health; null when it does not answer. */
+export async function fetchArenaHealth(): Promise<{ network: string; chainId: number | null } | null> {
+  try {
+    const b = await getJson<{ ok?: boolean; network?: unknown; chainId?: unknown }>(config.arenaAgentApiUrl, "/api/health");
+    return b.ok ? { network: String(b.network ?? ""), chainId: typeof b.chainId === "number" ? b.chainId : null } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Thrown by postArena when the agent took too long to answer; it may still be working on the submission. */
+export class ArenaTimeout extends Error {}
+
 /**
- * Forwards one arena submission. Returns the agent's status and JSON body as-is; the route handler
- * maps status codes to friendly messages. `clientIp` goes in X-Forwarded-For so the agent can rate-limit per person.
+ * Forwards one arena submission to the arena's agent. Returns the agent's status and JSON body as-is; the route
+ * handler maps status codes to friendly messages. `clientIp` goes in X-Forwarded-For so the agent can rate-limit
+ * per person; it is null when the website cannot tell who sent it, and then no header is sent.
  */
 export async function postArena(
   text: string,
   channel: ArenaChannel,
-  clientIp: string,
+  clientIp: string | null,
 ): Promise<{ status: number; body: unknown }> {
-  const res = await fetch(`${config.agentApiUrl}/api/arena`, {
-    method: "POST",
-    cache: "no-store",
-    headers: { "content-type": "application/json", "x-forwarded-for": clientIp },
-    body: JSON.stringify({ text, channel }),
-    // The pipeline runs two model calls and maybe a transaction; allow more time than a read.
-    signal: AbortSignal.timeout(60_000),
-  });
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (clientIp) headers["x-forwarded-for"] = clientIp;
+  let res: Response;
+  try {
+    res = await fetch(`${config.arenaAgentApiUrl}/api/arena`, {
+      method: "POST",
+      cache: "no-store",
+      headers,
+      body: JSON.stringify({ text, channel }),
+      // The pipeline runs two model calls and maybe a transaction; allow more time than a read.
+      signal: AbortSignal.timeout(ARENA_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if ((e as Error)?.name === "TimeoutError") throw new ArenaTimeout("agent did not answer in time");
+    throw e;
+  }
   let body: unknown = null;
   try {
     body = await res.json();
-  } catch {
+  } catch (e) {
+    if ((e as Error)?.name === "TimeoutError") throw new ArenaTimeout("agent did not answer in time");
     // non-JSON error page; keep null
   }
   return { status: res.status, body };

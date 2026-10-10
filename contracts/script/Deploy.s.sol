@@ -29,6 +29,8 @@ import {EvidenceRegistry} from "../src/mocks/EvidenceRegistry.sol";
 /// The owners then sign enableModule(PlanModule) in Safe Wallet; the script prints what to sign.
 ///
 /// Plan parameters come from `npm run plan:hash` output (PLAN_PARAMS, default the example plan book's).
+/// Rehearsing on an anvil fork of Base Sepolia keeps chain id 84532: set NETWORK=anvil-fork so the run does not
+/// overwrite deployments/base-sepolia.json.
 contract Deploy is Script {
     string internal constant ANVIL_MNEMONIC = "test test test test test test test test test test test junk";
     uint256 internal constant USD = 1e6;
@@ -45,6 +47,7 @@ contract Deploy is Script {
 
     bool internal local;
     bytes32 internal region;
+    string internal regionName;
     uint256 internal timeUnit;
     Roles internal roles;
     address internal safe;
@@ -61,9 +64,11 @@ contract Deploy is Script {
 
     function run() external {
         local = block.chainid == 31337;
-        region = keccak256(bytes(vm.envOr("REGION", string("HK"))));
         timeUnit = vm.envOr("TIME_UNIT", uint256(1));
         params = vm.readFile(vm.envOr("PLAN_PARAMS", string("../data/fixtures/plans/plan-params.example.json")));
+        regionName = _region();
+        region = keccak256(bytes(regionName));
+        _checkParams();
         _roles();
         uint256 startBlock = block.number;
 
@@ -73,7 +78,11 @@ contract Deploy is Script {
             : vm.envAddress("SAFE_ADDRESS");
         _deployContracts();
         _deployModule();
-        guard = new PlanGuard(safe, timeUnit);
+        guard = new PlanGuard(
+            safe,
+            timeUnit,
+            _addrOr("MULTISEND_CALL_ONLY", 0x9641d764fc13c8B624c04430C7356C1C7C8102e2) // Safe v1.4.1 canonical
+        );
         _mint();
         vm.stopBroadcast();
 
@@ -92,9 +101,31 @@ contract Deploy is Script {
 
     // ------------------------------------------------------------------ steps
 
+    /// REGION from env, else the plan book's (plan:hash writes it); the two must agree when both are given.
+    function _region() internal view returns (string memory r) {
+        bool inParams = vm.keyExistsJson(params, ".region");
+        string memory fromParams = inParams ? vm.parseJsonString(params, ".region") : "HK";
+        r = vm.envOr("REGION", fromParams);
+        require(
+            !inParams || keccak256(bytes(r)) == keccak256(bytes(fromParams)),
+            "REGION differs from the plan book's region"
+        );
+    }
+
+    /// Both plans must store the plan book's hash, as the agent and /plan check it against the plan book.
+    function _checkParams() internal view {
+        bytes32 h = vm.parseJsonBytes32(params, ".planHash");
+        require(
+            vm.parseJsonBytes32(params, ".plans.base.planHash") == h &&
+                vm.parseJsonBytes32(params, ".plans.storm.planHash") == h,
+            "plan params: base and storm planHash must equal planHash"
+        );
+    }
+
     function _roles() internal {
         roles = Roles({
-            owner: _addr("OWNER_ADDRESS", 1),
+            // only the stand-in LocalSafe on anvil has an owner key here; on Base Sepolia the Safe already exists
+            owner: local ? _addr("OWNER_ADDRESS", 1) : address(0),
             agent: _addr("AGENT_ADDRESS", 5),
             guardian: _addr("GUARDIAN_ADDRESS", 4),
             hko: _addr("HKO_RELAYER_ADDRESS", 6),
@@ -102,6 +133,7 @@ contract Deploy is Script {
             nchmf: _addrOr("NCHMF_RELAYER_ADDRESS", address(0)),
             client: _addr("DEMO_CLIENT_ADDRESS", 8)
         });
+        require(roles.hko != roles.gdacs && roles.hko != roles.nchmf && roles.gdacs != roles.nchmf, "relayers need separate keys");
     }
 
     function _deployContracts() internal {
@@ -187,7 +219,7 @@ contract Deploy is Script {
         vm.serializeString(root, "network", network);
         vm.serializeUint(root, "chainId", block.chainid);
         vm.serializeUint(root, "startBlock", startBlock);
-        vm.serializeString(root, "region", vm.envOr("REGION", string("HK")));
+        vm.serializeString(root, "region", regionName);
         vm.serializeUint(root, "timeUnit", timeUnit);
         vm.serializeBytes32(root, "planHash", vm.parseJsonBytes32(params, ".planHash"));
         root = vm.serializeString(root, "contracts", c);

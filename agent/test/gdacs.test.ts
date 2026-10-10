@@ -67,6 +67,13 @@ describe("region mapping", () => {
     expect(pickEvent(parseGdacsEvents(body), "HK")?.eventId).toBe("1001211");
     expect(pickEvent(parseGdacsEvents(body), "VN-QN-HP")).toBeUndefined();
   });
+
+  it("on an alert-level tie keeps the event it already tracks", () => {
+    const twin = { ...ragasa!, eventId: "1001299", name: "Twin" };
+    expect(pickEvent([twin, ragasa!], "HK", "1001211")?.eventId).toBe("1001211");
+    expect(pickEvent([ragasa!, twin], "HK", "1001299")?.eventId).toBe("1001299");
+    expect(pickEvent([{ ...twin, alertLevel: 3 }, { ...ragasa!, alertLevel: 2 }], "HK", "1001211")?.eventId).toBe("1001299");
+  });
 });
 
 describe("event id", () => {

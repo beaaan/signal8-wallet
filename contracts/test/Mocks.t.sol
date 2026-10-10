@@ -34,6 +34,11 @@ contract MocksTest is Test {
         usd.approve(address(router), type(uint256).max);
     }
 
+    function test_RouterRejectsSweepOver100Percent() public {
+        vm.expectRevert(PaymentRouter.SweepTooHigh.selector);
+        new PaymentRouter(usd, safe, credit, ISignalAttestor(address(attestor)), HK, 10_001);
+    }
+
     function test_CreditDrawOnlyBorrowerAndPaysBorrower() public {
         vm.expectRevert(IFlowCreditLine.NotBorrower.selector);
         credit.draw(1);

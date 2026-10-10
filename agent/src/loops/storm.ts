@@ -125,6 +125,16 @@ export class StormLoop {
     return withRun(name, this.d.runId);
   }
 
+  /**
+   * Action id for a once-per-storm action. Replays salt with the run id; live runs key on the storm's event id (or
+   * the day, before GDACS has one), so the next typhoon's cover claim or credit draw is not refused as RefUsed.
+   */
+  private async stormId(name: string, at: Date): Promise<string> {
+    if (this.d.runId) return this.id(name);
+    const ev = await this.d.chain.eventId?.().catch(() => undefined);
+    return ev && !/^0x0*$/.test(ev) ? `${name}#${ev.slice(2, 14)}` : `${name}#${at.toISOString().slice(0, 10)}`;
+  }
+
   /** info[i] describes actions[i] (invoice id and due date, for the deadline list). */
   schedule(actions: PlainAction[], info: HeldInfo[] = []): void {
     actions.forEach((a, i) => {
@@ -166,7 +176,7 @@ export class StormLoop {
     if (stormNow && !this.storm) {
       this.storm = true;
       this.record.stormStart = sourceTime;
-      const claim = await this.d.sink.run({ type: "cover_claim", plan: "storm", ref: this.id("cover-claim") }, input);
+      const claim = await this.d.sink.run({ type: "cover_claim", plan: "storm", ref: await this.stormId("cover-claim", sourceTime) }, input);
       if (claim.outcome === "executed") {
         this.record.cover = { tx: claim.tx, payout: claim.payout, eventId: await this.d.chain.eventId?.().catch(() => undefined) };
       }
@@ -187,7 +197,7 @@ export class StormLoop {
     const short = buffer > b.safe ? buffer - b.safe : 0n;
     const withdraw = short < b.vault ? short : b.vault;
     if (withdraw > 0n) {
-      await this.d.sink.run({ type: "vault_withdraw", plan: stormNow ? "storm" : "base", amount: amt(withdraw), ref: this.id("brace-withdraw") }, input);
+      await this.d.sink.run({ type: "vault_withdraw", plan: stormNow ? "storm" : "base", amount: amt(withdraw), ref: await this.stormId("brace-withdraw", sourceTime) }, input);
     } else {
       console.log(`  (cash ${fmt(b.safe)} already covers the storm buffer ${fmt(buffer)}; no withdraw)`);
     }
@@ -227,7 +237,7 @@ export class StormLoop {
     let draw = f.need < room ? f.need : room;
     if (lineRoom < draw) draw = lineRoom;
     if (draw > 0n) {
-      const r = await this.d.sink.run({ type: "credit_draw", plan: "storm", amount: amt(draw), ref: this.id("credit-draw") }, input);
+      const r = await this.d.sink.run({ type: "credit_draw", plan: "storm", amount: amt(draw), ref: await this.stormId("credit-draw", new Date()) }, input);
       if (r.outcome === "executed") this.record.credit = { amount: draw, tx: r.tx };
     } else {
       this.d.log.write({ input, stage: "planner", outcome: "refused", reason: f.need === 0n ? "forecast above buffer" : "OverCreditCap", action: "credit_draw", summary: "No credit draw" });

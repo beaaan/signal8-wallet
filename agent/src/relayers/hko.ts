@@ -10,9 +10,10 @@
 import { isMain } from "../isMain.ts";
 import { SOURCE, ZERO32, type Hex, type SignalAttestation } from "./sign.ts";
 
-export const HKO_WARNSUM_URL =
-  process.env.HKO_WARNSUM_URL ??
-  "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en";
+export const HKO_WARNSUM_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en";
+
+/** Read when called, not at import, so HKO_WARNSUM_URL in ../.env (loaded by loadConfig) takes effect. */
+export const hkoWarnsumUrl = (): string => process.env.HKO_WARNSUM_URL || HKO_WARNSUM_URL;
 
 /** HKO tropical cyclone signal code → level used in SignalAttestation. */
 export const TC_LEVEL: Record<string, number> = {
@@ -82,7 +83,7 @@ export function buildHkoAttestation(
   };
 }
 
-export async function fetchHkoSignal(url: string = HKO_WARNSUM_URL, fetchImpl: typeof fetch = fetch): Promise<HkoSignal> {
+export async function fetchHkoSignal(url: string = hkoWarnsumUrl(), fetchImpl: typeof fetch = fetch): Promise<HkoSignal> {
   const res = await fetchImpl(url, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`warnsum: HTTP ${res.status}`);
   return parseWarnsum(await res.json());

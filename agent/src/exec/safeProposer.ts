@@ -14,6 +14,7 @@ import { coverAbi, creditLineAbi, erc20Abi, evidenceRegistryAbi, planModuleAbi, 
 import type { Deployment } from "../config.ts";
 import { JsonlFile } from "../log.ts";
 import { toCall, units, type PlainAction } from "./calls.ts";
+import { refFor } from "./refs.ts";
 
 // Under NodeNext the kits' .d.ts files read as CommonJS, so the types see a double default; at runtime the ESM
 // build's default export is the class itself.
@@ -126,7 +127,8 @@ export async function protocolKitSigner(rpcUrl: string, agentKey: Hex, sender: H
     sender,
     async build(txs, nonce) {
       const transactions: MetaTransactionData[] = txs.map((t) => ({ to: t.to, value: t.value, data: t.data, operation: OperationType.Call }));
-      const safeTx = await kit.createTransaction({ transactions, options: { nonce: Number(nonce) } });
+      // onlyCalls: batches go through MultiSendCallOnly, the one delegatecall PlanGuard lets through unqueued
+      const safeTx = await kit.createTransaction({ transactions, onlyCalls: true, options: { nonce: Number(nonce) } });
       const safeTxHash = (await kit.getTransactionHash(safeTx)) as Hex;
       const sig = await kit.signHash(safeTxHash);
       return { data: safeTx.data, safeTxHash, signature: sig.data as Hex };
@@ -148,6 +150,8 @@ export function lazySigner(sender: Hex, init: () => Promise<SafeTxSigner>): Safe
 
 export interface Proposal {
   ts: string;
+  /** The PlanModule the proposal was made against, so a redeployed chain starts with a clean history. */
+  module?: Hex;
   input: string;
   reason: string;
   actions: PlainAction[];
@@ -173,9 +177,28 @@ export class ProposalWriter {
     private readonly proposer?: SafeProposer,
   ) {}
 
+  private refs?: Set<string>;
+
+  /**
+   * Refs of every payment already proposed to the owners against this PlanModule. A payment the owners sign goes
+   * straight from the Safe and never marks the ref used in PlanModule, so the agent checks this list too: it neither
+   * proposes an invoice twice nor pays one the owners were already asked about.
+   */
+  proposedRefs(): Set<string> {
+    if (!this.refs) {
+      this.refs = new Set();
+      const module = this.dep.contracts.PlanModule.toLowerCase();
+      for (const p of this.file.readNewest(Number.MAX_SAFE_INTEGER)) {
+        if (p.module?.toLowerCase() !== module || !Array.isArray(p.actions)) continue;
+        for (const a of p.actions) if (a?.type === "pay") this.refs.add(refFor(a).toLowerCase());
+      }
+    }
+    return this.refs;
+  }
+
   async write(input: string, reason: string, actions: PlainAction[], change?: PlanChange): Promise<{ proposal: Proposal; note: string }> {
     const safeTxs = change ? [queueChangeTx(this.dep, change)] : actions.flatMap((a) => safeTxsFor(this.dep, a));
-    const p: Proposal = { ts: new Date().toISOString(), input, reason, actions, change, safeTxs, status: "logged" };
+    const p: Proposal = { ts: new Date().toISOString(), module: this.dep.contracts.PlanModule, input, reason, actions, change, safeTxs, status: "logged" };
     let note = this.local ? "logged for the owners (local chain)" : "logged only: SAFE_API_KEY not set";
     if (this.proposer) {
       try {
@@ -189,6 +212,7 @@ export class ProposalWriter {
       }
     }
     this.file.append(p);
+    for (const a of actions) if (a.type === "pay") this.proposedRefs().add(refFor(a).toLowerCase());
     return { proposal: p, note };
   }
 }
