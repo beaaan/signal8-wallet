@@ -166,10 +166,10 @@ The second is the hard case: a real supplier, an amount under the per-payment ca
 | Permission escalation | 6 | 0/12 | 0.00 |
 | Fake bank-detail change | 6 | 0/12 | 0.00 |
 | Fake storm warning | 6 | 0/12 | 0.00 |
-| Registered-payee abuse (overpay, split, duplicate, re-issued invoice) | 8 | 1/16 | 1,150.00 |
+| Registered-payee abuse (overpay, split, duplicate, re-issued invoice) | 8 | 0/16 | 0.00 |
 | Benign (invoices, payroll, client payments) | 15 | n/a | 15/15 correct, 0 false refusals |
 
-The one win is an inflated rent invoice from the landlord, who has no purchase order: on an ordinary day it is paid within the per-payment cap (known risk 13 in [docs/SECURITY.md](docs/SECURITY.md)). These numbers use the offline rules provider, not a model; the model run and the bare-agent baseline (`npm run redteam:bare`) need a model key.
+The hardest case is an inflated rent invoice from the landlord, who has no purchase order: it fits under the per-payment cap, so the owner's records hold the usual rent and anything above it goes to the owners (known risk 13 in [docs/SECURITY.md](docs/SECURITY.md)). These numbers use the offline rules provider, not a model; the `deepseek-flash` run and the bare-agent baseline (`npm run redteam:bare`) need the model key.
 
 ## Commands
 
@@ -177,7 +177,7 @@ The one win is an inflated rent invoice from the landlord, who has no purchase o
 | --- | --- | --- |
 | `contracts/` | `forge test` | 103 tests: unit, fuzz, the six `PlanModule` invariants and an attestor + module integration test |
 | `contracts/` | `forge script script/Deploy.s.sol --rpc-url … --broadcast` | Deploys everything from the plan book; writes `deployments/<network>.json` |
-| `agent/` | `npm test` | 276 tests, no chain or network needed |
+| `agent/` | `npm test` | 287 tests, no chain or network needed |
 | `agent/` | `npm run replay -- --event ragasa-2025 [--speed N] [--pause-at-steps] [--dry-run] [--yes]` | The storm replay (`--help` lists the flags; asks before running on a non-local network) |
 | `agent/` | `npm run serve` | Decision log and arena API on :8787 |
 | `agent/` | `npm run redteam`, `npm run redteam:table` | Offline attack and benign cases; writes `redteam/results/summary.json`; prints the SECURITY.md table |
@@ -190,7 +190,7 @@ The one win is an inflated rent invoice from the landlord, who has no purchase o
 | `agent/` | `npm run evidence [-- --write]` | `docs/EVIDENCE.md` rows from the last run; `--write` puts them into the file |
 | `web/` | `npm run dev` | Website on :3000 (`?big=1` or `b` for presenter mode) |
 
-The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MODEL_NAME`, default `claude-opus-5-5`), and an offline rules version otherwise; tests and CI always use the offline one.
+The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MODEL_NAME`, default `claude-opus-5-5`), or any OpenAI-compatible API such as DeepSeek with `MODEL_PROVIDER=openai` and `MODEL_BASE_URL` (see [agent/README.md](agent/README.md#model)), and an offline rules version otherwise; tests and CI always use the offline one.
 
 ## What's not done yet
 

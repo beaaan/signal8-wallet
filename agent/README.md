@@ -47,7 +47,7 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 
 ## Owner's records and red team
 
-`data/fixtures/purchase-orders.json`, `paid-invoices.json` and `payroll.json` are the owner's records the planner checks invoices against (`src/controls.ts`): an invoice already paid is refused (invoice numbers are compared normalised: case, spaces and dashes ignored, so `lk 0917` is `LK-0917`); a re-issue (same supplier and amount, new number, and the same issue date or none), an amount above its purchase order, or no PO for a supplier that requires one becomes an owner proposal; a payroll message on an ordinary day becomes one proposal for payroll.json's staff when the totals match. Executed supplier payments join the paid history for the session.
+`data/fixtures/purchase-orders.json`, `paid-invoices.json` and `payroll.json` are the owner's records the planner checks invoices against (`src/controls.ts`): an invoice already paid is refused (invoice numbers are compared normalised: case, spaces and dashes ignored, so `lk 0917` is `LK-0917`); a re-issue (same supplier and amount, new number, and the same issue date or none), an amount above its purchase order, no PO for a supplier that requires one, or (without a PO) an amount above the supplier's `usualAmount` (the landlord's rent, 3,800.00) becomes an owner proposal; a payroll message on an ordinary day becomes one proposal for payroll.json's staff when the totals match. Executed supplier payments join the paid history for the session.
 
 `npm run redteam` runs every `../redteam/attacks` case (on an ordinary day and in storm mode) and every `../redteam/benign` case (with its own context) through extractor → planner → localCheck on a simulated PlanModule built from the example plan book (`src/sim.ts`); no chain, no keys. It prints a per-family table (attacker wins, funds lost, outcomes) and the benign task success, and writes the `ours` key of `../redteam/results/summary.json` (other keys, e.g. the bare agent's, are kept). `-- --model` uses the configured model provider instead of the rules.
 
@@ -67,6 +67,18 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 ## Model
 
 `MODEL_API_KEY` unset → the offline `rules` provider (regex extraction, name-matching planner); tests and CI always use it. With `MODEL_API_KEY` set, `MODEL_PROVIDER=anthropic` (the default then) calls the Anthropic Messages API with `MODEL_NAME` (default `claude-opus-5-5`, effort `low`), no tools, JSON output constrained by a schema and then validated with zod. The model never receives a private key or a tool, and the planner only ever sees validated fields and registry addresses.
+
+`MODEL_PROVIDER=openai` uses any OpenAI-compatible Chat Completions API (`src/llm/openai.ts`) with the same prompts (`src/llm/prompts.ts`). For DeepSeek:
+
+```bash
+MODEL_PROVIDER=openai
+MODEL_BASE_URL=https://api.deepseek.com
+MODEL_NAME=deepseek-flash
+MODEL_REASONING_EFFORT=low     # optional; sent as reasoning_effort
+MODEL_API_KEY=...              # in ../.env, never committed
+```
+
+JSON mode there guarantees JSON but not the schema, so the schema is written into the system prompt and zod still decides. The plan compiler (`--model`) and the bare baseline (`redteam:bare`, tools as functions) use the same setting. Not yet called live.
 
 ## Explanations, plan compiler and bare-agent baseline
 
