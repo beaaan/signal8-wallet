@@ -1,6 +1,6 @@
 # Agent, relayer and replay specs
 
-TypeScript on Node 22. Libraries: `viem` (chain), `@safe-global/protocol-kit` and `@safe-global/api-kit` (Safe), `zod` (schemas), a model SDK for the extractor and planner.
+TypeScript on Node 22. Libraries: `viem` (chain), `@safe-global/protocol-kit` and `@safe-global/api-kit` (Safe), `zod` (schemas), the Anthropic SDK or any OpenAI-compatible Chat Completions API (plain `fetch`) for the extractor and planner.
 
 ## Process layout
 

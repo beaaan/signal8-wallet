@@ -80,7 +80,8 @@ export interface Config {
   chainId: number;
   /** anvil or anvil-<name>: dev-key fallback, arena, evm_mine. */
   local: boolean;
-  model: { provider: "anthropic" | "rules"; name: string; hasKey: boolean };
+  /** baseUrl and reasoningEffort apply to MODEL_PROVIDER=openai (any OpenAI-compatible API, e.g. DeepSeek). */
+  model: { provider: "anthropic" | "openai" | "rules"; name: string; hasKey: boolean; baseUrl?: string; reasoningEffort?: string };
   /** Safe Transaction Service (base-sepolia proposals); the key itself is read with safeApiKey(). */
   safe: { address?: `0x${string}`; hasApiKey: boolean };
   logDir: string;
@@ -109,13 +110,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { rpcUrl?
   const safeAddress = env.SAFE_ADDRESS?.trim();
   if (safeAddress && !/^0x[0-9a-fA-F]{40}$/.test(safeAddress)) throw new Error("SAFE_ADDRESS is not an address");
   const provider = (env.MODEL_PROVIDER || (env.MODEL_API_KEY ? "anthropic" : "rules")) as Config["model"]["provider"];
-  if (provider !== "anthropic" && provider !== "rules") throw new Error(`MODEL_PROVIDER must be anthropic or rules`);
+  if (provider !== "anthropic" && provider !== "openai" && provider !== "rules") throw new Error(`MODEL_PROVIDER must be anthropic, openai or rules`);
+  const baseUrl = env.MODEL_BASE_URL?.trim().replace(/\/+$/, "") || undefined;
+  if (provider === "openai") {
+    if (!baseUrl) throw new Error("MODEL_PROVIDER=openai needs MODEL_BASE_URL (e.g. https://api.deepseek.com)");
+    if (!/^https:\/\//.test(baseUrl) && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/.test(baseUrl)) throw new Error("MODEL_BASE_URL must be https (or http on localhost)");
+    if (!env.MODEL_NAME) throw new Error("MODEL_PROVIDER=openai needs MODEL_NAME (e.g. deepseek-flash)");
+  }
   return {
     network,
     rpcUrl,
     chainId: local ? 31337 : 84532,
     local,
-    model: { provider, name: env.MODEL_NAME || DEFAULT_MODEL, hasKey: Boolean(env.MODEL_API_KEY) },
+    model: {
+      provider,
+      name: env.MODEL_NAME || DEFAULT_MODEL,
+      hasKey: Boolean(env.MODEL_API_KEY),
+      ...(provider === "openai" ? { baseUrl, reasoningEffort: env.MODEL_REASONING_EFFORT?.trim() || undefined } : {}),
+    },
     safe: { address: safeAddress ? (safeAddress as `0x${string}`) : undefined, hasApiKey: Boolean(env.SAFE_API_KEY?.trim()) },
     logDir: env.LOG_DIR ? resolve(env.LOG_DIR) : resolve(AGENT_DIR, "logs"),
     stateDir: env.STATE_DIR ? resolve(env.STATE_DIR) : resolve(AGENT_DIR, "state"),

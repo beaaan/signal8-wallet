@@ -67,7 +67,7 @@ With three people, merge C into D and drop the FISCO port.
 | --- | --- | --- | --- |
 | Who owns A, B, C and D | | everything | |
 | Team of three or four | With three, merge C into D and drop the FISCO port | scope | |
-| Model for the extractor and planner (`MODEL_NAME`) | One model for both, and the same one for the bare-agent baseline; fast enough for a live demo; reachable from wherever the backend runs | B, C (benchmark fairness) | |
+| Model for the extractor and planner (`MODEL_NAME`) | One model for both, and the same one for the bare-agent baseline; fast enough for a live demo; reachable from wherever the backend runs | B, C (benchmark fairness) | `deepseek-flash` on DeepSeek's OpenAI-compatible API (bean, 10 Oct) |
 | Token amounts | One mock dollar token; every fixture amount written in it; an invoice in another currency becomes an owner proposal, so there is no exchange-rate logic. Alternative: a mock HKD token for Ragasa | A (`MockUSD`), D (fixtures) | |
 | Third Safe owner | The owner's offline backup key | C (creates the Safe on 10 Oct) | |
 | Ordinary-day payroll needs two owners | Yes: it is what makes the storm plan matter | D (plan book) | |

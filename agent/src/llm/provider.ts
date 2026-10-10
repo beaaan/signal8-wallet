@@ -5,6 +5,7 @@ import type { Config } from "../config.ts";
 import { modelApiKey } from "../config.ts";
 import type { ExtractedInvoice, PlanBook } from "../types.ts";
 import { AnthropicProvider } from "./anthropic.ts";
+import { OpenAICompatProvider, openAIOptions } from "./openai.ts";
 import { RulesProvider } from "./rules.ts";
 
 export type Channel = "email" | "invoice" | "chat" | "zalo";
@@ -45,12 +46,11 @@ export function plannerPlans(book: PlanBook): PlannerInput["plans"] {
   return { base: pick("base"), storm: pick("storm") };
 }
 
-/** The model provider when MODEL_API_KEY is set (MODEL_PROVIDER=anthropic), otherwise the offline rules. */
+/** The model provider when MODEL_API_KEY is set (MODEL_PROVIDER=anthropic or openai), otherwise the offline rules. */
 export function makeProvider(cfg: Config): ModelProvider {
   const apiKey = modelApiKey();
-  if (cfg.model.provider === "anthropic") {
-    if (!apiKey) throw new Error("MODEL_PROVIDER=anthropic needs MODEL_API_KEY");
-    return new AnthropicProvider(apiKey, cfg.model.name);
-  }
-  return new RulesProvider();
+  if (cfg.model.provider === "rules") return new RulesProvider();
+  if (!apiKey) throw new Error(`MODEL_PROVIDER=${cfg.model.provider} needs MODEL_API_KEY`);
+  if (cfg.model.provider === "openai") return new OpenAICompatProvider(openAIOptions(cfg, apiKey));
+  return new AnthropicProvider(apiKey, cfg.model.name);
 }

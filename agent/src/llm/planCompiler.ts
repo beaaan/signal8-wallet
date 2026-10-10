@@ -21,6 +21,7 @@ import { isMain } from "../isMain.ts";
 import { loadPayroll, payrollTotal, type Payroll } from "../loops/storm.ts";
 import { planHash } from "../plan.ts";
 import { PlanBook } from "../types.ts";
+import { chatJson, openAIOptions, type OpenAIOptions } from "./openai.ts";
 
 /** A document the compiler reads as untrusted text (policy.txt, loan.txt). */
 export interface SourceDoc {
@@ -331,6 +332,19 @@ const NO_EFFORT = /^claude-(haiku-4|sonnet-4-5|3)/;
 
 const escapeDoc = (s: string) => s.replace(/<\/document>/gi, "</ document>");
 
+/** The user message: the documents (untrusted) and the trusted records, the same for every provider. */
+function compileMessage(input: PlanCompilerInput): string {
+  const docs = [...input.documents, payrollDoc(input.payroll)].map((d) => `<document name="${d.name}">\n${escapeDoc(d.text)}\n</document>`).join("\n");
+  const records = {
+    business: input.payroll.business,
+    region: input.region,
+    token: input.token,
+    register: input.register,
+    staff: input.payroll.staff.map((s) => ({ id: s.id, name: s.name, address: s.address, role: "staff", monthlyWage: s.amount })),
+  };
+  return `${docs}\n<trusted_records>\n${JSON.stringify(records, null, 2)}\n</trusted_records>`;
+}
+
 export class AnthropicPlanCompiler implements PlanCompilerProvider {
   readonly name: string;
   private readonly client: Anthropic;
@@ -341,25 +355,30 @@ export class AnthropicPlanCompiler implements PlanCompilerProvider {
   }
 
   async compile(input: PlanCompilerInput): Promise<unknown> {
-    const docs = [...input.documents, payrollDoc(input.payroll)].map((d) => `<document name="${d.name}">\n${escapeDoc(d.text)}\n</document>`).join("\n");
-    const records = {
-      business: input.payroll.business,
-      region: input.region,
-      token: input.token,
-      register: input.register,
-      staff: input.payroll.staff.map((s) => ({ id: s.id, name: s.name, address: s.address, role: "staff", monthlyWage: s.amount })),
-    };
     const res = await this.client.beta.messages.create({
       model: this.model,
       max_tokens: 16000,
       system: COMPILE_SYSTEM,
-      messages: [{ role: "user", content: `${docs}\n<trusted_records>\n${JSON.stringify(records, null, 2)}\n</trusted_records>` }],
+      messages: [{ role: "user", content: compileMessage(input) }],
       output_config: { ...(NO_EFFORT.test(this.model) ? {} : { effort: "low" as const }), format: { type: "json_schema", schema: COMPILE_SCHEMA } },
       ...(FALLBACK_MODELS.test(this.model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
     });
     if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") return null;
     const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
     return JSON.parse(text) as unknown;
+  }
+}
+
+/** MODEL_PROVIDER=openai: the same prompt and schema on an OpenAI-compatible API (JSON mode; the gate checks the rest). */
+export class OpenAIPlanCompiler implements PlanCompilerProvider {
+  readonly name: string;
+
+  constructor(private readonly o: OpenAIOptions) {
+    this.name = `openai:${o.model}`;
+  }
+
+  compile(input: PlanCompilerInput): Promise<unknown> {
+    return chatJson({ timeoutMs: 120_000, ...this.o }, COMPILE_SYSTEM, compileMessage(input), COMPILE_SCHEMA);
   }
 }
 
@@ -383,7 +402,7 @@ if (isMain(import.meta.url)) {
       console.error("--model needs MODEL_API_KEY in ../.env (MODEL_NAME picks the model); without it, run the offline compiler");
       process.exit(1);
     }
-    provider = new AnthropicPlanCompiler(key, cfg.model.name);
+    provider = cfg.model.provider === "openai" ? new OpenAIPlanCompiler(openAIOptions(cfg, key)) : new AnthropicPlanCompiler(key, cfg.model.name);
   }
   const r = await compilePlan(provider, loadCompilerInput());
   if (!r.ok) {
