@@ -35,8 +35,8 @@ The replay plays Super Typhoon Ragasa (Hong Kong, 22 to 25 Sep 2025) from the re
 | --- | --- |
 | ![Plan book page: the plan the owners signed, matching the on-chain hash](docs/images/plan.png) | ![Arena: judges paste attacks; live board of outcomes](docs/images/arena.png) |
 
-- **`/`** is built to be read in a few seconds: the plan in force and the signal, what needs the owners, four numbers (cash, fund, borrowed, cover), today's limits as bars, the storm as one line of signals, and a short activity list. Amounts are in mUSD, named once; longer explanations show on hover.
-- **`/plan`** shows the plan book the owner signs, in English or Traditional Chinese, each limit with the clause it comes from, and whether it hashes to the plan stored on-chain.
+- **`/`** is built to be read in a few seconds: the plan in force and the signal, what needs the owners, four numbers (cash, fund, borrowed, cover), today's limits as bars, the storm as one line of signals, and a short activity list (a payroll run folds into one line that opens to show each payment). Amounts are in mUSD, named once; longer explanations show on hover.
+- **`/plan`** shows the plan book the owner signs, in English, 繁體中文, 简体中文 or Tiếng Việt, each limit with the clause it comes from, and whether it hashes to the plan stored on-chain.
 - **`/arena`** has a QR code for judges. They paste a phishing email or fake invoice, it goes through the same pipeline as real mail (on a local test chain, never the demo Safe), and the board shows what happened to it.
 
 ## How it works
@@ -131,6 +131,26 @@ Transactions (29) … Written to agent/logs/run-<runId>.json
 ```
 
 One full replay uses most of a chain day's caps; for another run, restart `anvil` and redeploy, or the runner refuses to start.
+
+## Live on Base Sepolia
+
+Deployed on 10 Oct (chain 84532); every address and deploy transaction is in [docs/EVIDENCE.md](docs/EVIDENCE.md) and `contracts/deployments/base-sepolia.json`.
+
+| What | Address |
+| --- | --- |
+| Business Safe (2-of-3, Safe v1.4.1) | [`0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E) |
+| PlanModule (enabled on the Safe by two owners) | [`0x12F764eEFb924d6109af638a218bDDAD96607c4A`](https://sepolia.basescan.org/address/0x12F764eEFb924d6109af638a218bDDAD96607c4A) |
+| SignalAttestor | [`0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2`](https://sepolia.basescan.org/address/0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2) |
+
+The Ragasa replay and one ordinary day ran there on 10 Oct (run 1791607899): 29 transactions, each with a Basescan link in EVIDENCE.md. To run it again you need the funded testnet keys in `.env` (`npm run keys:new` makes them; see [agent/README.md](agent/README.md)):
+
+```bash
+cd agent
+NETWORK=base-sepolia npm run replay -- --event ragasa-2025 --yes   # one run per chain day: it uses most of the day's caps
+npm run evidence -- --write                                        # puts the new hashes into docs/EVIDENCE.md
+```
+
+Public RPCs are load-balanced, so a read right after a transaction can hit a node a few blocks behind. The agent pins each read to a block at least as new as its last receipt (`agent/src/rpc.ts`).
 
 ## Examples
 
