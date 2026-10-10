@@ -146,8 +146,85 @@ function phrase(f: Exclude<Fact, { kind: "other" }>, lang: Lang): Phrase {
   }
 }
 
+const num = (s: string) => s.replace(/,/g, "");
+
+/** Status lines from the loops (inflows, reconcile, storm, drafts) that are not one action. First match wins. */
+const STATUS: Array<[RegExp, (m: RegExpExecArray, l: Lang) => string]> = [
+  [
+    /^Customer payment matched: (\S+) from (.+?), ([\d,.]+) mUSD(?:, ([\d,.]+) swept to the credit line)?/,
+    (m, l) => {
+      const who = m[2]!.replace(/\s*\(fictional\)\s*/g, " ").trim();
+      const amt = `${money(num(m[3]!), l)} mUSD`;
+      const swept = m[4] ? money(num(m[4]), l) : undefined;
+      return {
+        en: `Customer payment received: ${m[1]} from ${who}, ${amt}${swept ? `; ${swept} of it repaid the credit line` : ""}.`,
+        "zh-Hant": `已收到客戶付款：${who} 的 ${m[1]}，${amt}${swept ? `，其中 ${swept} 用來償還信貸` : ""}。`,
+        "zh-Hans": `已收到客户付款：${who} 的 ${m[1]}，${amt}${swept ? `，其中 ${swept} 用于偿还信贷` : ""}。`,
+        vi: `Đã nhận tiền khách hàng: ${m[1]} từ ${who}, ${amt}${swept ? `; ${swept} trong đó đã trả hạn mức tín dụng` : ""}.`,
+      }[l];
+    },
+  ],
+  [
+    /^End of day (\S+): ledger matches the chain/,
+    (m, l) =>
+      ({
+        en: `End of day ${m[1]}: the books match the blockchain.`,
+        "zh-Hant": `${m[1]} 日終：賬目與區塊鏈相符。`,
+        "zh-Hans": `${m[1]} 日终：账目与区块链一致。`,
+        vi: `Cuối ngày ${m[1]}: sổ sách khớp với chuỗi khối.`,
+      })[l],
+  ],
+  [
+    /^Signal (\d+): storm plan signed and matches/,
+    (m, l) =>
+      ({
+        en: `Signal ${m[1]}: checked that the storm plan on-chain is the one the owners signed.`,
+        "zh-Hant": `${m[1]} 號風球：已核對鏈上的風暴計劃正是東主簽署的版本。`,
+        "zh-Hans": `${m[1]} 号风球：已核对链上的风暴计划正是店主签署的版本。`,
+        vi: `Tín hiệu số ${m[1]}: đã kiểm tra kế hoạch bão trên chuỗi đúng là bản chủ cửa hàng đã ký.`,
+      })[l],
+  ],
+  [
+    /^Holding (\d+) scheduled supplier payment/,
+    (m, l) =>
+      ({
+        en: `Holding ${m[1]} supplier payment(s) until the storm passes.`,
+        "zh-Hant": `暫緩 ${m[1]} 筆供應商付款，待風暴過後處理。`,
+        "zh-Hans": `暂缓 ${m[1]} 笔供应商付款，等风暴过后处理。`,
+        vi: `Tạm giữ ${m[1]} khoản trả nhà cung cấp cho đến khi bão qua.`,
+      })[l],
+  ],
+  [
+    /^Forecast re-run: lowest balance (-?[\d,.]+) mUSD in (\d+) weeks, credit need ([\d,.]+)/,
+    (m, l) => {
+      const low = `${money(num(m[1]!), l)} mUSD`;
+      const need = `${money(num(m[3]!), l)} mUSD`;
+      return {
+        en: `Cash forecast updated: lowest balance ${low} over the next ${m[2]} weeks; credit needed ${need}.`,
+        "zh-Hant": `已更新現金預測：未來 ${m[2]} 星期最低結餘 ${low}，需要信貸 ${need}。`,
+        "zh-Hans": `已更新现金预测：未来 ${m[2]} 周最低余额 ${low}，需要信贷 ${need}。`,
+        vi: `Đã cập nhật dự báo tiền mặt: số dư thấp nhất ${low} trong ${m[2]} tuần tới; cần tín dụng ${need}.`,
+      }[l];
+    },
+  ],
+  [
+    /^Draft for the owner to review and send: (.+?) \((?:en|zh-Hant|zh-Hans|vi)\) →/,
+    (m, l) =>
+      ({
+        en: `Drafted "${m[1]}" for the owners to review and send. The assistant never sends it.`,
+        "zh-Hant": `已草擬「${m[1]}」，由東主審閱後寄出。助理不會自行寄出。`,
+        "zh-Hans": `已草拟「${m[1]}」，由店主审阅后寄出。助理不会自行寄出。`,
+        vi: `Đã soạn "${m[1]}" để chủ cửa hàng xem lại và gửi. Trợ lý không bao giờ tự gửi.`,
+      })[l],
+  ],
+];
+
 function line1(d: Explainable, f: Fact, lang: Lang): string {
   if (f.kind === "other") {
+    for (const [re, say] of STATUS) {
+      const m = re.exec(f.text);
+      if (m) return say(m, lang);
+    }
     const label = {
       en: { executed: "Done", proposed: "Sent to the owners", refused: "Stopped" },
       "zh-Hant": { executed: "已完成", proposed: "已交東主處理", refused: "已停止" },
@@ -305,6 +382,15 @@ const PATTERNS: Array<[RegExp, (m: RegExpExecArray) => Reasons]> = [
       "zh-Hant": `帳單金額高於採購單 ${m[1]}（${money(m[2]!, "zh-Hant")}），須由東主批准。`,
       "zh-Hans": `账单金额高于采购单 ${m[1]}（${money(m[2]!, "zh-Hans")}），须由店主批准。`,
       vi: `Hóa đơn cao hơn đơn đặt hàng ${m[1]} (${money(m[2]!, "vi")}), nên chủ cửa hàng phải duyệt.`,
+    }),
+  ],
+  [
+    /above the usual ([\d.]+) for \S+/,
+    (m) => ({
+      en: `The bill is above this payee's usual ${money(m[1]!, "en")}, so the owners must approve it.`,
+      "zh-Hant": `帳單金額高於這位收款人平常的 ${money(m[1]!, "zh-Hant")}，須由東主批准。`,
+      "zh-Hans": `账单金额高于这位收款人平常的 ${money(m[1]!, "zh-Hans")}，须由店主批准。`,
+      vi: `Hóa đơn cao hơn mức thường lệ ${money(m[1]!, "vi")} của người nhận này, nên chủ cửa hàng phải duyệt.`,
     }),
   ],
   [

@@ -239,6 +239,14 @@ describe("owner's records (purchase orders, paid invoices, payroll)", () => {
     expect(sink.executed).toEqual([]);
   });
 
+  it("rent at the usual amount is paid; above it (no purchase order to compare) goes to the owners", async () => {
+    const ok = await run("RENT INVOICE RL-0925 from Shop Landlord (fictional). Total due: 3,800.00. Due 30 Sep 2025.");
+    expect(ok.r.outcome).toBe("executed");
+    const { r, sink } = await run("RENT INVOICE RL-1025 from Shop Landlord (fictional). Rent 3,800.00 plus surcharge 1,150.00. Total due: 4,950.00.");
+    expect(r).toMatchObject({ outcome: "proposed", reason: "amount 4950.00 is above the usual 3800.00 for supplier-landlord" });
+    expect(sink.executed).toEqual([]);
+  });
+
   it("an invoice already paid is refused (duplicate-invoice-001)", async () => {
     const c = redteam("attacks").find((x) => x.id === "duplicate-invoice-001")!;
     const { r, sink } = await run(c.input);

@@ -90,8 +90,9 @@ function applyNameCheck(a: Action, input: PlannerInput): Action {
 }
 
 /**
- * The owner's records: an invoice already paid is refused; a re-issue (same supplier, amount and date, new number),
- * an amount above its purchase order, or a missing PO where one is required turns the payment into an owner proposal.
+ * The owner's records: an invoice already paid is refused; a re-issue (same supplier and amount, same date or none,
+ * new number), an amount above its purchase order, a missing PO where one is required, or (without a PO) an amount
+ * above the supplier's usual amount turns the payment into an owner proposal.
  */
 export function applyControls(a: Action, input: PlannerInput, controls?: PayeeControls): { action?: Action; refuse?: string } {
   if (!controls) return { action: a };
@@ -112,6 +113,8 @@ export function applyControls(a: Action, input: PlannerInput, controls?: PayeeCo
   const order = controls.orders.find((o) => o.supplier === supplier && o.invoiceId !== undefined && normaliseInvoiceId(o.invoiceId) === id);
   if (!reason && order && units(inv.amount) > units(order.amount)) reason = `amount ${inv.amount} is above purchase order ${order.po} (${order.amount})`;
   if (!reason && !order && controls.requiresPO[supplier]) reason = `no purchase order for ${inv.invoiceId}`;
+  const usual = controls.usualAmount?.[supplier];
+  if (!reason && !order && usual && units(inv.amount) > units(usual)) reason = `amount ${inv.amount} is above the usual ${usual} for ${supplier}`;
   if (!reason) return { action: a };
   return { action: { type: "propose_to_owner", reason, action: pay } };
 }

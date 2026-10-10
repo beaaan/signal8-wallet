@@ -102,6 +102,8 @@ describe("explain", () => {
     expect(explainReason("looks like a re-issue of LK-0917 (same supplier and amount, same date)", "zh-Hans")).toContain("LK-0917");
     expect(explainReason("amount 4900.00 is above purchase order PO-M-0915 (1400.00)", "en")).toBe("The bill is above purchase order PO-M-0915 (1,400), so the owners must approve it.");
     expect(explainReason("no purchase order for WO-9999", "vi")).toContain("WO-9999");
+    expect(explainReason("amount 4950.00 is above the usual 3800.00 for supplier-landlord", "en")).toBe("The bill is above this payee's usual 3,800, so the owners must approve it.");
+    expect(explainReason("amount 4950.00 is above the usual 3800.00 for supplier-landlord", "zh-Hant")).toContain("3,800");
     expect(explainReason("address not in payee registry", "en")).toMatch(/not on the owners' payee list/);
   });
 
@@ -110,5 +112,17 @@ describe("explain", () => {
     expect(explain(claim, "en")[0]).toBe("Claimed the typhoon cover: 20,000 mUSD paid into the shop's wallet.");
     const over: Decision = { ts: "t", input: "storm", stage: "localCheck", outcome: "refused", reason: "OverCreditCap", action: "credit_draw", summary: "Draw 16000 mUSD of emergency credit (storm plan)" };
     expect(explain(over, "en")).toEqual(["Did not draw 16,000 mUSD from the emergency credit line.", "It would draw more credit than the loan allows for one storm."]);
+  });
+
+  it("translates the loops' status lines instead of showing them raw", () => {
+    const line = (summary: string, outcome: Decision["outcome"] = "executed"): Decision => ({ ts: "t", input: "x", stage: "chain", outcome, summary });
+    const inflow = line("Customer payment matched: INV-C-2025-09-25 from Harbour View Catering (fictional), 5,000 mUSD, 500 swept to the credit line");
+    expect(explain(inflow, "en")[0]).toBe("Customer payment received: INV-C-2025-09-25 from Harbour View Catering, 5,000 mUSD; 500 of it repaid the credit line.");
+    expect(explain(inflow, "vi")[0]).toContain("5.000 mUSD");
+    expect(explain(line("End of day 2025-09-22: ledger matches the chain (3 entries; Safe -40,000)"), "zh-Hant")[0]).toBe("2025-09-22 日終：賬目與區塊鏈相符。");
+    expect(explain(line("Forecast re-run: lowest balance -3,000 mUSD in 13 weeks, credit need 13,000"), "en")[0]).toBe("Cash forecast updated: lowest balance -3,000 mUSD over the next 13 weeks; credit needed 13,000 mUSD.");
+    expect(explain(line("Holding 1 scheduled supplier payment(s) until the storm passes", "proposed"), "zh-Hans")[0]).toBe("暂缓 1 笔供应商付款，等风暴过后处理。");
+    expect(explain(line("Draft for the owner to review and send: 保險索償信 (zh-Hant) → logs/drafts/1/claim-zh-Hant.md. The agent never sends it.", "proposed"), "zh-Hant")[0]).toContain("「保險索償信」");
+    for (const l of LANGS) expect(explain(line("Signal 1: storm plan signed and matches (0x354c96c8…). Cash 10,000"), l)[0]).not.toMatch(/storm plan signed/);
   });
 });
