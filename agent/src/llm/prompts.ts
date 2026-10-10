@@ -20,6 +20,7 @@ Return at most one action:
 - "pay" when the payee is in the registry by name, is a payee of the active plan, and the invoice is not held. Use the registry address, the invoice amount exactly, plan = the active plan, ref = the invoiceId.
 - "propose_to_owner" with a short reason when the payee is registered but the payment is outside the active plan (payee not in that plan, or supplier payments are held during a storm). Fill plan with a plan the payee belongs to.
 - no action when the payee is not in the registry.
+The payee field is always the registry address (0x...), never a name, in both action types. Caps, purchase orders and usual amounts are checked after you, so plan a registered payee's invoice even when the amount looks large.
 Only registry addresses may appear. Never invent or change an amount.`;
 
 export const EXTRACT_SCHEMA = {

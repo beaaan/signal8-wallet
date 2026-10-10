@@ -281,3 +281,12 @@ describe("owner's records (purchase orders, paid invoices, payroll)", () => {
     expect(storm.r).toMatchObject({ outcome: "refused" });
   });
 });
+
+describe("registryFrom", () => {
+  it("drops the plan book's (fictional) label from the names the planner sees, and keeps ids and addresses", () => {
+    const reg = registryFrom(book);
+    expect(reg.map((p) => p.name).filter((n) => /fictional/i.test(n))).toEqual([]);
+    expect(reg.find((p) => p.id === "supplier-flour")?.name).toBe("Lee Kee Flour");
+    expect(reg.map((p) => p.address)).toEqual(book.payees.map((p) => p.address));
+  });
+});

@@ -37,8 +37,13 @@ export interface ModelProvider {
   plan(input: PlannerInput): Promise<unknown>;
 }
 
+/**
+ * The payee registry as the planner sees it. The example plan book labels every name "(fictional)"; DeepSeek read
+ * "Lee Kee Flour (fictional)" as a different name from the invoice's "Lee Kee Flour" and planned nothing, so the
+ * label stays in the plan book and is dropped here (matchPayee ignores it too).
+ */
 export function registryFrom(book: PlanBook): RegistryPayee[] {
-  return book.payees.map((p) => ({ id: p.id, name: p.name, role: p.role, plans: p.plans, address: p.address }));
+  return book.payees.map((p) => ({ id: p.id, name: p.name.replace(/\s*\(fictional\)\s*$/i, ""), role: p.role, plans: p.plans, address: p.address }));
 }
 
 export function plannerPlans(book: PlanBook): PlannerInput["plans"] {
