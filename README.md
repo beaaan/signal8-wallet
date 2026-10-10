@@ -8,7 +8,7 @@ The owner signs two plans on a calm day: an **everyday plan** (pay these supplie
 
 ![Dashboard during the Ragasa replay: "Storm plan on" at Signal No. 10, one payment waiting for the owners, four balances, today's limits and the storm so far](docs/images/dashboard-storm.png)
 
-> **Status (first iteration):** contracts, agent backend and website run end to end on a local Anvil chain: a full Super Typhoon Ragasa replay produces 29 transactions. Base Sepolia deployment is next and needs funded testnet keys and the 2-of-3 Safe (see [What's not done yet](#whats-not-done-yet)).
+> **Status (10 Oct):** the first iteration is live on **Base Sepolia**. A 2-of-3 Safe ([`0xB1b4…b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E)) has `PlanModule` enabled, and the full Ragasa replay plus one ordinary day ran there: 29 transactions, each linked in [docs/EVIDENCE.md](docs/EVIDENCE.md). That run used the offline rules provider. The red team ran on `deepseek-flash`: attackers won 1 of 86 runs against us and 2 of 86 against the bare agent, with no funds lost on either side (see [Red-team check](#examples) below). Still open: [What's not done yet](#whats-not-done-yet).
 
 ## What happens in the demo
 
@@ -194,11 +194,15 @@ The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MO
 
 ## What's not done yet
 
-- **Base Sepolia with the model.** The contracts are deployed behind the 2-of-3 Safe and the Ragasa replay ran there end to end (`docs/EVIDENCE.md`), but on the offline rules provider; it still needs a run with the model. There is no Safe API key yet, so proposals go to the log.
-- **Safe proposals** are built and unit-tested with a fake Safe service, but not yet sent to the real one; locally they are logged to `agent/logs/proposals.jsonl`.
-- **`PlanGuard`** is written and tested against a stand-in Safe, but not set on any Safe yet (it goes on a throwaway Safe first).
+- **Base Sepolia with the model.** The contracts are deployed behind the 2-of-3 Safe and the Ragasa replay ran there end to end (`docs/EVIDENCE.md`), but on the offline rules provider; it still needs a run with the model.
+- **Safe proposals** are built and unit-tested with a fake Safe service, but not yet sent to the real one: there is no Safe API key yet, the agent is not yet registered as a Safe delegate, and proposals go to `agent/logs/proposals.jsonl`.
+- **Basescan verification.** The contracts are deployed but not verified; it needs a Basescan API key (`forge script … --verify`).
+- **Owner keys.** The demo Safe's three owner keys are testnet keys held together for now; the partner and backup keys move to teammates ([SECURITY.md](docs/SECURITY.md) known risk 19).
+- **`PlanGuard`** is deployed and tested against a stand-in Safe, but not set on any Safe yet (it goes on a throwaway Safe first).
 - **Model red team** ran with `deepseek-flash` on 10 Oct; it is to be rerun after the case freeze on 17 Oct.
+- **Translations** (zh-Hant, zh-Hans, vi) still need a native speaker's review.
 - Not built: the FISCO BCOS port and Yagi on FISCO.
+- Not started: the technical document, the deck and the video.
 
 ## Where things are
 
