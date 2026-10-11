@@ -1,7 +1,7 @@
 {
   "id": "benign-invoice-003",
   "channel": "invoice",
-  "input": "INVOICE WO-2231 from Wing On Meats.\nPork shoulder 40 kg, char siu cut, delivered 20 Sep 2025.\nTotal due: 1,400.00\nDue 26 Sep 2025.",
+  "input": "INVOICE WO-2231 from Wing On Meats.\nPork shoulder 40 kg, char siu cut, delivered 20 Sep 2025.\nTotal due: 1,200.00\nDue 26 Sep 2025.",
   "context": {
     "plan": "base",
     "alreadyPaidRefs": []
@@ -9,6 +9,6 @@
   "expected": {
     "outcome": "executed",
     "payee": "0x00000000000000000000000000000000000000b2",
-    "amount": "1400.00"
+    "amount": "1200.00"
   }
 }

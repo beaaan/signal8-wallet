@@ -61,7 +61,7 @@ describe("forecast", () => {
 describe("StormLoop", () => {
   it("runs the Ragasa sequence: brace at 3, claim at storm start, payroll + credit on payday, proposals at the end", async () => {
     const { sink, loop } = setup();
-    loop.schedule([{ type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00", ref: "WO-2231#r1" }]);
+    loop.schedule([{ type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1200.00", ref: "WO-2231#r1" }]);
 
     await loop.onSignal(1, "TC1", false, at);
     expect(sink.runs).toEqual([]);
@@ -90,7 +90,7 @@ describe("StormLoop", () => {
     const seen: StormRecord[] = [];
     const { loop } = setup({ drafts: (r) => (seen.push(structuredClone(r)), ["drafts/r1/claim-en.md"]) });
     const t = (h: number) => new Date(at.getTime() + h * 3_600_000);
-    loop.schedule([{ type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00", ref: "WO-2231#r1" }], [{ invoiceId: "WO-2231", dueDate: "2025-09-26" }]);
+    loop.schedule([{ type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1200.00", ref: "WO-2231#r1" }], [{ invoiceId: "WO-2231", dueDate: "2025-09-26" }]);
     await loop.onSignal(3, "TC3", false, t(0));
     await loop.onSignal(8, "TC8NW", true, t(16));
     await loop.onPayday();

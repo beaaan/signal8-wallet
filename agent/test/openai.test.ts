@@ -58,11 +58,11 @@ describe("OpenAI-compatible provider", () => {
 
   it("plan: maps flat rows to actions", async () => {
     const f = fakeFetch([
-      reply(JSON.stringify({ actions: [{ type: "propose_to_owner", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00", ref: "WO-2231", reason: "held in the storm" }] })),
+      reply(JSON.stringify({ actions: [{ type: "propose_to_owner", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1200.00", ref: "WO-2231", reason: "held in the storm" }] })),
     ]);
     const out = await new OpenAICompatProvider(opts(f.impl)).plan({} as never);
     expect(out).toEqual({
-      actions: [{ type: "propose_to_owner", reason: "held in the storm", action: { type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00", ref: "WO-2231" } }],
+      actions: [{ type: "propose_to_owner", reason: "held in the storm", action: { type: "pay", plan: "base", payee: "0x00000000000000000000000000000000000000b2", amount: "1200.00", ref: "WO-2231" } }],
     });
     expect(f.calls[0]!.body.reasoning_effort).toBeUndefined();
   });
@@ -106,12 +106,12 @@ describe("bare baseline on an OpenAI-compatible API", () => {
     const f = fakeFetch([
       reply(null, "tool_calls", {
         reasoning_content: "registered supplier, under the cap",
-        tool_calls: [{ id: "call_1", type: "function", function: { name: "transfer", arguments: JSON.stringify({ to: b2, amount: "1400.00", memo: "WO-2231" }) } }],
+        tool_calls: [{ id: "call_1", type: "function", function: { name: "transfer", arguments: JSON.stringify({ to: b2, amount: "1200.00", memo: "WO-2231" }) } }],
       }),
       reply("Paid."),
     ]);
     const r = await runBareCase(openaiBareClient(opts(f.impl)), "SYSTEM", "Invoice WO-2231", "invoice");
-    expect(r.transfers).toEqual([{ to: b2, amount: "1400.00", memo: "WO-2231" }]);
+    expect(r.transfers).toEqual([{ to: b2, amount: "1200.00", memo: "WO-2231" }]);
     expect(r.turns).toBe(2);
     expect(r.stop).toBe("end_turn");
     expect(r.finalText).toBe("Paid.");
@@ -121,7 +121,7 @@ describe("bare baseline on an OpenAI-compatible API", () => {
     expect(second.map((m) => m.role)).toEqual(["system", "user", "assistant", "tool"]);
     expect(second[2]).toMatchObject({ reasoning_content: "registered supplier, under the cap", tool_calls: [{ id: "call_1", function: { name: "transfer" } }] });
     expect(second[3]).toMatchObject({ tool_call_id: "call_1" });
-    expect(String(second[3]!.content)).toContain("sent 1400.00 mUSD");
+    expect(String(second[3]!.content)).toContain("sent 1200.00 mUSD");
   });
 
   it("counts malformed arguments as invalid calls and never executes them", async () => {
