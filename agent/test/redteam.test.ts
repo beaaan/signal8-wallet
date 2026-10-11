@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { units } from "../src/exec/calls.ts";
 import { loadPlanBook } from "../src/plan.ts";
 import { PATHS } from "../src/config.ts";
 import { loadControls } from "../src/controls.ts";
-import { formatTable, runRedteam } from "../src/redteam.ts";
+import { formatTable, runRedteam, writeSummary, type RedteamSummary } from "../src/redteam.ts";
 
 describe("npm run redteam (ours side, offline)", () => {
   it("nothing reaches an unregistered address, losses stay under the cap, and every benign case passes", async () => {
     const s = await runRedteam();
+    expect(s.planBook).toBe("data/fixtures/plans/plan-book.example.json");
     const book = loadPlanBook(PATHS.planBookExample);
     const registered = new Set(book.payees.map((p) => p.address.toLowerCase()));
     expect(new Set(s.attacks.map((a) => a.family)).size).toBe(7);
@@ -36,5 +40,47 @@ describe("npm run redteam (ours side, offline)", () => {
     const s = await runRedteam({ controls: () => ({ ...loadControls(), usualAmount: {} }) });
     expect(s.attacks.filter((a) => a.attackerWins).map((a) => `${a.id}:${a.plan}`)).toEqual(["overpay-landlord-001:base"]);
     expect(s.attacks.find((a) => a.id === "overpay-landlord-001" && a.plan === "base")?.fundsLost).toBe("1150.00");
+  });
+});
+
+describe("red-team result artifacts", () => {
+  const summary = (provider: string): RedteamSummary => ({
+    side: "ours",
+    provider,
+    planBook: "plan.json",
+    generatedAt: "2026-10-11T00:00:00.000Z",
+    families: [],
+    attacks: [],
+    benign: { cases: 0, passed: 0, taskSuccessRate: 0, falseRefusals: 0, runs: [] },
+  });
+
+  it("an offline rerun leaves the matched model artifact byte-for-byte intact", () => {
+    const resultsDir = mkdtempSync(join(tmpdir(), "s8-redteam-results-"));
+    const modelFile = join(resultsDir, "summary.json");
+    const modelArtifact = '{ "ours": { "provider": "openai:deepseek-flash" }, "bare": { "provider": "openai:deepseek-flash" } }\n';
+    writeFileSync(modelFile, modelArtifact);
+
+    const rules = summary("rules");
+    const rulesFile = writeSummary(rules, { resultsDir });
+    expect(rulesFile).toBe(join(resultsDir, "rules-summary.json"));
+    expect(readFileSync(modelFile, "utf8")).toBe(modelArtifact);
+    expect(JSON.parse(readFileSync(rulesFile, "utf8"))).toEqual({ ours: rules });
+  });
+
+  it("a model rerun keeps the bare comparison and supports an explicit output file", () => {
+    const resultsDir = mkdtempSync(join(tmpdir(), "s8-redteam-results-"));
+    const modelFile = join(resultsDir, "summary.json");
+    const bare = { provider: "openai:deepseek-flash", generatedAt: "2026-10-10T00:00:00.000Z" };
+    writeFileSync(modelFile, JSON.stringify({ bare }));
+
+    const model = summary("openai:deepseek-flash");
+    expect(writeSummary(model, { resultsDir })).toBe(modelFile);
+    expect(JSON.parse(readFileSync(modelFile, "utf8"))).toEqual({ bare, ours: model });
+
+    const explicitFile = join(resultsDir, "custom.json");
+    const rules = summary("rules");
+    expect(writeSummary(rules, explicitFile)).toBe(explicitFile);
+    expect(JSON.parse(readFileSync(explicitFile, "utf8"))).toEqual({ ours: rules });
+    expect(JSON.parse(readFileSync(modelFile, "utf8"))).toEqual({ bare, ours: model });
   });
 });

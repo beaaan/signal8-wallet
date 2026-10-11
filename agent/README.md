@@ -10,7 +10,7 @@ npm run replay -- --event ragasa-2025 --speed 600 --dry-run      # prints the ti
 npm run plan:hash -- ../data/fixtures/plans/plan-book.example.json
 npm run hko:now        # current HKO tropical cyclone signal
 npm run gdacs:now      # current GDACS cyclone events and the one for HK
-npm run redteam        # every redteam/ case through the offline pipeline; writes ../redteam/results/summary.json
+npm run redteam        # every redteam/ case through the offline pipeline; writes ../redteam/results/rules-summary.json
 npm run relayer:hko    # one HKO observation and what the live relayer would do (no transaction)
 npm run relayer:gdacs  # same for GDACS
 ```
@@ -49,7 +49,7 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 
 `data/fixtures/purchase-orders.json`, `paid-invoices.json` and `payroll.json` are the owner's records the planner checks invoices against (`src/controls.ts`): an invoice already paid is refused (invoice numbers are compared normalised: case, spaces and dashes ignored, so `lk 0917` is `LK-0917`); a re-issue (same supplier and amount, new number, and the same issue date or none), an amount above its purchase order, no PO for a supplier that requires one, or (without a PO) an amount above the supplier's `usualAmount` (the landlord's rent, 3,800.00) becomes an owner proposal; a payroll message on an ordinary day becomes one proposal for payroll.json's staff when the totals match. Executed supplier payments join the paid history for the session.
 
-`npm run redteam` runs every `../redteam/attacks` case (on an ordinary day and in storm mode) and every `../redteam/benign` case (with its own context) through extractor → planner → localCheck on a simulated PlanModule built from the example plan book (`src/sim.ts`); no chain, no keys. It prints a per-family table (attacker wins, funds lost, outcomes) and the benign task success, and writes the `ours` key of `../redteam/results/summary.json` (other keys, e.g. the bare agent's, are kept). `-- --model` uses the configured model provider instead of the rules.
+`npm run redteam` runs every `../redteam/attacks` case (on an ordinary day and in storm mode) and every `../redteam/benign` case (with its own context) through extractor → planner → localCheck on a simulated PlanModule built from the example plan book (`src/sim.ts`); no chain, no keys. It prints a per-family table (attacker wins, funds lost, outcomes) and the benign task success, and writes the `ours` key of `../redteam/results/rules-summary.json`. `-- --model` uses the configured model provider and writes `ours` in `../redteam/results/summary.json`, preserving the other model side. Offline runs therefore leave the model benchmark intact. Compare model sides only after both have run on the same model and fixture revision.
 
 ## After-storm drafts
 
@@ -85,7 +85,7 @@ JSON mode there guarantees JSON but not the schema, so the schema is written int
 - `npm run explain -- [--lang en|zh-Hant|zh-Hans|vi] [--last N]` (`src/explain.ts`): a deterministic two-line explanation of each decision line in `logs/decisions.jsonl` (what happened; why, with a Basescan link on Base Sepolia). Contract errors and the planner's refusal reasons are mapped; anything else is shown raw. The zh-Hant, zh-Hans and vi wording still needs a native speaker's review.
 - `npm run plan:compile -- [--out file] [--model]` (`src/llm/planCompiler.ts`): drafts a plan book from `../data/fixtures/policy.txt` and `loan.txt` (untrusted text), `payroll.json` and `payees.json` (trusted). The output must pass the `PlanBook` schema, every citation's quote must appear verbatim in the cited clause, and payee addresses may only come from payroll.json or the payee register. Without `--model` an offline compiler reads the numbered clauses with fixed patterns (English summary only). The result is a draft until two owners sign.
 - `npm run redteam:bare [-- --only <id-prefix>]` (`src/bare.ts`): the baseline from redteam/README.md. Same cases and model (`MODEL_NAME`), same business context and rules as the planner, but the model holds `transfer` / `propose_to_owner` tools on a simulated wallet (no chain, no key). It needs `MODEL_API_KEY` and writes the `bare` key of `../redteam/results/summary.json`. Run ours with the same model (`npm run redteam -- --model`) for a fair comparison.
-- `npm run redteam:table` (`src/redteamTable.ts`): the Markdown tables for `docs/SECURITY.md` §5 from summary.json; a side that has not run shows "not run".
+- `npm run redteam:table` (`src/redteamTable.ts`): the Markdown tables for `docs/SECURITY.md` §5 from the paired model `summary.json`; a side that has not run shows "not run". Use `npm run redteam:table -- ../redteam/results/rules-summary.json` for the separate rules-only results.
 
 ## Layout
 
