@@ -72,7 +72,7 @@ With three people, merge C into D and drop the FISCO port.
 | Third Safe owner | The owner's offline backup key | C (creates the Safe on 10 Oct) | |
 | Ordinary-day payroll needs two owners | Yes: it is what makes the storm plan matter | D (plan book) | |
 | Owner message channel | A Telegram bot, or nothing (cut item 2) | B | |
-| FISCO port: committed or stretch | Decide when the organizers answer questions 2 and 6 | A, D | |
+| FISCO port: committed or stretch | Decide when the organizers answer questions 4 and 6 | A, D | |
 
 ## 3. System overview
 
@@ -337,7 +337,7 @@ Other risks:
 | A broken guard locks the Safe | Test on a throwaway Safe; keep the guard optional until the end |
 | Base Sepolia slow on demo day | Pre-recorded run; local Anvil fork as fallback |
 | Organizers say testnet hashes don't count | Ask on 10 Oct; plan B is a tiny mainnet run on Base with a few dollars, owner-funded |
-| Arena or video blocked on the judges' network | Ask where and how we present (organizer question 7); laptop-hosted arena on a hotspot; video file on the laptop and on a host that loads in mainland China |
+| Arena or video blocked on the judges' network | Use the laptop-hosted arena on a hotspot; keep a video file on the laptop and ask about video hosting in organizer question 7 |
 | Model output breaks the schema | zod validation drops it; the planner retries once, then the action goes to the owner |
 | Scope creep | Anything not in this plan goes to a "later" column on Notion |
 
