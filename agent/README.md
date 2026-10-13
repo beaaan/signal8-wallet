@@ -8,6 +8,7 @@ npm run typecheck
 npm test               # vitest, no chain and no network
 npm run replay -- --event ragasa-2025 --speed 600 --dry-run      # prints the timeline only
 npm run plan:hash -- ../data/fixtures/plans/plan-book.example.json
+npm run plan:rehash -- ../data/fixtures/plans/plan-book.example.json   # Safe transactions to re-sign a reworded plan book (reads the chain)
 npm run hko:now        # current HKO tropical cyclone signal
 npm run gdacs:now      # current GDACS cyclone events and the one for HK
 npm run redteam        # every redteam/ case through the offline pipeline; writes ../redteam/results/rules-summary.json

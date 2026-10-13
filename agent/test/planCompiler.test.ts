@@ -7,6 +7,7 @@ import {
   loadCompilerInput,
   OfflinePlanCompiler,
   payrollDoc,
+  summaryWarnings,
   type PlanCompilerInput,
   type PlanCompilerProvider,
 } from "../src/llm/planCompiler.ts";
@@ -37,6 +38,23 @@ describe("plan compiler", () => {
     expect(draft.payees).toEqual(example.payees);
     expect(draft.dailyCeiling).toBe(example.dailyCeiling);
     expect(draft.citations.map((c) => c.rule)).toEqual(expect.arrayContaining(["dailyCeiling", "plans.base.perTxCap", "plans.storm.creditCapPerEvent"]));
+  });
+
+  it("drafts the example's English summary, which limits only the assistant's supplier and staff payments", async () => {
+    const draft = await validDraft();
+    expect(draft.summary.en).toBe(example.summary.en);
+    expect(draft.summary.en).toMatch(/payments to suppliers and staff never exceed 40,000 mUSD a day/);
+    expect(draft.summary.en).not.toMatch(/Nothing on any day|(?<!US)\$\d/);
+    expect(summaryWarnings(example)).toEqual([]);
+  });
+
+  it("warns about a summary in dollars or one that caps all spending", () => {
+    const old = "Ordinary days: up to $5,000 each. Nothing on any day can exceed $40,000.";
+    expect(summaryWarnings({ token: example.token, summary: { en: old, vi: "tối đa 5.000 đô la" } })).toEqual([
+      "en summary shows amounts in $; state them in mUSD",
+      "vi summary does not name mUSD",
+      "en summary reads the daily ceiling as a cap on all spending; it covers only the assistant's supplier and staff payments",
+    ]);
   });
 
   it("the example plan book's citations hold against policy.txt, loan.txt and payroll.json", () => {

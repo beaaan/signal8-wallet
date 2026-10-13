@@ -207,6 +207,7 @@ Each "win" paid the genuine invoice amount to the registered supplier, never the
 | `agent/` | `npm run redteam:bare` | The bare-agent baseline (needs `MODEL_API_KEY`; simulated wallet, no chain) |
 | `agent/` | `npm run relayer:hko -- --live`, `npm run relayer:gdacs -- --live` | Live relayers: attest on change, re-attest every 6 h |
 | `agent/` | `npm run plan:hash -- <plan-book.json>` | Plan hash and the on-chain parameters |
+| `agent/` | `npm run plan:rehash -- <plan-book.json>` | The Safe transactions that store a reworded plan book's hash in both plans, refusing any limit change |
 | `agent/` | `npm run plan:compile [-- --out <file>] [--model]` | Drafts a plan book from the owners' policy and loan texts (`data/fixtures/`), for them to check and sign |
 | `agent/` | `npm run explain -- --lang zh-Hant` | Two-line owner explanations of recent decisions (en, zh-Hant, zh-Hans, vi) |
 | `agent/` | `npm run keys:new` | Fresh testnet keys into `.env` (never printed), prints addresses to fund |

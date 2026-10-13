@@ -19,6 +19,8 @@ export const planModuleAbi = parseAbi([
   "function anchor(bytes32 hash, bytes32 kind)",
   "function pause()",
   "function queueChange(bytes data)",
+  "function applyChange(bytes data)",
+  "function setPlan(uint8 planId, (uint256 perTxCap, uint256 dailyCap, uint256 creditCapPerEvent, uint8 actions, bool active, bytes32 planHash) p)",
   "function setPayee(address payee, uint8 planMask)",
   "function setDailyCeiling(uint256 ceiling)",
   "function today() view returns (uint256)",

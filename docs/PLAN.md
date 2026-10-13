@@ -128,7 +128,7 @@ Key decisions (already made, don't reopen without a reason):
 - **Chain:** Base Sepolia (84532). Safe v1.4.1 (Protocol Kit default). Safe's Allowance Module is **not** deployed on Base Sepolia, so our own `PlanModule` enforces limits.
 - **Safe owners:** owner, partner and the owner's offline backup key, threshold 2. The agent is **not** an owner; it is a Safe delegate that can propose but not sign.
 - **No generic call path:** `PlanModule` exposes typed agent functions (`pay`, `vaultDeposit`, `vaultWithdraw`, `creditDraw`, `claimCover`, `anchor`) and builds every call itself, with the Safe as the only receiver.
-- **Base vs storm plan:** suppliers are base-plan payees, staff are storm-plan payees. Ordinary-day payroll is an owner co-sign; in a storm the storm plan pays staff, draws credit (capped per event) and claims the cover. A `dailyCeiling` caps both plans together.
+- **Base vs storm plan:** suppliers are base-plan payees, staff are storm-plan payees. Ordinary-day payroll is an owner co-sign; in a storm the storm plan pays staff, draws credit (capped per event) and claims the cover. A `dailyCeiling` caps `pay` across both plans together; vault moves, credit, cover payouts and owner-signed Safe payments are not counted in it.
 - **Oracle:** two signing relayers (HKO, GDACS) with separate keys, verified on-chain by EIP-712. Each reads only its own source; only GDACS carries the event id. Chainlink Functions was shut down on testnets in June 2026; Chainlink CRE is a stretch goal only.
 - **Replays:** relayers sign with the current time and keep the 2025 time as `sourceTime`; each run salts the GDACS event id; rehearsals run on an Anvil fork.
 - **Solidity 0.8.11 + OpenZeppelin 4.9.x** everywhere, because FISCO BCOS supports at most 0.8.11.

@@ -20,7 +20,9 @@ const EN = {
   perTxLabel: "Per payment",
   dailyLabel: "Per day",
   creditLabel: "Credit per storm",
-  ceilingLabel: "Any day, both plans",
+  ceilingLabel: "Assistant payments per day, both plans",
+  ceilingNote:
+    "Counts supplier and staff payments the assistant makes through the plan module. Moving money to or from the fund, credit drawn and insurance payouts are tracked separately. Payments the owners make directly from the Safe are not counted and must be recorded in the daily report.",
   mayLabel: "May",
   actionsShort: {
     pay: "Pay listed payees",
@@ -73,7 +75,8 @@ const STRINGS: Record<string, Partial<Strings>> = {
     perTxLabel: "每筆上限",
     dailyLabel: "每日上限",
     creditLabel: "每次風暴信貸",
-    ceilingLabel: "兩個計劃合計每日上限",
+    ceilingLabel: "助理每日付款上限（兩個計劃合計）",
+    ceilingNote: "只計算助理經計劃模組向供應商及員工的付款。基金存取、信貸提取及保險賠償另行記錄。東主直接從 Safe 付出的款項不計入此上限，須記入每日報告。",
     mayLabel: "可以",
     actionsShort: {
       pay: "付款給名單收款人",
@@ -122,7 +125,8 @@ const STRINGS: Record<string, Partial<Strings>> = {
     perTxLabel: "每笔上限",
     dailyLabel: "每日上限",
     creditLabel: "每次风暴信贷",
-    ceilingLabel: "两个计划合计每日上限",
+    ceilingLabel: "助理每日付款上限（两个计划合计）",
+    ceilingNote: "只计算助理通过计划模块向供应商和员工的付款。基金存取、信贷提取和保险赔付另行记录。店主直接从 Safe 付出的款项不计入这个上限，必须记入每日报告。",
     mayLabel: "可以",
     actionsShort: {
       pay: "向名单内收款人付款",
@@ -171,7 +175,8 @@ const STRINGS: Record<string, Partial<Strings>> = {
     perTxLabel: "Mỗi khoản chi",
     dailyLabel: "Mỗi ngày",
     creditLabel: "Tín dụng mỗi cơn bão",
-    ceilingLabel: "Mỗi ngày, cả hai kế hoạch",
+    ceilingLabel: "Khoản trợ lý trả mỗi ngày, cả hai kế hoạch",
+    ceilingNote: "Chỉ tính các khoản trợ lý trả cho nhà cung cấp và nhân viên qua mô-đun kế hoạch. Tiền chuyển vào hoặc rút ra khỏi quỹ, tiền rút tín dụng và tiền bồi thường bảo hiểm được theo dõi riêng. Các khoản chủ cửa hàng trả trực tiếp từ Safe không tính vào hạn mức này và phải được ghi vào báo cáo hằng ngày.",
     mayLabel: "Được phép",
     actionsShort: {
       pay: "Trả người nhận trong danh sách",
@@ -362,6 +367,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
             </dd>
           </div>
         </dl>
+        <p className="muted small">{t.ceilingNote}</p>
       </section>
 
       <div className="grid2">{planSections}</div>
