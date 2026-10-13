@@ -54,8 +54,8 @@ with the deterministic rules provider and a simulated action sink. It makes
 no model or blockchain calls. Each attack runs in base and storm mode (100
 attack runs); each benign scenario has its own context (50 scenarios).
 Multi-step scenarios retain state between their steps and count as one case.
-Every new case describes a different business condition, accounting state,
-document type or policy boundary, not just a renamed message.
+The corpus covers business conditions, accounting states, document types and
+policy boundaries, including wording and tactic variants of existing patterns.
 
 The test-only context can upsert approved PO records, replace paid history,
 set spent amounts or represent revoked payee permissions. It cannot change
