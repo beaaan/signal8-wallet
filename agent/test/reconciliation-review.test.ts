@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -205,6 +205,26 @@ describe("review: production daily-report producer", () => {
 });
 
 describe("review: balance reconciliation and owner actions", () => {
+  const failureStages = ["report read", "report write", "report anchor"] as const;
+  const reportFailures: Array<{ stage: typeof failureStages[number]; error: Error; caught: unknown; t: ReturnType<typeof closer> }> = [];
+  // Only the controlled post-comparison callback errors are captured. Unexpected
+  // setup errors fail the suite before G08 can invert a business assertion.
+  beforeAll(async () => {
+    for (const stage of failureStages) {
+      const t = closer({ ...closing(), safe: units("9900") });
+      const error = new Error(`controlled ${stage} failure`);
+      t.deps.beforePause = async () => { t.order.push(stage); throw error; };
+      let caught: unknown;
+      try {
+        await closeDay("2025-09-22", normalLedger(), view(), t.deps);
+      } catch (failure) {
+        caught = failure;
+      }
+      expect(caught).toBe(error);
+      reportFailures.push({ stage, error, caught, t });
+    }
+  });
+
   it("R04 normal receipts/payments/vault transfers match without pause", async () => {
     const t = closer(closing());
     expect((await closeDay("2025-09-22", normalLedger(), view(), t.deps)).ok).toBe(true);
@@ -260,6 +280,20 @@ describe("review: balance reconciliation and owner actions", () => {
     await expect(closeDay("2025-09-22", normalLedger(), view(), t.deps)).rejects.toThrow("RPC unavailable");
     expect(t.order).toEqual([]);
     expect(t.pause).not.toHaveBeenCalled();
+  });
+  it.each(failureStages)("R24 confirmed mismatch loses pause and owner alert when %s callback throws", (stage) => {
+    const { error, caught, t } = reportFailures.find((r) => r.stage === stage)!;
+    expect(caught).toBe(error);
+    expect(t.log.readNewest()[0]).toMatchObject({ action: "reconcile", outcome: "refused", stage: "localCheck", reason: "LedgerMismatch" });
+    expect(t.log.readNewest()[0]?.summary).toContain("Safe balance moved -100, ledger says 0");
+    expect(t.order).toEqual([stage]);
+    expect(t.pause).not.toHaveBeenCalled();
+    expect(existsSync(t.alerts.path)).toBe(false);
+  });
+  it.fails("G08 business expectation: confirmed mismatch still attempts pause and persists owner alert after report callback failure", () => {
+    expect(reportFailures.map(({ stage, t }) => ({ stage, pauseAttempts: t.pause.mock.calls.length, alerts: t.alerts.readNewest(10).map((a) => a.kind) }))).toEqual(
+      failureStages.map((stage) => ({ stage, pauseAttempts: 1, alerts: ["LedgerMismatch"] })),
+    );
   });
   it("R16 two unrecorded offsetting transfers escape balance-only comparison", () => {
     // External events are intentionally absent from ChainView: -100 +100 = 0.

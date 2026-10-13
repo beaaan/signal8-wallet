@@ -51,6 +51,7 @@ Verdicts concern adequacy for bookkeeping, not financial-statement assurance.
 | Refused, owner-review and later-due items | Refusal/proposal outcome and reason when produced; later-due actions in `scheduled` | Partial | Keep separate from successful payments; attach structured invoice/due/owner-review status |
 | Reconciliation result and exceptions | `{ok,diffs}`, or `null` when not run; no persisted opening/compared closing/expected deltas | Partial | Explicit verified/not-run/failed-read/limited-coverage states and reproducible comparison details |
 | Correct balance labels in decision log | Successful close labels net Safe/vault changes as `Safe` and `vault` | Fail | Label deltas explicitly and present actual closing balances separately |
+| Containment after a confirmed mismatch | Report callback runs before pause and alert; a callback error skips both | Fail | Attempt pause and persist owner alert independently of report read/write/anchor success |
 | Entire storm/replay period | Ordinary-day report is anchored before the storm phase; later cover, payroll, credit and resumed sweep appear in run/log, not that daily report | Missing for whole replay | Add phase/day ledger and report coverage; do not relabel pre-storm report as end-of-replay evidence |
 | Base Sepolia report/log and full anchor match | Only published transaction references available locally | Not verified | Obtain original matching exports; verify network/chain/run, original bytes and full on-chain anchor hash |
 
@@ -84,14 +85,17 @@ All amounts below are mUSD unless identified as token base units. One base unit 
 | R21 lagging RPC node after receipt | Pin no older than receipt and retry unavailable block | Stale head 95 retried to 100; unavailable call retried at 100 | Pass; existing historical mitigation works in this scenario | Real `consistentTransport`, fake base RPC |
 | R22 advancing head, parallel snapshot | Use a single coherent block to avoid false mismatch | Actual reader/transport mix blocks 100/101; Safe before transfer + vault after transfer falsely pauses; coherent block 101 matches | Confirmed conditional mismatch | G06; deterministic fake RPC, not a claimed live incident |
 | R23 report reread after comparison | Anchored balances must be the compared closing snapshot | Compared Safe 10,000; report reread Safe 9,900 while `ok: true` persists | Confirmed conditional mismatch | G07; real producer with mocked changed boundary read |
+| R24 report callback fails after a confirmed mismatch | Still attempt pause and persist an owner alert | Safe 10,000 -> 9,900 versus recorded net cash change 0 logs `LedgerMismatch`; controlled report-read/write/anchor errors propagate before pause or alert | Confirmed conditional containment gap | G08; real `closeDay`, three injected callback failures |
 
 The inflow sweep values in R18–R20 are event-oracle data for watcher accounting, not tests of the router's sweep-rate formula. R01 uses the demo 10% ordinary-day allocation. No test changes the current runtime API; extra transfer/debt fields belong only to trusted test-oracle context.
 
+R24 injects three controlled callback errors representing report-balance RPC, report-file write and anchor failure; it does not perform those external operations. The production callback can fail at each of those stages. Its execution and exact error checks happen outside `it.fails`, after a real comparison has logged the mismatch. Unlike R15, the comparison has already succeeded and established a money difference; the report error must not suppress the containment requirement. No newly observed live incident is claimed.
+
 ### Interpretation of test results
 
-The new file has **30 assertions: 23 characterization/regression assertions and 7 explicitly expected-failing business assertions**. Vitest counts `it.fails` as successful when its expectation fails, and fails it if the expectation unexpectedly passes. Setup runs outside those assertions so infrastructure errors cannot stand in for business failures. A green test process therefore does **not** mean all bookkeeping expectations are satisfied.
+The new file has **34 assertions: 26 characterization/regression assertions and 8 explicitly expected-failing business assertions**. Vitest counts `it.fails` as successful when its expectation fails, and fails it if the expectation unexpectedly passes. Setup runs outside those assertions so infrastructure errors cannot stand in for business failures. A green test process therefore does **not** mean all bookkeeping expectations are satisfied.
 
-G01 opening balances; G02 payment detail; G03 incorrect log labels; G04 transfer-completeness gap; G05 debt comparison gap; G06 mixed-block read; G07 report/compared-snapshot divergence. These remain documented rather than changing expected outcomes to make business failures disappear.
+G01 opening balances; G02 payment detail; G03 incorrect log labels; G04 transfer-completeness gap; G05 debt comparison gap; G06 mixed-block read; G07 report/compared-snapshot divergence; G08 containment after a report callback error. These remain documented rather than changing expected outcomes to make business failures disappear.
 
 ## Findings and follow-up
 
@@ -103,6 +107,7 @@ G01 opening balances; G02 payment detail; G03 incorrect log labels; G04 transfer
 | F04 outstanding debt not reconciled | Runtime capability addition | Include lender opening/closing debt, verified draws and repayment allocations; check expected debt movement without counting repayments as additional Safe outflows | Same issue; R17/G05 |
 | F05 inconsistent snapshot boundaries | Runtime | Pin one block for all view fields; reuse that compared snapshot for report; identify read failure/retry separately from financial mismatch | Same issue; R22/G06 and R23/G07 |
 | F06 report/ledger does not cover later storm replay | Runtime | Review day/phase boundaries; keep ledger through cover/credit/payroll/router flows; produce separately identified later reports and reconciliation | Same issue; static `agent/src/replay/run.ts` ordinary-day block clears `a.sink.ledger` before replay; historical run contains later actions absent from report |
+| F07 report error suppresses mismatch containment | Runtime | After a confirmed mismatch, attempt pause and persist owner alert even if report reads, writes or anchoring fail; preserve the mismatch and report error separately, and retain guidance when pause also fails | Same issue; R24/G08; `closeDay` awaits `beforePause` before pause/alert |
 | Interpreting null, raw token units, repayment and historical pricing | Documentation | Operational notes and evidence limitations included here | Included in this PR; no historical rewrite |
 | Original Base Sepolia exports absent | Evidence dependency, not runtime defect | Obtain and compare original exports and full anchor data | Pending; not a code issue by itself |
 
@@ -111,7 +116,7 @@ The runtime issue is linked in the review PR description. Existing invoice-proce
 ## Verification
 
 - Original regression suite: **301/301**, 25 test files, by `npm test -- --exclude test/reconciliation-review.test.ts`.
-- Full suite: **331/331**, 26 test files, including the **7 known expected-failing business assertions**, not 331 business requirements passing.
+- Full suite: **335/335**, 26 test files, including the **8 known expected-failing business assertions**, not 335 business requirements passing.
 - `npm run typecheck`: passes.
 - `git diff --check`: passes.
 - `npm run plan:hash -- ../data/fixtures/plans/plan-book.example.json`: `0xb6b90f2a183c40898babdd89110dc2b85e1493bacbd924474ae07675acdfe193`, unchanged from PR base.
@@ -120,6 +125,6 @@ The runtime issue is linked in the review PR description. Existing invoice-proce
 
 ## Conclusion
 
-Local report/run/log descriptions and content-hash prefix agree. Current simulation detects several balance/counter mismatches, handles the stated vault tolerance and preserves customer receipts with owner warnings. It does not establish complete event, debt or storm-period accounting; snapshot consistency and report detail also need runtime follow-up.
+Local report/run/log descriptions and content-hash prefix agree. Current simulation detects several balance/counter mismatches, handles the stated vault tolerance and preserves customer receipts with owner warnings. It does not establish complete event, debt or storm-period accounting; snapshot consistency and report detail also need runtime follow-up. A report callback error after a confirmed mismatch can skip the pause and persisted owner alert, so the current flow does not guarantee containment on that path.
 
 Bookkeeping sign-off is **not ready**: address the confirmed runtime findings, rerun the reviewed expectations, and obtain/verify the required Base Sepolia exports. Creating this documentation/test PR or its follow-up issue is not completion of the task.

@@ -46,7 +46,9 @@ The existing daily report is sealed during the **ordinary-day phase before** tho
 - Later-due/scheduled action: intended payment, not a completed transaction.
 - Direct owner movement: needs independently verified transaction and purpose. A handwritten claim does not create a trusted accounting record.
 
-An inflow warning need not pause a financially consistent day. An unexplained Safe movement, vault difference above the rounding tolerance, or applicable PlanModule counter mismatch currently triggers pause and an owner alert. Vault tolerance is **2 token base units = 0.000002 mUSD**, not 2 mUSD. UTC rollover resets counters; cash/fund checks continue but interval-spend completeness still needs event-level support.
+An inflow warning need not pause a financially consistent day. On an unexplained Safe movement, vault difference above the rounding tolerance, or applicable PlanModule counter mismatch, the current flow attempts to write and anchor the report before pausing and alerting the owners. If that report callback fails while reading balances, writing the file or anchoring, `closeDay` exits before the pause attempt and persisted alert, even though the mismatch has already been logged. This containment gap is tracked as F07/R24/G08 in the [review](../RECONCILIATION_REVIEW.md) and issue #18; it is not fixed by these notes. A failed comparison read before a mismatch can be established is a separate unverified-read condition.
+
+Vault tolerance is **2 token base units = 0.000002 mUSD**, not 2 mUSD. UTC rollover resets counters; cash/fund checks continue but interval-spend completeness still needs event-level support.
 
 ## Minimum review bundle
 
