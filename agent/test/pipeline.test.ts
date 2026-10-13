@@ -56,7 +56,7 @@ describe("extractor (rules provider)", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(Object.keys(r.invoice).sort()).toEqual(["amount", "currency", "dueDate", "invoiceId", "issueDate", "kind", "payeeAddress", "payeeName"]);
-    expect(r.invoice).toMatchObject({ kind: "bank_detail_change", amount: "980.00", invoiceId: "WO-2240" });
+    expect(r.invoice).toMatchObject({ kind: "bank_detail_change", amount: "820.00", invoiceId: "WO-2240" });
     expect(text).toContain(r.invoice.payeeAddress!);
   });
 
@@ -228,9 +228,9 @@ describe("owner's records (purchase orders, paid invoices, payroll)", () => {
   });
 
   it("the invoice matching its PO is paid", async () => {
-    const { r, sink } = await run("INVOICE WO-2231 from Wing On Meats. Pork shoulder 40 kg. Total due: 1,400.00. Due 30 Sep 2025.");
+    const { r, sink } = await run("INVOICE WO-2231 from Wing On Meats. Pork shoulder 40 kg. Total due: 1,200.00. Due 30 Sep 2025.");
     expect(r.outcome).toBe("executed");
-    expect(sink.executed[0]).toMatchObject({ payee: "0x00000000000000000000000000000000000000b2", amount: "1400.00" });
+    expect(sink.executed[0]).toMatchObject({ payee: "0x00000000000000000000000000000000000000b2", amount: "1200.00" });
   });
 
   it("no purchase order for a supplier that requires one: proposed", async () => {
@@ -256,10 +256,10 @@ describe("owner's records (purchase orders, paid invoices, payroll)", () => {
 
   it("a re-issue (same supplier, amount and date, new number) is flagged and proposed, also within one session", async () => {
     const controls = loadControls();
-    const first = await run("INVOICE LK-0921, Lee Kee Flour. 50 kg flour, delivered 19 Sep 2025. Amount due: 1,250.50.", controls);
+    const first = await run("INVOICE LK-0921, Lee Kee Flour. 50 kg flour, delivered 19 Sep 2025. Amount due: 200.00.", controls);
     expect(first.r.outcome).toBe("executed");
     expect(controls.paid.at(-1)).toMatchObject({ supplier: "supplier-flour", invoiceId: "LK-0921", issueDate: "2025-09-19" });
-    const again = await run("INVOICE LK-0930, Lee Kee Flour. 50 kg flour, delivered 19 Sep 2025. Amount due: 1,250.50.", controls);
+    const again = await run("INVOICE LK-0930, Lee Kee Flour. 50 kg flour, delivered 19 Sep 2025. Amount due: 200.00.", controls);
     expect(again.r).toMatchObject({ outcome: "proposed", reason: expect.stringContaining("re-issue of LK-0921") });
     expect(again.sink.executed).toEqual([]);
   });

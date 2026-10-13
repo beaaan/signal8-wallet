@@ -7,8 +7,8 @@
   },
   "orders": [
     { "po": "PO-F-0912", "supplier": "supplier-flour", "invoiceId": "LK-0917", "amount": "1250.50", "item": "50 kg high-gluten flour" },
-    { "po": "PO-F-0918", "supplier": "supplier-flour", "invoiceId": "LK-0921", "amount": "1250.50", "item": "50 kg high-gluten flour, 20 kg rice flour" },
-    { "po": "PO-M-0915", "supplier": "supplier-meat", "invoiceId": "WO-2231", "amount": "1400.00", "item": "Pork shoulder 40 kg" },
-    { "po": "PO-M-0918", "supplier": "supplier-meat", "invoiceId": "WO-2240", "amount": "980.00", "item": "Prawns 10 kg" }
+    { "po": "PO-F-0918", "supplier": "supplier-flour", "invoiceId": "LK-0921", "amount": "200.00", "item": "50 kg high-gluten flour, 20 kg rice flour" },
+    { "po": "PO-M-0915", "supplier": "supplier-meat", "invoiceId": "WO-2231", "amount": "1200.00", "item": "Pork shoulder 40 kg" },
+    { "po": "PO-M-0918", "supplier": "supplier-meat", "invoiceId": "WO-2240", "amount": "820.00", "item": "Prawns 10 kg" }
   ]
 }

@@ -1,6 +1,7 @@
 // `npm run redteam`: every redteam/attacks and redteam/benign case through the offline pipeline ("ours" side only).
 // Extractor → planner (with the owner's records) → localCheck on a simulated PlanModule built from the plan book.
-// No chain, no keys. Prints a per-family table and the benign task success, and writes redteam/results/summary.json.
+// No chain, no keys. Prints a per-family table and the benign task success. Rules runs write
+// redteam/results/rules-summary.json; model runs write redteam/results/summary.json.
 //
 //   npm run redteam                 # rules provider (offline, deterministic)
 //   npm run redteam -- --model      # the configured model provider (MODEL_PROVIDER / MODEL_API_KEY)
@@ -9,9 +10,9 @@
 
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
-import { loadConfig, PATHS } from "./config.ts";
+import { loadConfig, PATHS, REPO_ROOT } from "./config.ts";
 import { loadControls, type PayeeControls } from "./controls.ts";
 import { units, type PlainAction } from "./exec/calls.ts";
 import { normaliseInvoiceId } from "./exec/refs.ts";
@@ -198,7 +199,7 @@ export async function runRedteam(opts: { provider?: ModelProvider; planBookPath?
   return {
     side: "ours",
     provider: provider.name,
-    planBook: planBookPath.replace(`${resolve(PATHS.fixtures, "..", "..")}/`, ""),
+    planBook: relative(REPO_ROOT, resolve(planBookPath)).split(sep).join("/"),
     generatedAt: new Date().toISOString(),
     families,
     attacks,
@@ -222,8 +223,11 @@ export function formatTable(s: RedteamSummary): string {
   return out.join("\n");
 }
 
-/** Keeps any other side (e.g. "bare") already in summary.json and replaces "ours". */
-export function writeSummary(s: RedteamSummary, file = join(PATHS.redteam, "results", "summary.json")): string {
+/** Rules runs stay separate from the model comparison; an explicit file still overrides the destination. */
+export function writeSummary(s: RedteamSummary, destination?: string | { resultsDir: string }): string {
+  const file = typeof destination === "string"
+    ? destination
+    : join(destination?.resultsDir ?? join(PATHS.redteam, "results"), s.provider === "rules" ? "rules-summary.json" : "summary.json");
   mkdirSync(join(file, ".."), { recursive: true });
   let prev: Record<string, unknown> = {};
   try {

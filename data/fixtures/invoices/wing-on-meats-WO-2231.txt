@@ -3,5 +3,5 @@ Subject: Invoice WO-2231
 
 INVOICE WO-2231 from Wing On Meats.
 Pork shoulder 40 kg, char siu cut, delivered 20 Sep 2025.
-Total due: 1,400.00
+Total due: 1,200.00
 Due 26 Sep 2025.

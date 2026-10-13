@@ -22,7 +22,7 @@ const ragasa: DraftContext = {
   preStorm: { hash: hex("ab"), tx: hex("02"), signal: "TC3", at: new Date("2025-09-22T13:40:00Z") },
   credit: { amount: units("15000"), tx: hex("03"), outstanding: units("14500") },
   payroll: { period: "2025-09", payday: "2025-09-24", total: units("23000"), staff: 10, paidInStorm: true },
-  held: [{ payee: "Wing On Meats", amount: "1400.00", invoiceId: "WO-2231", dueDate: "2025-09-26" }],
+  held: [{ payee: "Wing On Meats", amount: "1200.00", invoiceId: "WO-2231", dueDate: "2025-09-26" }],
 };
 
 describe("after-storm drafts", () => {
@@ -41,7 +41,7 @@ describe("after-storm drafts", () => {
   it("the deadline list has payroll, held supplier payments, credit repayment and the claim window, in date order", () => {
     const d = deadlines(ragasa);
     expect(d.map((x) => x.what)).toEqual([
-      expect.stringContaining("WO-2231 to Wing On Meats, 1400.00"),
+      expect.stringContaining("WO-2231 to Wing On Meats, 1200.00"),
       expect.stringContaining("Next payroll"),
       expect.stringContaining("Insurance claim window"),
       expect.stringContaining("Credit line: drew 15,000"),

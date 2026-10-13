@@ -12,7 +12,7 @@ const pay: Decision = {
   outcome: "executed",
   tx,
   action: "pay",
-  summary: "Pay 1250.50 mUSD to 0x00000000000000000000000000000000000000b1 under the base plan (LK-0921)",
+  summary: "Pay 200.00 mUSD to 0x00000000000000000000000000000000000000b1 under the base plan (LK-0921)",
 };
 
 const refusal: Decision = {
@@ -21,7 +21,7 @@ const refusal: Decision = {
   stage: "planner",
   outcome: "refused",
   reason: "bank detail changes go through the owners' timelocked setPayee, never a message",
-  summary: 'No payment for "Wing On Meats" 980.00 USD',
+  summary: 'No payment for "Wing On Meats" 820.00 USD',
 };
 
 const proposal: Decision = {
@@ -31,7 +31,7 @@ const proposal: Decision = {
   outcome: "proposed",
   reason: "supplier payment held during the storm",
   action: "propose_to_owner",
-  summary: "Owner proposal: Pay 1400.00 mUSD to Wing On Meats under the base plan (WO-2231#17); logged for the owners (local chain)",
+  summary: "Owner proposal: Pay 1200.00 mUSD to Wing On Meats under the base plan (WO-2231#17); logged for the owners (local chain)",
 };
 
 const unknown: Decision = {
@@ -46,10 +46,10 @@ const unknown: Decision = {
 describe("explain", () => {
   it("explains a payment in every language, with the payee name and a Basescan link on Base Sepolia", () => {
     const all = explainAll(pay, { names, chainId: 84532 });
-    expect(all.en[0]).toBe("Paid Lee Kee Flour 1,250.50 mUSD under the everyday plan.");
-    expect(all["zh-Hant"][0]).toBe("已按平日計劃向 Lee Kee Flour 付款 1,250.50 mUSD。");
-    expect(all["zh-Hans"][0]).toBe("已按日常计划向 Lee Kee Flour 付款 1,250.50 mUSD。");
-    expect(all.vi[0]).toBe("Đã trả Lee Kee Flour 1.250,50 mUSD theo kế hoạch ngày thường.");
+    expect(all.en[0]).toBe("Paid Lee Kee Flour 200 mUSD under the everyday plan.");
+    expect(all["zh-Hant"][0]).toBe("已按平日計劃向 Lee Kee Flour 付款 200 mUSD。");
+    expect(all["zh-Hans"][0]).toBe("已按日常计划向 Lee Kee Flour 付款 200 mUSD。");
+    expect(all.vi[0]).toBe("Đã trả Lee Kee Flour 200 mUSD theo kế hoạch ngày thường.");
     for (const l of LANGS) expect(all[l][1]).toContain(`https://sepolia.basescan.org/tx/${tx}`);
     expect(all.en[1]).toMatch(/^Within the everyday plan the owners signed/);
   });
@@ -62,22 +62,22 @@ describe("explain", () => {
 
   it("explains a refusal in every language", () => {
     const all = explainAll(refusal);
-    expect(all.en).toEqual(["Did not pay Wing On Meats 980 USD.", "A message can never change bank details; only the owners can, with a 24-hour wait."]);
-    expect(all["zh-Hant"]).toEqual(["沒有向 Wing On Meats 付款 980 USD。", "訊息不能更改收款戶口；只有東主可以更改，而且要等 24 小時才生效。"]);
-    expect(all["zh-Hans"]).toEqual(["没有向 Wing On Meats 付款 980 USD。", "消息不能更改收款账户；只有店主可以更改，而且要等 24 小时才生效。"]);
-    expect(all.vi).toEqual(["Không trả Wing On Meats 980 USD.", "Tin nhắn không bao giờ đổi được thông tin tài khoản; chỉ chủ cửa hàng mới đổi được, sau 24 giờ chờ."]);
+    expect(all.en).toEqual(["Did not pay Wing On Meats 820 USD.", "A message can never change bank details; only the owners can, with a 24-hour wait."]);
+    expect(all["zh-Hant"]).toEqual(["沒有向 Wing On Meats 付款 820 USD。", "訊息不能更改收款戶口；只有東主可以更改，而且要等 24 小時才生效。"]);
+    expect(all["zh-Hans"]).toEqual(["没有向 Wing On Meats 付款 820 USD。", "消息不能更改收款账户；只有店主可以更改，而且要等 24 小时才生效。"]);
+    expect(all.vi).toEqual(["Không trả Wing On Meats 820 USD.", "Tin nhắn không bao giờ đổi được thông tin tài khoản; chỉ chủ cửa hàng mới đổi được, sau 24 giờ chờ."]);
   });
 
   it("explains an owner proposal in every language", () => {
     const all = explainAll(proposal);
     expect(all.en).toEqual([
-      "Asked the owners to approve paying Wing On Meats 1,400 mUSD under the everyday plan.",
+      "Asked the owners to approve paying Wing On Meats 1,200 mUSD under the everyday plan.",
       "During a storm, supplier payments wait until it passes; the owners approve them afterwards.",
     ]);
-    expect(all["zh-Hant"]).toEqual(["已請東主批准按平日計劃向 Wing On Meats 付款 1,400 mUSD。", "風暴期間供應商付款暫緩，風暴過後由東主批准。"]);
-    expect(all["zh-Hans"]).toEqual(["已请店主批准按日常计划向 Wing On Meats 付款 1,400 mUSD。", "风暴期间供应商付款暂缓，风暴过后由店主批准。"]);
+    expect(all["zh-Hant"]).toEqual(["已請東主批准按平日計劃向 Wing On Meats 付款 1,200 mUSD。", "風暴期間供應商付款暫緩，風暴過後由東主批准。"]);
+    expect(all["zh-Hans"]).toEqual(["已请店主批准按日常计划向 Wing On Meats 付款 1,200 mUSD。", "风暴期间供应商付款暂缓，风暴过后由店主批准。"]);
     expect(all.vi).toEqual([
-      "Đã đề nghị chủ cửa hàng duyệt: trả Wing On Meats 1.400 mUSD theo kế hoạch ngày thường.",
+      "Đã đề nghị chủ cửa hàng duyệt: trả Wing On Meats 1.200 mUSD theo kế hoạch ngày thường.",
       "Trong bão, các khoản trả nhà cung cấp chờ đến khi bão qua; chủ cửa hàng duyệt sau.",
     ]);
   });
@@ -100,7 +100,7 @@ describe("explain", () => {
     }
     expect(explainReason("invoice LK-0917 already paid on 2025-09-16", "en")).toBe("Invoice LK-0917 was already paid on 2025-09-16.");
     expect(explainReason("looks like a re-issue of LK-0917 (same supplier and amount, same date)", "zh-Hans")).toContain("LK-0917");
-    expect(explainReason("amount 4900.00 is above purchase order PO-M-0915 (1400.00)", "en")).toBe("The bill is above purchase order PO-M-0915 (1,400), so the owners must approve it.");
+    expect(explainReason("amount 4900.00 is above purchase order PO-M-0915 (1200.00)", "en")).toBe("The bill is above purchase order PO-M-0915 (1,200), so the owners must approve it.");
     expect(explainReason("no purchase order for WO-9999", "vi")).toContain("WO-9999");
     expect(explainReason("amount 4950.00 is above the usual 3800.00 for supplier-landlord", "en")).toBe("The bill is above this payee's usual 3,800, so the owners must approve it.");
     expect(explainReason("amount 4950.00 is above the usual 3800.00 for supplier-landlord", "zh-Hant")).toContain("3,800");
