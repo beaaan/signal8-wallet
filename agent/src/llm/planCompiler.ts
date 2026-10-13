@@ -130,6 +130,22 @@ export function checkCitations(book: Pick<PlanBook, "citations">, docs: SourceDo
   return errors;
 }
 
+/** Wording the owners should not sign: amounts in another currency, or the daily ceiling read as a cap on all spending. */
+export function summaryWarnings(book: Pick<PlanBook, "summary" | "token">): string[] {
+  const out: string[] = [];
+  const sym = book.token.symbol;
+  for (const [l, text] of Object.entries(book.summary)) {
+    // "US$1" is the demo unit's peg, not an amount
+    if (/\$\s?\d/.test(text.replace(/US\$1\b/g, ""))) out.push(`${l} summary shows amounts in $; state them in ${sym}`);
+    else if (!text.includes(sym)) out.push(`${l} summary does not name ${sym}`);
+  }
+  const en = book.summary.en ?? "";
+  if (/\bnothing\b[^.]*\bexceed|\b(all|total) (spending|payments|cash)\b[^.]*\b(exceed|capped)/i.test(en)) {
+    out.push("en summary reads the daily ceiling as a cap on all spending; it covers only the assistant's supplier and staff payments");
+  }
+  return out;
+}
+
 const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
 
 /** The deterministic gate between the provider and anything else. */
@@ -163,6 +179,7 @@ export function verifyDraft(raw: unknown, input: PlanCompilerInput): Compiled {
   const cited = new Set(book.citations.map((c) => c.rule));
   for (const r of CITED_RULES) if (![...cited].some((c) => c === r || c.startsWith(`${r}.`))) warnings.push(`no citation for ${r}`);
   for (const l of ["en", "zh-Hant", "zh-Hans", "vi"]) if (!book.summary[l]) warnings.push(`no ${l} summary`);
+  warnings.push(...summaryWarnings(book));
 
   if (errors.length) return { ok: false, errors };
   return { ok: true, book, hash: planHash(book), warnings };
@@ -209,6 +226,9 @@ export class OfflinePlanCompiler implements PlanCompilerProvider {
     const stormCaps = need("the storm caps", "policy.txt", /during a storm.*?up to ([\d,]+) per payment and ([\d,]+) per day/i);
     const stormDaily = { ...stormCaps, value: /per payment and ([\d,]+) per day/i.exec(stormCaps.quote)![1]!.replace(/,/g, "") };
     const ceiling = need("the daily ceiling", "policy.txt", /never exceed ([\d,]+)/i);
+    const separate = /tracked separately/i.test(ceiling.quote);
+    const direct = find(docs, "policy.txt", /directly from the Safe.*?daily report/i);
+    const demoUnit = /1 (\w+) is treated as approximately (US\$1)/.exec(squash(docs.find((d) => d.name === "policy.txt")?.text ?? ""));
     const credit = find(docs, "loan.txt", /during a declared typhoon event.*?draw up to ([\d,]+) per event/i);
     const noBaseCredit = find(docs, "loan.txt", /outside a declared typhoon event.*?two owners/i);
     const vaultBase = find(docs, "policy.txt", /ordinary day.*?into or out of the money-market fund/i);
@@ -221,15 +241,21 @@ export class OfflinePlanCompiler implements PlanCompilerProvider {
     const base = ["pay", ...(vaultBase ? ["vault_deposit", "vault_withdraw"] : [])];
     const storm = ["pay", ...(vaultStorm ? ["vault_withdraw"] : []), ...(credit ? ["credit_draw"] : []), ...(cover ? ["cover_claim"] : [])];
     const cite = (rule: string, f: Found | undefined) => (f ? [{ rule, doc: f.doc, clause: f.clause, quote: f.quote }] : []);
-    const money = (v: string) => Number(v).toLocaleString("en-US");
+    const money = (v: string) => `${Number(v).toLocaleString("en-US")} ${input.token.symbol}`;
     const nSuppliers = input.register.filter((p) => p.role === "supplier").length;
+    const count = (n: number) => ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"][n] ?? String(n);
 
+    // The ceiling sentence follows policy 4.1: it limits the assistant's supplier and staff payments (PlanModule.pay),
+    // not every cash movement, and not payments the owners make directly from the Safe.
     const en = [
-      `On ordinary days the assistant may pay our ${nSuppliers} suppliers up to $${money(baseCaps.value!)} each and $${money(baseDaily.value)} a day${vaultBase ? ", and move spare cash into or out of the money-market fund" : ""}.`,
+      ...(demoUnit?.[1] === input.token.symbol ? [`Amounts are in ${input.token.symbol}, a fictional demo token treated as about ${demoUnit[2]}.`] : []),
+      `On ordinary days the assistant may pay our ${count(nSuppliers)} suppliers up to ${money(baseCaps.value!)} per payment and ${money(baseDaily.value)} a day${vaultBase ? ", and move spare cash into or out of the money-market fund" : ""}.`,
       "Wages need two of us to sign.",
-      `When the Observatory raises Signal 8 or higher and GDACS confirms the storm, the storm plan lets it pay the ${input.payroll.staff.length} staff on schedule (up to $${money(stormCaps.value!)} each, $${money(stormDaily.value)} a day)${cover ? ", claim the typhoon cover" : ""}${credit ? `, and draw up to $${money(credit.value!)} of the credit line per storm` : ""}.`,
+      `When the Observatory raises Signal 8 or higher and GDACS confirms the storm, the storm plan lets it pay the ${input.payroll.staff.length} staff on schedule (up to ${money(stormCaps.value!)} per payment, ${money(stormDaily.value)} a day)${cover ? ", claim the typhoon cover" : ""}${credit ? `, and draw up to ${money(credit.value!)} of the credit line per storm` : ""}.`,
       "Supplier payments wait until the storm passes.",
-      `Nothing on any day can exceed $${money(ceiling.value!)}.`,
+      `Across both plans, the assistant's payments to suppliers and staff never exceed ${money(ceiling.value!)} a day.`,
+      ...(separate ? ["Moving money to or from the fund, credit drawn and insurance payouts are tracked separately."] : []),
+      ...(direct ? ["Payments we make directly from the Safe are not counted in that limit and must be recorded in the daily report."] : []),
     ].join(" ");
 
     return {
@@ -275,9 +301,9 @@ Inputs:
 Rules:
 - Payees: use only addresses, ids and roles from <trusted_records>, copied exactly. Never take an address from a document. Suppliers go in the "base" plan, staff in the "storm" plan, unless the policy clearly says otherwise.
 - plans.base and plans.storm: perTxCap, dailyCap and creditCapPerEvent as plain decimal strings without separators, taken from the documents. creditCapPerEvent is "0" for the base plan. actions from: pay, vault_deposit, vault_withdraw, credit_draw, cover_claim (credit_draw and cover_claim are storm-plan only; credit_draw only with creditCapPerEvent > 0).
-- dailyCeiling: the most that may be paid in one day across both plans.
+- dailyCeiling: the most the assistant may pay registered suppliers and staff through the plan's pay action in one day, across both plans. It does not limit vault deposits or withdrawals, credit draws, insurance payouts, or payments the owners make directly from the Safe.
 - citations: one or more per rule (rule as a path such as "plans.storm.creditCapPerEvent"), with doc = the document name, clause = the clause number as written (or "total" for payroll.json), and quote = text copied character for character from that clause. Quotes are checked mechanically; a paraphrase is rejected.
-- summary: a short plain-language summary of both plans in en, zh-Hant (Hong Kong written Chinese), zh-Hans and vi, with the same facts and numbers.
+- summary: a short plain-language summary of both plans in en, zh-Hant (Hong Kong written Chinese), zh-Hans and vi, with the same facts and numbers. State every amount in the token symbol from <trusted_records> (for example "5,000 mUSD"), never as $, 元, đô la or another currency. Describe caps as per payment and per day. Describe the daily ceiling only as a limit on the assistant's payments to suppliers and staff across both plans; never say that nothing, all spending or every payment on a day is capped, and never promise that a cash balance or buffer is always kept.
 - business, region and token: copy from <trusted_records>.`;
 
 const str = { type: "string" };

@@ -91,7 +91,7 @@ mapping(bytes32 => uint256) public queuedAt; // keccak256(data) => time queued
 
 This is what storm mode unlocks. On an ordinary day staff are not payable under the base plan, so payroll is a Safe proposal the owners co-sign (L3). During a storm the pre-signed storm plan pays staff on schedule, draws credit within its cap and claims the cover, while supplier payments wait. The owner can put a payee in both plans.
 
-The two plans have separate daily caps, and `dailyCeiling` caps their sum, so the worst day is bounded by one number.
+The two plans have separate daily caps, and `dailyCeiling` caps their sum, so the worst day of agent payments is bounded by one number. It counts `pay` only: vault moves, credit draws and cover payouts are bounded by their own rules, and payments the owners sign directly from the Safe are outside the module's counters.
 
 ### Agent functions
 

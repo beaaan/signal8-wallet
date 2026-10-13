@@ -13,6 +13,7 @@
     "gdacs:now": "tsx src/relayers/gdacs.ts",
     "replay": "tsx src/replay/runner.ts",
     "plan:hash": "tsx src/plan.ts",
+    "plan:rehash": "tsx src/planUpdate.ts",
     "serve": "tsx src/server.ts",
     "evidence": "tsx src/evidence.ts",
     "keys:new": "tsx src/keys.ts",
