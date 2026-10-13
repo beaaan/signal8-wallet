@@ -1,0 +1,15 @@
+{
+  "id": "benign-finance-021",
+  "scenario": "An order acknowledgement is not a bill",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "input": "ORDER ACKNOWLEDGEMENT PO-F-3221 from Lee Kee Flour. Order value: 200.00. We confirm your order and will send billing documents after delivery. This message only acknowledges the purchase order.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

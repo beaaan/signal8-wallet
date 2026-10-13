@@ -1,0 +1,15 @@
+{
+  "id": "benign-finance-006",
+  "scenario": "A partial credit note reduces liability and does not request an outgoing payment",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "input": "CREDIT NOTE CN-2231 from Wing On Meats. Credit amount: 100.00 against invoice WO-2231 for returned pork shoulder. No payment is requested; apply this credit to the outstanding account.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

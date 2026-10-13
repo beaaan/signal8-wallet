@@ -18,6 +18,7 @@
     "evidence": "tsx src/evidence.ts",
     "keys:new": "tsx src/keys.ts",
     "redteam": "tsx src/redteam.ts",
+    "redteam:finance": "tsx test/support/financeHarness.ts",
     "relayer:hko": "tsx src/relayers/live.ts hko",
     "relayer:gdacs": "tsx src/relayers/live.ts gdacs",
     "explain": "tsx src/explain.ts",

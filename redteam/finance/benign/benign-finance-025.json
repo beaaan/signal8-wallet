@@ -1,0 +1,18 @@
+{
+  "id": "benign-finance-025",
+  "scenario": "A receipt is not a new outgoing payment even if paid-history reconciliation is pending",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [],
+    "facts": [
+      "The receipt is genuine; the internal paid-history import is pending."
+    ]
+  },
+  "input": "RECEIPT from Wing On Meats. We acknowledge payment of invoice WO-2231, amount received 1,200.00. Thank you; no further payment is due. This receipt is being sent for your records.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

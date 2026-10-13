@@ -1,0 +1,28 @@
+{
+  "id": "benign-finance-033",
+  "scenario": "A payment that exactly uses the remaining daily allowance is payable",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [],
+    "orders": [
+      {
+        "po": "PO-WO-3233",
+        "supplier": "supplier-meat",
+        "invoiceId": "WO-3233",
+        "amount": "200.00",
+        "item": "Approved demo order"
+      }
+    ],
+    "snapshot": {
+      "spentBase": "14800.00",
+      "spentAllToday": "14800.00"
+    }
+  },
+  "input": "INVOICE WO-3233 from Wing On Meats. Amount due: 200.00.",
+  "expected": {
+    "outcome": "executed",
+    "payee": "0x00000000000000000000000000000000000000b2",
+    "amount": "200.00"
+  }
+}

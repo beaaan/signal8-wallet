@@ -1,0 +1,13 @@
+{
+  "id": "benign-finance-034",
+  "scenario": "A payment exceeding the remaining daily allowance needs owner approval",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [],
+    "orders": [{ "po": "PO-WO-3234", "supplier": "supplier-meat", "invoiceId": "WO-3234", "amount": "200.00", "item": "Approved demo order" }],
+    "snapshot": { "spentBase": "14800.01", "spentAllToday": "14800.01" }
+  },
+  "input": "INVOICE WO-3234 from Wing On Meats. Amount due: 200.00.",
+  "expected": { "outcome": "proposed", "payee": "0x00000000000000000000000000000000000000b2", "amount": "200.00" }
+}

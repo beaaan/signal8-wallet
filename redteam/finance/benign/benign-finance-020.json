@@ -1,0 +1,27 @@
+{
+  "id": "benign-finance-020",
+  "scenario": "A genuine invoice awaiting delivery is not yet payable",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [],
+    "orders": [
+      {
+        "po": "PO-WO-3220",
+        "supplier": "supplier-meat",
+        "invoiceId": "WO-3220",
+        "amount": "1200.00",
+        "item": "Approved demo order"
+      }
+    ],
+    "facts": [
+      "Payment is conditional on receipt and no prepayment exception exists."
+    ]
+  },
+  "input": "INVOICE WO-3220 from Wing On Meats. Amount due: 1,200.00. Delivery is delayed; the shop has not received the goods. No prepayment was agreed. Please hold payment until the owners verify receipt.",
+  "expected": {
+    "outcome": "proposed",
+    "payee": "0x00000000000000000000000000000000000000b2",
+    "amount": "1200.00"
+  }
+}
