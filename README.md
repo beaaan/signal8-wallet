@@ -18,7 +18,7 @@ The current fictional supplier fixtures are 200 mUSD for flour and rice flour, 1
 
 | Official time (HKT) | Signal | What the agent does | On the dashboard |
 | --- | --- | --- | --- |
-| 22 Sep, ordinary day | none | A customer pays 8,000; the agent matches it to the invoice, pays Lee Kee Flour 200 under the everyday plan, refuses a "we changed our wallet" invoice, sweeps surplus into the money-market fund, reconciles its books against the chain and anchors the daily report | "Everyday plan"; activity under "Everyday plan · Today" |
+| 22 Sep, ordinary day | none | A customer pays 8,000; the agent matches it to the invoice, pays Lee Kee Flour 200 under the everyday plan, never pays the new wallet in a "we changed our wallet" invoice (the rules version refuses the invoice; the model version pays its genuine 820 to the supplier's registered address, see [EVIDENCE.md](docs/EVIDENCE.md)), sweeps surplus into the money-market fund, reconciles its books against the chain and anchors the daily report | "Everyday plan"; activity under "Everyday plan · Today" |
 | 22 Sep 12:20 | No. 1 | GDACS relayer attests the Red alert; the agent checks the signed plan matches the chain | "Signal 1 · Plan checked" in the storm line |
 | 22 Sep 21:40 | No. 3 | Takes 15,000 out of the fund into the Safe, holds supplier payments, anchors a pre-storm evidence hash | "Fund → cash 15,000", "Sealed pre-storm snapshot" |
 | 23 Sep 14:20 | No. 8 | HKO relayer attests, storm mode turns on, the agent claims the typhoon cover (20,000) | Title turns to "Storm plan **on**"; cover shows +20,000 |
