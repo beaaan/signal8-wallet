@@ -238,7 +238,7 @@ The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MO
 - **Owner keys.** The demo Safe's three owner keys are testnet keys held together for now; the partner and backup keys move to teammates ([SECURITY.md](docs/SECURITY.md) known risk 19).
 - **Translations** (zh-Hant, zh-Hans, vi) still need a native speaker's review.
 - **Yagi on FISCO BCOS** ran end to end on a local 4-node FISCO BCOS v3.16.3 chain (27 transactions in `docs/EVIDENCE.md`, verifiable only on our node), with a mock bank-issued VND deposit token and a one-key standalone wallet instead of the 2-of-3 Safe; it skipped the ordinary day, drew no credit (the forecast stayed above its buffer) and its bulletin times are still approximate. The dashboard does not read the FISCO deployment.
-- Not started: the technical document, the deck and the video.
+- The technical document is a first draft ([docs/submission/TECHNICAL.md](docs/submission/TECHNICAL.md)), to be finalised after the 18 Oct freeze. Not started: the deck and the video.
 
 ## Where things are
 
