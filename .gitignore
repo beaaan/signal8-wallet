@@ -17,6 +17,8 @@ contracts/out/
 contracts/cache/
 contracts/lib/
 contracts/broadcast/*/31337/
+# local FISCO BCOS chain (Yagi): addresses go in deployments/fisco.json, hashes in docs/EVIDENCE.md
+contracts/broadcast/*/20200/
 contracts/deployments/anvil.json
 
 # os / editors
