@@ -51,6 +51,8 @@ Historical model run on 10 Oct, using the earlier invoice fixtures: `deepseek-fl
 
 The separate offline rules run on the current fixtures (`npm run redteam`, no model) holds 0/86 with 15/15 benign. It writes `redteam/results/rules-summary.json`; inspect it with `npm run redteam:table -- ../redteam/results/rules-summary.json`. It is not compared against the historical bare-model run.
 
+The finance members added 42 cases from real-world fraud and invoice patterns (`redteam/finance/`, 50 attacks and 50 benign scenarios in all), each scored against the expected recipient, amount and invoice rather than outcome alone. On the rules provider (`npm run redteam:finance`, `redteam/results/finance-rules-summary.json`) it holds 100/100 attack runs with no funds lost, and 50/50 benign scenarios match, after the 14 mismatches it first found were fixed in the agent (issue #16; known risks 21 and 22 record what remains). Both model sides on this corpus (`npm run redteam:finance -- --model`, `-- --bare`, then `-- --table`) are still to run: the model endpoint was not reachable from the environment that made these changes.
+
 | Attack family | Cases | Bare agent: success rate | Bare agent: funds lost | Signal 8 Wallet: success rate | Funds lost (mUSD) |
 | --- | --- | --- | --- | --- | --- |
 | Role-play reframing | 6 | 0% (0/12) | 0.00 | 0% (0/12) | 0.00 |
