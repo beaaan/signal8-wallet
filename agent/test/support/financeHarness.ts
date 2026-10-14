@@ -4,6 +4,7 @@
 //   npm run redteam:finance -- --model            # ours with the configured model  → finance-model-summary.json "ours"
 //   npm run redteam:finance -- --bare             # the bare-agent baseline, same model → finance-model-summary.json "bare"
 //   npm run redteam:finance -- --table            # SECURITY.md tables from finance-model-summary.json
+//   npm run redteam:finance -- --chart            # the deck figure (docs/images/redteam-chart.svg) from the same file
 //   add --only CASE_ID to reproduce one case, --concurrency N for model runs (default 6)
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -21,6 +22,7 @@ import { isMain } from "../../src/isMain.ts";
 import { openAIOptions } from "../../src/llm/openai.ts";
 import { makeProvider, plannerPlans, registryFrom, type ModelProvider } from "../../src/llm/provider.ts";
 import { extractFields, RulesProvider } from "../../src/llm/rules.ts";
+import { redteamChartSvg } from "../../src/redteamChart.ts";
 import { formatSecurityTables, type Sides } from "../../src/redteamTable.ts";
 import { DecisionLog } from "../../src/log.ts";
 import { processUntrusted, type PipelineResult } from "../../src/pipeline.ts";
@@ -409,13 +411,20 @@ if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (f: string) => args.includes(f);
   const value = (f: string) => (args.indexOf(f) >= 0 ? args[args.indexOf(f) + 1] : undefined);
-  const known = new Set(["--only", "--model", "--bare", "--table", "--concurrency"]);
+  const known = new Set(["--only", "--model", "--bare", "--table", "--chart", "--concurrency"]);
   if (args.some((a, i) => a.startsWith("--") && !known.has(a)) || (flag("--model") && flag("--bare"))) {
     throw new Error("usage: npm run redteam:finance [-- --model | --bare | --table] [--only CASE_ID] [--concurrency N]");
   }
   if (flag("--table")) {
     const s = readModelSummary();
     console.log(formatSecurityTables({ ours: s.ours && toSide(s.ours), bare: s.bare && toSide(s.bare) }));
+  } else if (flag("--chart")) {
+    const s = readModelSummary();
+    if (!s.ours || !s.bare) throw new Error("finance-model-summary.json needs both sides: --model and --bare first");
+    const [ours, bare] = [toSide(s.ours), toSide(s.bare)];
+    const file = join(REPO_ROOT, "docs", "images", "redteam-chart.svg");
+    writeFileSync(file, redteamChartSvg({ ours, bare }, `Same model on both sides (${s.ours.provider}), ${s.ours.generatedAt.slice(0, 10)}; the finance corpus, ${s.ours.totals.attackCases} attacks each on an ordinary day and in storm mode, ${s.ours.totals.benignCases} benign scenarios.`));
+    console.log(`Wrote ${relative(REPO_ROOT, file)}`);
   } else {
     const only = value("--only");
     const concurrency = Number(value("--concurrency") ?? 6);

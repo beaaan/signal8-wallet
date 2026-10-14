@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
+<rect width="1600" height="900" fill="#fcfcfb"/>
+<text x="80" y="92" font-size="44" fill="#0b0b0b" font-weight="600" text-anchor="start">Red team: who can talk the agent out of the money?</text>
+<text x="80" y="136" font-size="22" fill="#52514e" font-weight="400" text-anchor="start">Same model on both sides (openai:deepseek-flash), 2026-10-10; 43 attacks, each on an ordinary day and in storm mode. No funds were lost on either side.</text>
+<circle cx="89" cy="178" r="9" fill="#eb6834"/>
+<text x="108" y="186" font-size="22" fill="#0b0b0b" font-weight="400" text-anchor="start">Bare agent (model + wallet tool)</text>
+<circle cx="533" cy="178" r="9" fill="#2a78d6"/>
+<text x="552" y="186" font-size="22" fill="#0b0b0b" font-weight="400" text-anchor="start">Signal 8 Wallet</text>
+<rect x="80" y="224" width="458.6666666666667" height="196" rx="12" fill="#ffffff" stroke="#e4e3df" stroke-width="2"/>
+<text x="108" y="272" font-size="22" fill="#52514e" font-weight="400" text-anchor="start">Attack runs the attacker won</text>
+<rect x="108" y="300" width="6" height="88" rx="3" fill="#eb6834"/>
+<text x="128" y="326" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Bare</text>
+<text x="128" y="376" font-size="46" fill="#0b0b0b" font-weight="600" text-anchor="start">2 / 86</text>
+<rect x="337.33333333333337" y="300" width="6" height="88" rx="3" fill="#2a78d6"/>
+<text x="357.33333333333337" y="326" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Ours</text>
+<text x="357.33333333333337" y="376" font-size="46" fill="#0b0b0b" font-weight="600" text-anchor="start">1 / 86</text>
+<rect x="570.6666666666667" y="224" width="458.6666666666667" height="196" rx="12" fill="#ffffff" stroke="#e4e3df" stroke-width="2"/>
+<text x="598.6666666666667" y="272" font-size="22" fill="#52514e" font-weight="400" text-anchor="start">Funds lost (mUSD)</text>
+<rect x="598.6666666666667" y="300" width="6" height="88" rx="3" fill="#eb6834"/>
+<text x="618.6666666666667" y="326" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Bare</text>
+<text x="618.6666666666667" y="376" font-size="46" fill="#0b0b0b" font-weight="600" text-anchor="start">0</text>
+<rect x="828.0000000000001" y="300" width="6" height="88" rx="3" fill="#2a78d6"/>
+<text x="848.0000000000001" y="326" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Ours</text>
+<text x="848.0000000000001" y="376" font-size="46" fill="#0b0b0b" font-weight="600" text-anchor="start">0</text>
+<rect x="1061.3333333333335" y="224" width="458.6666666666667" height="196" rx="12" fill="#ffffff" stroke="#e4e3df" stroke-width="2"/>
+<text x="1089.3333333333335" y="272" font-size="22" fill="#52514e" font-weight="400" text-anchor="start">Benign tasks done right</text>
+<rect x="1089.3333333333335" y="300" width="6" height="88" rx="3" fill="#eb6834"/>
+<text x="1109.3333333333335" y="326" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Bare</text>
+<text x="1109.3333333333335" y="376" font-size="46" fill="#0b0b0b" font-weight="600" text-anchor="start">14 / 15</text>
+<rect x="1318.6666666666667" y="300" width="6" height="88" rx="3" fill="#2a78d6"/>
+<text x="1338.6666666666667" y="326" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Ours</text>
+<text x="1338.6666666666667" y="376" font-size="46" fill="#0b0b0b" font-weight="600" text-anchor="start">15 / 15</text>
+<text x="80" y="462" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">Attacker wins per attack family, out of each family's runs (ordinary day + storm mode)</text>
+<line x1="440" y1="476" x2="440" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="440" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">0</text>
+<line x1="560" y1="476" x2="560" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="560" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">2</text>
+<line x1="680" y1="476" x2="680" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="680" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">4</text>
+<line x1="800" y1="476" x2="800" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="800" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">6</text>
+<line x1="920" y1="476" x2="920" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="920" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">8</text>
+<line x1="1040" y1="476" x2="1040" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="1040" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">10</text>
+<line x1="1160" y1="476" x2="1160" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="1160" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">12</text>
+<line x1="1280" y1="476" x2="1280" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="1280" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">14</text>
+<line x1="1400" y1="476" x2="1400" y2="840" stroke="#e4e3df" stroke-width="1"/>
+<text x="1400" y="868" font-size="18" fill="#8a8984" font-weight="400" text-anchor="middle">16</text>
+<text x="80" y="509" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Fake bank-detail change</text>
+<line x1="440" y1="502" x2="1400" y2="502" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="560" cy="495" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="500" cy="509" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="509" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">2/12 · 1/12</text>
+<text x="80" y="561" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Encoded payloads</text>
+<line x1="440" y1="554" x2="1400" y2="554" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="440" cy="547" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="440" cy="561" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="561" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">0/12 · 0/12</text>
+<text x="80" y="613" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Permission escalation</text>
+<line x1="440" y1="606" x2="1400" y2="606" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="440" cy="599" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="440" cy="613" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="613" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">0/12 · 0/12</text>
+<text x="80" y="665" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Fake storm warning</text>
+<line x1="440" y1="658" x2="1400" y2="658" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="440" cy="651" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="440" cy="665" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="665" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">0/12 · 0/12</text>
+<text x="80" y="717" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Poisoned memory</text>
+<line x1="440" y1="710" x2="1400" y2="710" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="440" cy="703" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="440" cy="717" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="717" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">0/10 · 0/10</text>
+<text x="80" y="769" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Registered-payee abuse</text>
+<line x1="440" y1="762" x2="1400" y2="762" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="440" cy="755" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="440" cy="769" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="769" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">0/16 · 0/16</text>
+<text x="80" y="821" font-size="21" fill="#0b0b0b" font-weight="400" text-anchor="start">Role-play reframing</text>
+<line x1="440" y1="814" x2="1400" y2="814" stroke="#e4e3df" stroke-width="2"/>
+<circle cx="440" cy="807" r="8" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="440" cy="821" r="8" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="1424" y="821" font-size="19" fill="#52514e" font-weight="400" text-anchor="start">0/12 · 0/12</text>
+<text x="1424" y="462" font-size="18" fill="#8a8984" font-weight="400" text-anchor="start">bare · ours</text>
+</svg>
