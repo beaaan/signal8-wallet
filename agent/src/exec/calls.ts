@@ -4,6 +4,7 @@
 import { formatUnits, parseUnits, stringToHex } from "viem";
 import { PLAN_ID } from "../plan.ts";
 import type { Hex, PlanCall } from "../policy/localCheck.ts";
+import { tokenSymbol } from "../token.ts";
 import type { Action } from "../types.ts";
 import { refFor } from "./refs.ts";
 
@@ -42,18 +43,19 @@ export function toCall(action: PlainAction): PlanCall {
   }
 }
 
-/** One plain-language line for the decision log. */
+/** One plain-language line for the decision log, in the deployment's token (mUSD, or mVND on FISCO). */
 export function describe(action: Action, names: Map<string, string> = new Map()): string {
   const who = (a: Hex) => names.get(a.toLowerCase()) ?? a;
+  const t = tokenSymbol();
   switch (action.type) {
     case "pay":
-      return `Pay ${action.amount} mUSD to ${who(action.payee)} under the ${action.plan} plan (${action.ref}${action.part ? `, part ${action.part}` : ""})`;
+      return `Pay ${action.amount} ${t} to ${who(action.payee)} under the ${action.plan} plan (${action.ref}${action.part ? `, part ${action.part}` : ""})`;
     case "vault_deposit":
-      return `Move ${action.amount} mUSD of surplus into the money-market vault`;
+      return `Move ${action.amount} ${t} of surplus into the money-market vault`;
     case "vault_withdraw":
-      return `Withdraw ${action.amount} mUSD from the vault to the Safe (${action.plan} plan)`;
+      return `Withdraw ${action.amount} ${t} from the vault to the Safe (${action.plan} plan)`;
     case "credit_draw":
-      return `Draw ${action.amount} mUSD of emergency credit (storm plan)`;
+      return `Draw ${action.amount} ${t} of emergency credit (storm plan)`;
     case "cover_claim":
       return "Claim the typhoon cover payout (storm plan)";
     case "anchor":

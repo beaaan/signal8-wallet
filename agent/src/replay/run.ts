@@ -298,20 +298,20 @@ export async function runReplay(opts: RunOptions): Promise<number> {
       if (step.kind === "signal") {
         await waitEnter(rl, `signal ${step.code}`);
         ctx.signal = step.code;
-        console.log(`${when}: HKO level ${step.level}`);
+        console.log(`${when}: ${file.region === "HK" ? "HKO" : "NCHMF"} level ${step.level}`);
         const source = file.region === "HK" ? SOURCE.HKO : SOURCE.NCHMF;
         const h = await attest(a.c, "hkoRelayer", (n) =>
           buildHkoAttestation({ level: step.level ?? 0, issueTime: step.at.toISOString() }, { region: a.c.region, source, ...n }),
         );
         const change = h.stormStarted ? " → StormStarted" : h.stormEnded ? " → StormEnded" : "";
-        onTx(`HKO attestation: ${step.code} (level ${step.level})${change}`, h.tx);
+        onTx(`${file.region === "HK" ? "HKO" : "NCHMF"} attestation: ${step.code} (level ${step.level})${change}`, h.tx);
         if (change) console.log(`  ${change.slice(3)} ${h.tx}`);
         const stormNow = await isStorm(a.c);
         stormSeen ||= stormNow;
         await storm.onSignal(step.level ?? 0, step.code, stormNow, step.at);
         if ((step.level ?? 0) === 0 && stormSeen) {
           // After the storm, the next customer payment repays the credit line again (sweep resumes).
-          await clientPays(a.c, `INV-C-${localDate(step.at, tz)}#${runId}`, units("5000"), onTx);
+          await clientPays(a.c, `INV-C-${localDate(step.at, tz)}#${runId}`, units(file.scenario?.afterStormInflow ?? "5000"), onTx);
           for (const m of await inflows.poll(stormLedger)) {
             stormInflows.push(m);
             recordInflow(m);

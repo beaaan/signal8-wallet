@@ -312,4 +312,13 @@ describe("production chainReader: one block per view", () => {
       { tx: tx(400), logIndex: 1, block: 400n, safeDelta: 0n },
     ]);
   });
+
+  it("on FISCO reads the logs in 10-block windows (v3.16.3 silently answers only the first 10 blocks of a range)", async () => {
+    const transfers: RawTransfer[] = [{ block: 115n, tx: tx(115), logIndex: 0, from: "0x00000000000000000000000000000000000000c1", to: K.Safe, value: units("1") }];
+    const n = fakeNode({ states: [[0n, before]], heads: [125n], receipt: 0n, transfers });
+    const fisco = { ...n.c, cfg: { fisco: true } } as unknown as Chainish;
+    const v = await chainReader(fisco).view(100n);
+    expect([...new Set(n.calls.filter((c) => c.method === "eth_getLogs").map((c) => c.block))]).toEqual(["101-110", "111-120", "121-125"]);
+    expect(v.transfers).toEqual([{ tx: tx(115), logIndex: 0, block: 115n, safeDelta: units("1") }]);
+  });
 });

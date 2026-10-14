@@ -17,7 +17,7 @@ import { formatUnits, keccak256, toBytes } from "viem";
 import { erc20Abi, paymentRouterAbi } from "../abis.ts";
 import { readBalances, walletFor, type Chainish } from "../chain.ts";
 import { PATHS } from "../config.ts";
-import { fmt, units, type ActionSink, type PlainAction } from "../exec/executor.ts";
+import { fmt, tokenSymbol, units, type ActionSink, type PlainAction } from "../exec/executor.ts";
 import { withRun } from "../exec/refs.ts";
 import type { DecisionLog } from "../log.ts";
 import type { ChainView, Ledger } from "../ledger.ts";
@@ -78,7 +78,7 @@ export async function clientPays(c: Chainish, invoiceId: string, amount: bigint,
   const tx = await client.writeContract(request);
   const receipt = await c.pub.waitForTransactionReceipt({ hash: tx });
   if (receipt.status !== "success") throw new Error(`customer payment ${invoiceId} reverted`);
-  onTx?.(`Customer paid ${fmt(amount)} mUSD for ${invoiceId} into PaymentRouter (simulated client, not the agent)`, tx);
+  onTx?.(`Customer paid ${fmt(amount)} ${tokenSymbol()} for ${invoiceId} into PaymentRouter (simulated client, not the agent)`, tx);
   return tx;
 }
 

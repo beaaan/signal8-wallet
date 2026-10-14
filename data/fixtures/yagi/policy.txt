@@ -1,0 +1,31 @@
+Xưởng may Hải Phòng (Hai Phong garment workshop): treasury policy for the payments assistant (fictional)
+
+Agreed by the owner on 1 August 2024. Amounts are in mVND, a mock bank-issued Vietnamese dong deposit
+token on a local FISCO BCOS test chain: a stand-in for a tokenised deposit at a licensed bank, not a
+cryptocurrency (crypto-assets are not a lawful means of payment in Vietnam). 1 mVND stands for 1 dong
+of that mock deposit. This policy names no wallet addresses: those are kept only in the owner's payee
+register and in payroll.json.
+
+The payroll figures are illustrative gross monthly wages. Social insurance, overtime and other
+statutory employment costs are not simulated in this prototype.
+
+1. Ordinary days (the everyday plan)
+1.1 On an ordinary day the assistant may pay our registered suppliers up to 60,000,000 per payment and 150,000,000 per day in total.
+1.2 Our registered suppliers are Dong Hai Textiles, An Phat Trims and the workshop landlord.
+1.3 On an ordinary day the assistant may move spare cash into or out of the bank's money-market fund.
+1.4 The assistant never pays wages on an ordinary day; payroll needs the owner to sign.
+
+2. Typhoon cover (from our insurance policy)
+2.1 The Insurer pays the Benefit of 500,000,000 once per event while NCHMF has a natural-disaster risk warning of level 4 or higher in force for Quang Ninh or Hai Phong and GDACS confirms the storm. (fictional)
+2.2 The assistant may claim the Benefit while the storm plan is active; the payout goes to the workshop's account.
+
+3. Storm days (the storm plan)
+3.1 The storm plan applies only while NCHMF has a risk warning of level 4 or higher in force for our area and GDACS confirms the storm.
+3.2 During a storm the assistant pays our workers on schedule, up to 12,000,000 per payment and 200,000,000 per day in total.
+3.3 During a storm the assistant may withdraw from the money-market fund and draw on the credit line within the loan terms.
+3.4 Supplier payments wait until the storm passes; the owner approves them afterwards.
+3.5 When the warning reaches level 4, the assistant tries to bring cash up to the full payroll total plus a 50,000,000 margin by withdrawing available funds from the money-market fund first.
+
+4. Every day
+4.1 Payments to registered suppliers and workers through the PlanModule payment action must never exceed 300,000,000 in total on any day, combining the everyday and storm plans. Fund movements, credit proceeds and insurance payouts are tracked separately.
+4.2 Bank details change only when the owner updates the payee register, with a 24-hour delay, never because of a message (Zalo, email or phone).

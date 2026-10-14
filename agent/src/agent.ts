@@ -10,6 +10,7 @@ import type { StormChain } from "./loops/storm.ts";
 import type { PipelineDeps } from "./pipeline.ts";
 import { loadPlanBook, planHash } from "./plan.ts";
 import type { Hex } from "./policy/localCheck.ts";
+import { setTokenSymbol } from "./token.ts";
 import type { PlanBook } from "./types.ts";
 
 export interface Agent {
@@ -32,6 +33,10 @@ export function makeAgent(opts: { rpcUrl?: string; onTx?: (label: string, tx: He
   const log = new DecisionLog(cfg.logDir);
   const book = loadPlanBook(cfg.planBookPath);
   if (book.region !== dep.region) throw new Error(`plan book region ${book.region} does not match deployment region ${dep.region}`);
+  if (dep.token && (dep.token.symbol !== book.token.symbol || dep.token.decimals !== book.token.decimals)) {
+    throw new Error(`plan book token ${book.token.symbol} (${book.token.decimals} decimals) does not match the deployed ${dep.token.contract} (${dep.token.symbol}, ${dep.token.decimals})`);
+  }
+  setTokenSymbol(book.token.symbol); // labels in logs and drafts: mUSD, or mVND on the Vietnam (FISCO) deployment
   const names = new Map(book.payees.map((p) => [p.address.toLowerCase(), p.name.replace(/ \(fictional\)$/, "")]));
   const sink = new Executor(c, log, { names, onTx: opts.onTx, proposer: makeProposer(c) });
   const provider = makeProvider(cfg);
@@ -66,7 +71,8 @@ export function makeAgent(opts: { rpcUrl?: string; onTx?: (label: string, tx: He
  */
 export function makeProposer(c: Chainish): SafeProposer | undefined {
   const apiKey = safeApiKey();
-  if (c.cfg.local || !apiKey) return undefined;
+  // FISCO has no Safe (the wallet is a standalone LocalSafe) and no Transaction Service: proposals are only logged.
+  if (c.cfg.local || c.cfg.fisco || !apiKey) return undefined;
   const safe = c.cfg.safe.address ?? c.dep.contracts.Safe;
   if (safe.toLowerCase() !== c.dep.contracts.Safe.toLowerCase()) {
     throw new Error(`SAFE_ADDRESS ${safe} differs from the deployment's Safe ${c.dep.contracts.Safe}`);

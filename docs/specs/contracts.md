@@ -1,13 +1,13 @@
 # Contract specs
 
-Solidity **0.8.11**, OpenZeppelin **4.9.x**, Foundry. All contracts must also compile for FISCO BCOS, which supports at most 0.8.11, returns 0 from `CHAINID` and reports `block.timestamp` in milliseconds. So every contract that measures time takes an immutable `timeUnit` (1 on Base Sepolia, 1000 on FISCO) and multiplies every duration by it, and the EIP-712 chain id is a constructor parameter. Interfaces are in `contracts/src/interfaces/`.
+Solidity **0.8.11**, OpenZeppelin **4.9.x**, Foundry. All contracts must also compile for FISCO BCOS, which supports at most 0.8.11 and reports `block.timestamp` in milliseconds. So every contract that measures time takes an immutable `timeUnit` (1 on Base Sepolia, 1000 on FISCO) and multiplies every duration by it, and the EIP-712 chain id is a constructor parameter. (We expected FISCO to return 0 from `CHAINID`; on our local v3.16.3 chain both `CHAINID` and `eth_chainId` return the web3 chain id, 20200, and the attestor there is built with 20200.) Interfaces are in `contracts/src/interfaces/`.
 
 | Contract | Role | Deployed on |
 | --- | --- | --- |
-| `PlanModule` | Safe module: the only path by which the agent moves money. Typed functions only; the module builds every call itself | Base Sepolia (Safe); FISCO standalone variant |
+| `PlanModule` | Safe module: the only path by which the agent moves money. Typed functions only; the module builds every call itself | Base Sepolia (Safe); local FISCO: the same contract behind `LocalSafe`, the standalone wallet (one owner key, no Safe) |
 | `SignalAttestor` | Turns two signed official-source attestations into storm mode | Both |
 | `PlanGuard` (should) | Safe transaction guard: blocks module/owner changes outside the timelock | Base Sepolia |
-| `MockUSD` | 6-decimal test dollar, owner can mint | Both (VND variant on FISCO) |
+| `MockUSD` | 6-decimal test dollar, owner can mint | Base Sepolia; on FISCO `MockVNDDeposit` (mVND), a mock bank-issued VND deposit token, also 6 decimals |
 | `MockSignalCover` | Mock insurer: pays a fixed sum once per event while storm mode is on | Both |
 | `FlowCreditLine` + `PaymentRouter` | Mock lender: pre-approved line, repaid by a share of each inflow; sweep pauses in storm mode | Both |
 | `MockMMFVault` | OpenZeppelin ERC-4626 over `MockUSD`, stands in for a tokenised money-market fund | Base Sepolia |

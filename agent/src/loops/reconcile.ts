@@ -9,6 +9,7 @@ import { fmt } from "../exec/calls.ts";
 import { reconcile, type ChainView, type Coverage, type Ledger, type Reconciliation, type SafeTransfer } from "../ledger.ts";
 import { JsonlFile, type DecisionLog } from "../log.ts";
 import type { Hex } from "../policy/localCheck.ts";
+import { FISCO_LOG_RANGE } from "../fisco.ts";
 import { LOG_RANGE } from "./inflows.ts";
 
 /** Reads what reconciliation compares. Tests use a fake. */
@@ -23,9 +24,10 @@ const same = (a: string | undefined, b: string) => a?.toLowerCase() === b.toLowe
 export async function safeTransfers(c: Chainish, fromBlock: bigint, toBlock: bigint): Promise<SafeTransfer[]> {
   const { Safe, MockUSD } = c.dep.contracts;
   const out = new Map<string, SafeTransfer>();
-  // public Base Sepolia RPCs cap eth_getLogs at 200 blocks
-  for (let from = fromBlock; from <= toBlock; from += LOG_RANGE) {
-    const to = from + LOG_RANGE - 1n < toBlock ? from + LOG_RANGE - 1n : toBlock;
+  // public Base Sepolia RPCs cap eth_getLogs at 200 blocks; FISCO v3.16.3 silently answers only the first 10
+  const window = c.cfg?.fisco ? FISCO_LOG_RANGE : LOG_RANGE;
+  for (let from = fromBlock; from <= toBlock; from += window) {
+    const to = from + window - 1n < toBlock ? from + window - 1n : toBlock;
     const range = { address: MockUSD, abi: erc20Abi, eventName: "Transfer", fromBlock: from, toBlock: to } as const;
     const [sent, received] = await Promise.all([c.pub.getContractEvents({ ...range, args: { from: Safe } }), c.pub.getContractEvents({ ...range, args: { to: Safe } })]);
     for (const l of [...sent, ...received]) {

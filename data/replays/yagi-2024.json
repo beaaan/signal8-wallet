@@ -24,6 +24,10 @@
   "levelMap": { "VN_RISK_4": 8, "VN_LANDFALL": 10, "VN_CANCEL": 0 },
   "scenario": {
     "business": "Hai Phong garment workshop, 20 workers (fictional)",
+    "fixtures": "data/fixtures/yagi/ (payroll, receivables, policy, loan) and data/fixtures/plans/plan-book.yagi.json; amounts in mVND, the mock bank-issued VND deposit token",
+    "payday": "2024-09-06T16:00:00+07:00",
+    "paydayNote": "August wages paid early, after the level 4 warning and before landfall (fictional)",
+    "afterStormInflow": "125000000",
     "relief": "Loan restructuring request under SBV Circular 53/2024/TT-NHNN",
     "fakeMessages": [
       {

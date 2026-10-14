@@ -197,10 +197,10 @@ Each "win" paid the genuine invoice amount to the registered supplier, never the
 
 | Where | Command | What it does |
 | --- | --- | --- |
-| `contracts/` | `forge test` | 103 tests: unit, fuzz, the six `PlanModule` invariants and an attestor + module integration test |
-| `contracts/` | `forge script script/Deploy.s.sol --rpc-url … --broadcast` | Deploys everything from the plan book; writes `deployments/<network>.json` |
-| `agent/` | `npm test` | 296 tests, no chain or network needed |
-| `agent/` | `npm run replay -- --event ragasa-2025 [--speed N] [--pause-at-steps] [--dry-run] [--yes]` | The storm replay (`--help` lists the flags; asks before running on a non-local network) |
+| `contracts/` | `forge test` | 110 tests: unit, fuzz, the six `PlanModule` invariants, an attestor + module integration test and the FISCO/Yagi configuration |
+| `contracts/` | `forge script script/Deploy.s.sol --rpc-url … --broadcast` | Deploys everything from the plan book; writes `deployments/<network>.json` (local FISCO BCOS: see [contracts/README.md](contracts/README.md#local-fisco-bcos-yagi-stretch)) |
+| `agent/` | `npm test` | 324 tests, no chain or network needed |
+| `agent/` | `npm run replay -- --event ragasa-2025 [--speed N] [--pause-at-steps] [--dry-run] [--yes]` | The storm replay (`--help` lists the flags; asks before running on a non-local network). `--event yagi-2024` with `NETWORK=fisco` runs Yagi on a local FISCO chain |
 | `agent/` | `npm run serve` | Decision log and arena API on :8787 |
 | `agent/` | `npm run redteam` | Offline attack and benign cases; writes `redteam/results/rules-summary.json` |
 | `agent/` | `npm run redteam:table [-- ../redteam/results/rules-summary.json]` | Prints the paired model table by default, or the separate rules-only table with the explicit file |
@@ -225,7 +225,7 @@ The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MO
 - **`PlanGuard`** is deployed and tested against a stand-in Safe, but not set on any Safe yet (it goes on a throwaway Safe first).
 - **Model red team** ran with `deepseek-flash` on 10 Oct; it is to be rerun after the case freeze on 17 Oct.
 - **Translations** (zh-Hant, zh-Hans, vi) still need a native speaker's review.
-- Not built: the FISCO BCOS port and Yagi on FISCO.
+- **Yagi on FISCO BCOS** ran end to end on a local 4-node FISCO BCOS v3.16.3 chain (27 transactions in `docs/EVIDENCE.md`, verifiable only on our node), with a mock bank-issued VND deposit token and a one-key standalone wallet instead of the 2-of-3 Safe; it skipped the ordinary day, drew no credit (the forecast stayed above its buffer) and its bulletin times are still approximate. The dashboard does not read the FISCO deployment.
 - Not started: the technical document, the deck and the video.
 
 ## Where things are

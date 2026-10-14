@@ -85,8 +85,60 @@ Run id: 1791607899 (base-sepolia, chain 84532); GDACS TC-1001211 salted as TC-10
 
 ## Yagi replay (local FISCO BCOS, stretch)
 
-Hashes from a local chain; verifiable on our node only.
+**Local chain only.** These hashes are from a 4-node FISCO BCOS v3.16.3 Air chain that we ran on one machine (web3 RPC on 127.0.0.1:8545, chain id 20200). There is no public explorer; they can be checked only on our node, and a rebuilt chain gives different hashes. Nothing here touched Base Sepolia or any public chain. Keys were throwaway keys made for this chain.
+
+Run 1791982399 on 14 Oct 2026, 19:53 to 19:54 ICT (12:53 to 12:54 UTC), `MODEL_PROVIDER=rules`, `--speed 3600 --skip-everyday` (no ordinary day: the Yagi fixtures have no supplier invoices). GDACS TC-1001090 salted as TC-1001090#1791982399 = `0x51dc4d0785c69363121311a6048bf01e63b55343a9f254d323f695473b94faf9`. Times are the recorded 2024 times in ICT; the warning times in `data/replays/yagi-2024.json` are still marked approximate. Amounts are in mVND, a mock bank-issued VND deposit token (crypto is not a lawful means of payment in Vietnam), with 6 decimals like mUSD.
 
 | # | Time (ICT) | Event | Action | Tx hash |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| 1 | 2024-09-06 08:00 | GDACS alert (YAGI-24, event 1001090, Red) | GDACS attestation: TC-1001090 (Typhoon Yagi (bão số 3)), Red | `0x5ab6d2f88192e76aedbf13fcdaa10111d1530b7ce00554ba5d95881a809a0fc5` |
+| 2 | 2024-09-06 08:00 | Risk level 4 warning (NCHMF → level 8) | NCHMF attestation: VN_RISK_4 (level 8) → StormStarted | `0x71123b5e98b91b2eb54b3063b7b3da90d05aa48e0bd763a3029ac72d6b51d6f5` |
+| 3 | 2024-09-06 08:00 | Risk level 4 warning (NCHMF → level 8) | Anchor PRE_STORM evidence hash 0x0c388125… | `0xbbc1d721f25f14c0ec73c336f65c097255164eb4705ce429036dcd047f23d468` |
+| 4 | 2024-09-06 08:00 | Risk level 4 warning (NCHMF → level 8) | Claimed the typhoon cover: 500,000,000 mVND paid to the Safe (storm plan) | `0x327b6b3f5dfb6bd363e2180ed9ca7bb55978ad6f4712222f025903b379a91ba1` |
+| 5 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 10400000 mVND to Công nhân 01 under the storm plan (payroll:2024-08#1791982399) | `0xba6ca8d1f72f1beac957cb7fb58cc8308a51b098c4f2472a91c64d806b0731f9` |
+| 6 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 10400000 mVND to Công nhân 02 under the storm plan (payroll:2024-08#1791982399) | `0xd37c033be0fa97813e950c71eabc0ba30b165804a98811006fdd3a597b918e0d` |
+| 7 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8600000 mVND to Công nhân 03 under the storm plan (payroll:2024-08#1791982399) | `0xfec1276f1fa761c6e3c1bde3314850c9ca7845b82d3a6e930f0b056bdbc3fedd` |
+| 8 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8600000 mVND to Công nhân 04 under the storm plan (payroll:2024-08#1791982399) | `0xd71b11e108fd1a41a2a44a852b1f12b185234347784e1762b0733a33c434245e` |
+| 9 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8600000 mVND to Công nhân 05 under the storm plan (payroll:2024-08#1791982399) | `0x46e678c7a609132d3c2bd8db5076181537dc58f9c96234d53126cc3d057c7ef2` |
+| 10 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8600000 mVND to Công nhân 06 under the storm plan (payroll:2024-08#1791982399) | `0xce14e35b30d11e4364d4f890c312bf676ff4722a399af29c286251ad05a71bc3` |
+| 11 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8600000 mVND to Công nhân 07 under the storm plan (payroll:2024-08#1791982399) | `0xfbf7916f5cb6e300a337cbab25669532e88d134f2e6656041d8990b1a7ff5493` |
+| 12 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8600000 mVND to Công nhân 08 under the storm plan (payroll:2024-08#1791982399) | `0x1233f6f0afc707e73b1248d15aceb75d279acf9e1ea73a854c4160af7e5bc311` |
+| 13 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 09 under the storm plan (payroll:2024-08#1791982399) | `0xaa0933df81414f39f46ddd5857e72b2febda48f486825389d0ac34f29bfd263e` |
+| 14 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 10 under the storm plan (payroll:2024-08#1791982399) | `0xe53c3c9ae91bbb770b423a5a1a6be11a4a9b862c30bd2540bead2732badf203c` |
+| 15 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 11 under the storm plan (payroll:2024-08#1791982399) | `0x41bdf10c416b46c16e46c9e2216ddd75b18573ca40802c451855ecd2162645fe` |
+| 16 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 12 under the storm plan (payroll:2024-08#1791982399) | `0x7ff3fc0ce27ff13450513e8619b58e1651fd875df7405a7c39f86d44873e94d6` |
+| 17 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 13 under the storm plan (payroll:2024-08#1791982399) | `0x3f91dc0c7a12a3d8f91fa7cef93a1203769f0ea28442a80e26d5461c132b773d` |
+| 18 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 14 under the storm plan (payroll:2024-08#1791982399) | `0x976d8afea7882d3fb37b3459a1f7186da05965d6b128ad1e7b12937e9a503839` |
+| 19 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 15 under the storm plan (payroll:2024-08#1791982399) | `0xd6955b3fc9d651e83816592ee9edbb6ebf30073b942b259f462c9837efa59db8` |
+| 20 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 8000000 mVND to Công nhân 16 under the storm plan (payroll:2024-08#1791982399) | `0x61e7fb24ffb4925988292dd53efd709db97e7f1a8013a1028ce43452bd07200d` |
+| 21 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 7400000 mVND to Công nhân 17 under the storm plan (payroll:2024-08#1791982399) | `0x8b76577a88ef2981e8cc1b070a34deebba6ae36e403f4fb60b052e57b75257d4` |
+| 22 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 7400000 mVND to Công nhân 18 under the storm plan (payroll:2024-08#1791982399) | `0x47022967b55bc00599b7846a2eacae1dd2e28ed78881bd2896d20fe5c1a75618` |
+| 23 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 7400000 mVND to Công nhân 19 under the storm plan (payroll:2024-08#1791982399) | `0xe5408464acccb66c8219165f5ef67acc81c0492264c086ae56e8407b27b7c533` |
+| 24 | 2024-09-06 16:00 | Payday, August wages (storm mode on) | Pay 7400000 mVND to Công nhân 20 under the storm plan (payroll:2024-08#1791982399) | `0x28e51367d7d23dffc796298057e6ee6108e3db7feef0c65fdcd1b1a14e6af90d` |
+| 25 | 2024-09-07 13:00 | Landfall, Quang Ninh / Hai Phong (level 10) | NCHMF attestation: VN_LANDFALL (level 10) | `0x0e93db6d74dd2a7540dd4b415baf094134b2b969decad636f72154197e154ac8` |
+| - | 2024-09-07 15:00 | Fake Zalo "bank support" message (2,000,000 đ fee) | Refused at the planner (not an invoice); no transaction | n/a |
+| 26 | 2024-09-08 12:00 | Warning lifted (level 0) | NCHMF attestation: VN_CANCEL (level 0) → StormEnded | `0xb26ad9c2ae806bebf61cf5da9a4815817581b5eba9a7569b3e180514d7555e91` |
+| 27 | 2024-09-08 12:00 | Warning lifted (level 0) | Customer paid 125,000,000 mVND for INV-C-2024-09-08#1791982399 into PaymentRouter (simulated client, not the agent) | `0xf9d4a4ab1d76dfe15d52c20c385f91ed9781cdebea5fbe0ee563de69fac62c3f` |
+
+All 27 receipts have status 1 (checked against the node after the run). Two more transactions of the run are on the chain but not in the table: the GDACS relayer's 0-value transfer to itself in block 16 (`0xc654313731cbcc64e51dbd303284c74260a1223fc390a8fcc0cc52429eec0176`), which seals a fresh block because FISCO makes no empty blocks and the chain had been idle for 75 s (see `agent/src/fisco.ts`), and the demo client's token approve for PaymentRouter in block 43 (`0xcad2e4ccca63ad16228f1953037a66c766f5c943594fe8fe7bfc5d5c19f5b597`). After the storm, the inflow was matched to INV-C-2024-09-08 (no sweep: nothing was drawn on the credit line), and the agent wrote three drafts for the owner: an English claim letter, a deadline list and the Circular 53/2024 restructuring request in Vietnamese (`agent/logs/drafts/<runId>/`, not committed).
+
+What this run did not do: no credit draw (on payday the 13-week forecast, sized in dong, stayed above its buffer: 1,584 m mVND of cash after the cover and payroll, lowest projected point 384 m against a 250 m buffer); no vault withdraw at the brace (the vault was empty without an ordinary day); no owner proposals (there is no Safe on FISCO, and nothing was outside the plan). Final state on the node: the wallet holds 1,709,000,000 mVND, `isStorm` is false, the storm plan spent 166,000,000 mVND that day, and the cover is marked claimed for the salted event.
+
+Deployment on the same chain (`contracts/deployments/fisco.json`), blocks 1 to 15, all status 1:
+
+| Contract | Address | Deploy tx |
+| --- | --- | --- |
+| Wallet: `LocalSafe` (standalone, one admin; no Safe on FISCO) | `0xa2f9471a78255fA9b82DF08b40C1ffDdce4be454` | `0x28f201502936c6daab10bb4d4c9700f69a26af1b70d0dfbf4461cb9307aad4f4` |
+| MockVNDDeposit (mVND) | `0x8d6e974602E5b9018cDB0a3C497da4fE327f65Ba` | `0x9d379f043e6e1095ed59d5ea358b9a6265cdad3cdc3821a410e4c692375ee956` |
+| SignalAttestor (chain id 20200, timeUnit 1000, no HKO relayer) | `0xcc5d7a891557475Ea1df854a43d70c235EaA246E` | `0x6469cc99e8eb61c198eb9b27007d0d07ad45ec0357ba7fa1f561a3d8a8541d53` |
+| MockMMFVault | `0xeF36830011409e6DCB53EBd0e1Ef32c347E43bf9` | `0xad64d501e886152abc94bf1e81a2e55db2a3da751d3eb0fc6f963d3cb96a4700` |
+| FlowCreditLine | `0x8927a1132AfE6423081d708b71DDC0A75b847d9b` | `0xd4f7463b385ec7f14a831e2b58f255bb51f843fbc28e55065c9daa8db7b16bc3` |
+| PaymentRouter | `0x345a8f4104550140E5136e34fA9AE708B9830515` | `0xef9829c88420cd4229e4d09ab5513f23450bf52d28f6410db9329a22611b5ee0` |
+| MockSignalCover | `0xEf9E7D9E393EEFB8E37Acf1829d325E97439652E` | `0x402a99e800e8d985a22d3f7b15fab4466533535f59ace390edaaa3a2cdb5beeb` |
+| EvidenceRegistry | `0x828df2204588a98dAeaEbd3DDBbcDb8A29fafeC4` | `0x767b38fd6c2ab1001b0e124e49a29fdc666ef6bf8548f4387220d4588e24f452` |
+| PlanModule (timeUnit 1000) | `0xb7F7bDd530Ae9b2Ebc6FA99436b34ca36ED4a69a` | `0xc9c1709ae71771a019bba7a7652f700e9191ae39710fe6813519c787a71de3f7` |
+| PlanGuard (deployed, unused: LocalSafe has no guard) | `0x9BEbDC50F850935c6C020a3648b1cff988381eA8` | `0xe10c771f2c6808efd993bbf58eb095de30e704184294e390ae5d433aba1a86c7` |
+
+Mints (blocks 11 to 14) and the owner's `enableModule` (block 15, `0x88388c4ec45c2514c5aab0d8d9c97507684078f5cf61c472f936e1a23020be22`) complete the deployment.
+
+To reproduce (a fresh chain gives new hashes): `bash contracts/fisco/build-local-chain.sh <deployer address>`, deploy with the command in [contracts/README.md](../contracts/README.md#local-fisco-bcos-yagi-stretch), then in `agent/` run `npm run replay -- --event yagi-2024 --skip-everyday` with `NETWORK=fisco` and the Yagi fixtures ([agent/README.md](../agent/README.md#yagi-on-a-local-fisco-bcos-chain)).
