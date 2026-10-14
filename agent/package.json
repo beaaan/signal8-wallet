@@ -25,7 +25,8 @@
     "plan:compile": "tsx src/llm/planCompiler.ts",
     "redteam:bare": "tsx src/bare.ts",
     "redteam:table": "tsx src/redteamTable.ts",
-    "redteam:chart": "tsx src/redteamChart.ts"
+    "redteam:chart": "tsx src/redteamChart.ts",
+    "safe:delegate": "tsx src/safeDelegate.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",

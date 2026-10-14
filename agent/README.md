@@ -43,7 +43,7 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 - Always: one line in `logs/proposals.jsonl` with the Safe transactions the owners would sign (`token.transfer`, vault `approve`+`deposit`/`withdraw`, `draw`, `claim`, `anchor`, or `PlanModule.queueChange(setter)` for a plan change).
 - On `base-sepolia` with `SAFE_API_KEY` (and `SAFE_ADDRESS`, which must equal the deployment's Safe): `exec/safeProposer.ts` also builds the Safe transaction with protocol-kit (MultiSend for several calls), takes the next nonce from the service, signs the safeTxHash with the agent key **as a delegate** and calls api-kit `proposeTransaction`. Two owners still sign in Safe Wallet. If the key is missing or the service fails, the proposal stays logged and the decision line says so.
 - Each proposal records its refs; a payment whose ref is already in `proposals.jsonl` (for this PlanModule) or already used on-chain is not proposed or paid again.
-- The agent address must first be added as a delegate of the Safe (by an owner, in Safe Wallet or with api-kit `addSafeDelegate`).
+- The agent address must first be added as a delegate of the Safe by one owner: `OWNER_PRIVATE_KEY=0x… npm run safe:delegate` (needs `SAFE_API_KEY`; signs an EIP-712 message, no transaction; the key is used for that command only). `npm run safe:delegate -- --check` lists the delegates. Safe Wallet's settings can do the same.
 - **Not tested live.** The service client and signer are injected and unit-tested with fakes (`test/safeProposer.test.ts`: nonce from the service, signature recovers to the agent, fallback on errors). There is no Safe Transaction Service for anvil, so the proposer has not been run against the real service from this environment.
 
 ## Owner's records and red team
@@ -115,6 +115,6 @@ Logs (`logs/`) and state (`state/`) are gitignored; `LOG_DIR` and `STATE_DIR` ov
 
 ## Not built yet, or not verified
 
-- Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is a manual owner step.
+- Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is one owner command (`npm run safe:delegate`), not yet run.
 - The model provider, the plan compiler's `--model` path and the bare-agent baseline have not been called live (no model key here).
 - The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only.
