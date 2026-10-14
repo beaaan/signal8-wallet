@@ -21,32 +21,21 @@ Source code: all nine project contracts are verified as an **exact match** on [S
 
 Safe v1.4.1 (SafeL2 singleton, canonical SafeProxyFactory). Owners enabled PlanModule with two signatures in [`0x630e9e9d…`](https://sepolia.basescan.org/tx/0x630e9e9daaec9ee6b78b66c79a3e3d046dad9a6a677fe4c965ad1c8eb3cd4967). PlanGuard is deployed but not set on the Safe (SECURITY.md known risk 7). The three owner keys are testnet keys held together for now (SECURITY.md known risk 19).
 
-## Ragasa replay (Base Sepolia)
+## What each step of the demo leaves on-chain
 
-Run id: ______ (salts the GDACS event id). Relayers sign with the run's wall-clock time; the 2025 HKO time is in each attestation's `sourceTime`. Every HKO signal change is also an attestation tx; the rows below list the ones that change state.
+Where each step of the Ragasa walkthrough (`docs/PLAN.md` §4) and the ordinary day shows up in the latest run below. Every HKO signal change is also an attestation transaction; the rows named here are the ones that change state.
 
-| # | Replay time (HKT) | Signal | Action | Tx hash | Result |
-| --- | --- | --- | --- | --- | --- |
-| 0 | 2025-09-22 12:20 | No. 1 | GDACS attestation (RAGASA-25, Red) | | |
-| 1 | 2025-09-22 21:40 | No. 3 | Vault withdraw to buffer | | |
-| 2 | 2025-09-22 21:40 | No. 3 | Anchor pre-storm evidence | | |
-| 3 | 2025-09-23 14:20 | No. 8 NW | HKO attestation → StormStarted | | |
-| 4 | 2025-09-23 14:20 | No. 8 NW | Cover claim | | |
-| - | 2025-09-24 02:45 | No. 10 | Fake email: refused (no tx; decision log line) | n/a | refused |
-| 5 | 2025-09-24 09:00 | No. 10 | Payroll, 10 staff under the storm plan (one row per tx) | | |
-| 6 | 2025-09-24 09:00 | No. 10 | Credit draw | | |
-| 7 | 2025-09-24 20:20 | No. 3 | HKO attestation → StormEnded | | |
-| 8 | 2025-09-25 11:20 | Cancelled | Client payment via router, sweep resumes | | |
-
-## Everyday run (Base Sepolia)
-
-| # | Action | Tx hash | Result |
-| --- | --- | --- | --- |
-| 1 | Client payment via router (with sweep) | | |
-| 2 | Supplier payment | | |
-| 3 | Vault deposit | | |
-| 4 | Daily report anchor | | |
-| 5 | Over-cap payment proposed by the agent (delegate) → two owners signed | | |
+| Step | Replay time (HKT) | Evidence in the latest run |
+| --- | --- | --- |
+| GDACS confirms the storm (RAGASA-25, Red) | 22 Sep 12:20 | "GDACS attestation" row (the event id is salted per run) |
+| Brace: fund → cash, pre-storm snapshot | 22 Sep 21:40 | "Withdraw … from the vault" and "Anchor PRE_STORM" rows |
+| Signal 8: storm mode on, cover claimed | 23 Sep 14:20 | "TC8NW … → StormStarted" and "Claimed the typhoon cover" rows |
+| Fake "move all funds" email | 24 Sep 02:45 | "Fake email: refused" row (no transaction; decision log only) |
+| Payday under the storm plan, emergency credit | 24 Sep 09:00 | ten "Pay 2300 mUSD to Staff NN" rows and the "Draw … emergency credit" row |
+| Signal 3: storm mode off | 24 Sep 20:20 | "TC3 … → StormEnded" row |
+| Next customer payment, repayment sweep resumes | 25 Sep 11:20 | "Customer paid … into PaymentRouter" row |
+| Ordinary day: customer payment, supplier paid, surplus to the fund, daily report anchored | 22 Sep | the second table (everyday rows 1 to 4) |
+| An over-cap payment proposed by the agent (as Safe delegate) and signed by two owners | | **Not yet.** Needs a Safe Transaction Service API key, the agent registered as a delegate, and two of the three owner keys; proposals are written to `agent/logs/proposals.jsonl` meanwhile (SECURITY.md known risk 12) |
 
 ## Latest run
 
