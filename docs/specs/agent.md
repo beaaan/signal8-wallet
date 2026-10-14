@@ -120,6 +120,7 @@ npm run replay -- --event ragasa-2025 --speed 600 [--run-id <id>] [--rpc <url>] 
 - `--dry-run` prints the timeline on the compressed clock and sends nothing (CI uses it). An unknown flag or a bad `--speed` stops the runner before anything runs; on a public testnet it asks before sending unless `--yes`.
 - Before the ordinary day it checks that the local plan book hashes to the on-chain `planHash` and refuses to start otherwise.
 - At the end it prints every successful transaction hash; `npm run evidence -- --write` puts them in `docs/EVIDENCE.md`.
+- **Yagi on a local FISCO BCOS chain** (`NETWORK=fisco`, stretch): outside Hong Kong the local-source attestations come from the NCHMF relayer's key (`NCHMF_RELAYER_PRIVATE_KEY`; source `keccak256("NCHMF")`, `yagi-2024.json`'s `levelMap`), the Yagi fixtures come from `PLAN_BOOK`, `PAYROLL` and `RECEIVABLES`, and the runner checks the node's `eth_chainId` against `deployments/fisco.json` instead of asking. On an idle FISCO chain the relayer first seals a fresh block with a 0-value transfer to itself, since FISCO makes no empty blocks and simulates at the latest block's time. Details: `agent/README.md`.
 
 Replay file format (see `data/replays/ragasa-2025.json`):
 
