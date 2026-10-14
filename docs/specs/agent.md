@@ -45,17 +45,19 @@ agent/src/
 
 ```ts
 ExtractedInvoice = {
-  kind: "invoice" | "payroll" | "bank_detail_change" | "other",
+  kind: "invoice" | "payroll" | "bank_detail_change" | "credit_note" | "statement" | "other",
   payeeName: string,
   payeeAddress?: `0x${string}`,   // only if literally present; never inferred
-  amount: string,                  // decimal string in token units
+  amount: string,                  // decimal string in token units: the amount payable now, not the order total
   currency: "USD" | "HKD" | "VND",
   dueDate?: string,                // ISO date
-  invoiceId?: string,
+  issueDate?: string,              // invoice or delivery date (re-issue check)
+  invoiceId?: string,              // the active invoice: a replacement's number, not the withdrawn one's
+  hold?: "not_received" | "disputed" | "hold_requested",  // the document's own word that it is not payable yet
 }
 
 Action =
-  | { type: "pay";            plan: "base" | "storm"; payee: `0x${string}`; amount: string; ref: string }
+  | { type: "pay";            plan: "base" | "storm"; payee: `0x${string}`; amount: string; ref: string; part?: number }
   | { type: "vault_deposit";  plan: "base";  amount: string; ref: string }
   | { type: "vault_withdraw"; plan: "base" | "storm"; amount: string; ref: string }
   | { type: "credit_draw";    plan: "storm"; amount: string; ref: string }
@@ -70,7 +72,7 @@ How the executor maps each action (there is no generic call; see [contracts.md](
 
 | Action | `PlanModule` function | `ref` |
 | --- | --- | --- |
-| `pay` | `pay(planId, payee, amount, ref)` | supplier: `keccak256(abi.encode(payee, invoiceId))` with the id upper-cased and stripped to A–Z and 0–9 (so "lk 0917" is "LK-0917", and two suppliers may share a number); payroll: `keccak256(abi.encode(employee, payPeriod))` |
+| `pay` | `pay(planId, payee, amount, ref)` | supplier: `keccak256(abi.encode(payee, invoiceId))` with the id upper-cased and stripped to A–Z and 0–9 (so "lk 0917" is "LK-0917", and two suppliers may share a number); part n ≥ 2 of one invoice appends `/n` to the id; payroll: `keccak256(abi.encode(employee, payPeriod))` |
 | `vault_deposit` | `vaultDeposit(BASE, amount, ref)` | `keccak256(actionId)` |
 | `vault_withdraw` | `vaultWithdraw(planId, amount, ref)` | `keccak256(actionId)` |
 | `credit_draw` | `creditDraw(amount, ref)` | `keccak256(actionId)` |
@@ -79,6 +81,13 @@ How the executor maps each action (there is no generic call; see [contracts.md](
 | `propose_to_owner` | Safe proposal through API Kit, signed by the agent as delegate | as for the inner action |
 
 Refs are deterministic, so a retried or duplicated action reverts with `RefUsed()` instead of paying twice. `localCheck.ts` checks `refUsed` first.
+
+What the deterministic planner wrapper does with one invoice, whichever provider planned it (`llm/planner.ts`):
+
+- A credit note or a statement never starts a payment (refused). Bank-detail changes and payroll messages are refused as before.
+- An invoice already paid in full is refused. With a purchase order for that invoice id, a further part (an instalment, the balance after a deposit) is allowed up to what the order still allows (order amount minus the owner's paid records for that id); the planner sets `part` from those records, never the model, so each part has its own one-use ref. Without a purchase order an invoice is paid once.
+- A re-issue (another number, same supplier and amount, same date or none), an amount above what the order still allows, a missing order where one is required, or an amount above the usual amount sends the payment to the owners.
+- `hold` set (the document says not received, disputed, or hold) sends the payment to the owners. Untrusted text can only make a payment more cautious this way, never allow one.
 
 ## Relayers
 

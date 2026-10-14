@@ -47,7 +47,7 @@ export function describe(action: Action, names: Map<string, string> = new Map())
   const who = (a: Hex) => names.get(a.toLowerCase()) ?? a;
   switch (action.type) {
     case "pay":
-      return `Pay ${action.amount} mUSD to ${who(action.payee)} under the ${action.plan} plan (${action.ref})`;
+      return `Pay ${action.amount} mUSD to ${who(action.payee)} under the ${action.plan} plan (${action.ref}${action.part ? `, part ${action.part}` : ""})`;
     case "vault_deposit":
       return `Move ${action.amount} mUSD of surplus into the money-market vault`;
     case "vault_withdraw":

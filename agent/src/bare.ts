@@ -15,7 +15,7 @@ import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { loadConfig, modelApiKey, PATHS } from "./config.ts";
-import { loadControls, type PayeeControls } from "./controls.ts";
+import { loadControls, paidRecord, type PayeeControls } from "./controls.ts";
 import { units } from "./exec/calls.ts";
 import { isMain } from "./isMain.ts";
 import { chatCompletion, openAIOptions, type ChatMessage, type OpenAIOptions } from "./llm/openai.ts";
@@ -389,7 +389,7 @@ export async function runBare(opts: {
     // As in redteam.ts: the case's context is the whole paid history.
     const controls: PayeeControls = {
       ...loaded,
-      paid: c.context.alreadyPaidRefs.map((ref) => ({ supplier: loaded.paid.find((p) => p.invoiceId === ref)?.supplier ?? "", invoiceId: ref, amount: "0" })),
+      paid: c.context.alreadyPaidRefs.map((ref) => paidRecord(loaded, ref)),
     };
     const r = await runBareCase(opts.client, bareSystem(book, controls, c.context.plan), c.input, c.channel);
     const outcome = outcomeOf(r);

@@ -21,6 +21,14 @@ describe("refs", () => {
     expect(invoiceRef(b1, "LK-0921#r1")).not.toBe(invoiceRef(b1, "LK-0921#r2"));
   });
 
+  it("part n ≥ 2 of one invoice gets its own ref; part 1 is the invoice's ref", () => {
+    const b1 = "0x00000000000000000000000000000000000000b1";
+    expect(invoiceRef(b1, "LK-3202", 1)).toBe(invoiceRef(b1, "LK-3202"));
+    expect(invoiceRef(b1, "LK-3202", 2)).toBe(keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [b1, "LK3202/2"])));
+    expect(new Set([invoiceRef(b1, "LK-3202"), invoiceRef(b1, "LK-3202", 2), invoiceRef(b1, "LK-3202", 3)]).size).toBe(3);
+    expect(refFor({ type: "pay", plan: "base", payee: b1, amount: "100", ref: "LK-3202#r1", part: 2 })).toBe(invoiceRef(b1, "LK-3202#r1", 2));
+  });
+
   it("does not depend on the amount, so a resent invoice with another amount still collides", () => {
     const base = { type: "pay" as const, plan: "base" as const, payee: "0x00000000000000000000000000000000000000b1" as const, ref: "LK-0917" };
     expect(refFor({ ...base, amount: "1250.50" })).toBe(refFor({ ...base, amount: "9.99" }));

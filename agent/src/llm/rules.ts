@@ -29,7 +29,10 @@ export function extractFields(text: string): ExtractedInvoice {
   const currency: ExtractedInvoice["currency"] = /HK\$|\bHKD\b/i.test(text) ? "HKD" : /\bVND\b|đ|₫/.test(text) ? "VND" : "USD";
 
   let amount = "0";
-  const keyed = /\b(?:amount due|total due|balance due|total|amount)\s*[:\-]?\s*(?:HK\$|US\$|\$|USD|HKD)?\s*(\d[\d,]*(?:\.\d{1,2})?)/i.exec(text);
+  // What is payable now beats an order or invoice total ("Original total: 200.00 … Amount due: 100.00").
+  const keyed =
+    /\b(?:amount due|balance due|total due|amount payable|balance payable)\s*[:\-]?\s*(?:HK\$|US\$|\$|USD|HKD)?\s*(\d[\d,]*(?:\.\d{1,2})?)/i.exec(text) ??
+    /\b(?:total|amount)\s*[:\-]?\s*(?:HK\$|US\$|\$|USD|HKD)?\s*(\d[\d,]*(?:\.\d{1,2})?)/i.exec(text);
   const marked = /(?:HK\$|US\$|\$|\bUSD|\bHKD)\s*(\d[\d,]*(?:\.\d{1,2})?)/i.exec(text);
   const vnd = /(\d[\d.,]*)\s*(?:đ|₫|VND)/.exec(text);
   // Last resort: the first number written like money ("for 1,250.50").
@@ -40,8 +43,12 @@ export function extractFields(text: string): ExtractedInvoice {
   else if (cents) amount = plainAmount(cents[1]!, currency);
 
   // The keyword in any case, the number itself upper case: "invoice no. LK 0917", "INVOICE LK-0917A", "Invoice RL-Q4".
+  // A replacement ("Replacement invoice WO-3210A is the active invoice") wins over the withdrawn number before it.
+  const ID = "[A-Z]{1,5}(?:-| (?=\\d))?(?=[A-Z0-9]*\\d)[A-Z0-9]{1,8}(?:-[A-Z0-9]{1,6})?";
+  const replacing = /\b(?:replacement|corrected|revised|active)\s+invoice\b[\s#:.]*(?:no\.?\s*)?/i.exec(text);
   const invoiceId =
-    /\b(?:[Ii][Nn][Vv](?:[Oo][Ii][Cc][Ee])?|[Bb][Ii][Ll][Ll])\b[\s#:.]*(?:[Nn][Oo]\.?\s*)?([A-Z]{1,5}(?:-| (?=\d))?(?=[A-Z0-9]*\d)[A-Z0-9]{1,8}(?:-[A-Z0-9]{1,6})?)\b/.exec(text)?.[1] ??
+    (replacing ? new RegExp(`^(${ID})\\b`).exec(text.slice(replacing.index + replacing[0].length))?.[1] : undefined) ??
+    new RegExp(`\\b(?:[Ii][Nn][Vv](?:[Oo][Ii][Cc][Ee])?|[Bb][Ii][Ll][Ll])\\b[\\s#:.]*(?:[Nn][Oo]\\.?\\s*)?(${ID})\\b`).exec(text)?.[1] ??
     /\b([A-Z]{2,5}-\d{3,8}[A-Z]?)\b/.exec(text)?.[1];
 
   const dueRaw = /\bdue(?:\s+date)?\s*(?:on|by|:)?\s*(\d{1,2}\s+[A-Za-z]{3,9}\.?\s+\d{4}|\d{4}-\d{2}-\d{2})/i.exec(text)?.[1];
@@ -59,13 +66,29 @@ export function extractFields(text: string): ExtractedInvoice {
   const kind: ExtractedInvoice["kind"] =
     /\b(?:new|updated|changed?)\s+(?:bank\s+)?(?:account|wallet|address|bank details)\b|\b(?:bank|account|payment|wallet)\s+details?\s+(?:have\s+)?(?:changed|updated)/i.test(text)
       ? "bank_detail_change"
-      : /\bpayroll\b|\bwages?\b|\bsalar(?:y|ies)\b/i.test(text)
-        ? "payroll"
-        : /\binvoice\b|\bbill\b|\bamount due\b|\btotal due\b/i.test(text)
-          ? "invoice"
-          : "other";
+      : /^\W*credit\s+(?:note|memo)\b/i.test(text) || (/\bcredit\s+(?:note|memo)\b/i.test(text) && !/\b(?:amount|balance|total)\s+due\b/i.test(text))
+        ? "credit_note"
+        : /^\W*(?:supplier\s+|account\s+)?statement\b|\bstatement\s+of\s+account\b/i.test(text)
+          ? "statement"
+          : /\bpayroll\b|\bwages?\b|\bsalar(?:y|ies)\b/i.test(text)
+            ? "payroll"
+            : /\binvoice\b|\bbill\b|\bamount due\b|\btotal due\b/i.test(text)
+              ? "invoice"
+              : "other";
+
+  // The document's own word that it is not payable yet. It only ever sends a payment to the owners.
+  const hold: ExtractedInvoice["hold"] =
+    // Goods, not money: "payment has not been received" in a reminder is no reason to hold.
+    /\b(?:not|never)\s+(?:yet\s+)?(?:been\s+)?delivered\b|\b(?:goods|order|items?|shipment|stock)\s+(?:has|have)\s+not\s+(?:yet\s+)?(?:been\s+)?(?:received|arrived)\b|\bha(?:s|ve)(?:\s+not|n't)\s+(?:yet\s+)?received\s+(?:the\s+)?(?:goods|order|items?|delivery|shipment)\b|\bdelivery\s+(?:is\s+)?(?:delayed|pending|outstanding)\b|\bawaiting\s+delivery\b/i.test(text)
+      ? "not_received"
+      : /\b(?:quantity|price|pricing)\s+(?:error|discrepancy|mismatch|dispute)\b|\bdisputed\s+(?:quantity|price|invoice)\b/i.test(text)
+        ? "disputed"
+        : /\bhold\s+(?:this\s+invoice|(?:the\s+)?payment)\b|\bplease\s+hold\b|\bdo\s+not\s+(?:pay|release)\b/i.test(text)
+          ? "hold_requested"
+          : undefined;
 
   const out: ExtractedInvoice = { kind, payeeName: payeeName.slice(0, 120), amount, currency };
+  if (hold) out.hold = hold;
   const addr = ADDRESS.exec(text)?.[0];
   if (addr) out.payeeAddress = addr as `0x${string}`;
   if (dueDate) out.dueDate = dueDate;
