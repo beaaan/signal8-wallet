@@ -68,11 +68,11 @@ not a reason to rewrite old signed evidence or claim that a bank rejected a file
 Finance/tech must decide whether to adopt B's cost model, extra headroom,
 insurance tiers or pricing; none is adopted by this contribution. Reconcile
 post-payroll cash, weekly accruals and monthly cash periods before claiming
-runtime equivalence. See the linked decision issue in the PR description.
+runtime equivalence. Tracked in [issue #31](https://github.com/beaaan/signal8-wallet/issues/31).
 
 After-storm generator dating, evidence assertions and unverified terms require
-their own fix PR and regression tests. See the linked template issue in the PR
-description. This documentation PR does not resolve runtime findings.
+their own fix PR and regression tests, tracked in [issue #32](https://github.com/beaaan/signal8-wallet/issues/32).
+This documentation PR does not resolve runtime findings.
 
 The separate existing DEMO.md and TECHNICAL.md may also need a consistency pass
 for source attribution and absolute safety language. They are outside this
