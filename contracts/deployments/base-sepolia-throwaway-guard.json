@@ -1,0 +1,42 @@
+{
+  "allowedTransferAmount": 1000000,
+  "blockedSimulated": {
+    "addOwnerWithThreshold": "0x64e470010d582f1300000000000000000000000000000000000000000000000000000000",
+    "setGuardZero": "0x64e47001e19a9dd900000000000000000000000000000000000000000000000000000000"
+  },
+  "chainId": 84532,
+  "contracts": {
+    "FallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+    "MockUSD": "0x651CA08196e01eE973777Fe88010bD8751e61D3e",
+    "MultiSendCallOnly": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
+    "PlanGuard": "0xA3e176F0b23E8D6d58b1c36A8A3EB950E8067c65",
+    "Safe": "0x1C78d136aE3277D93EA5db3D994cDAf1396e21A6",
+    "SafeL2Singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+    "SafeProxyFactory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67"
+  },
+  "guardDelaySeconds": 86400,
+  "network": "base-sepolia",
+  "owner": "0x0a572De270CB0A360ec21Aa43070Bc899140b906",
+  "purpose": "Throwaway 1-of-1 Safe for PlanGuard (SECURITY.md known risk 7); not the demo Safe",
+  "safeTxHashes": {
+    "allowedTransfer": "0x2b87bd01b57031924284a8b6b737f57d0528fb7cb3e956931432e84cf4dd1535",
+    "setGuard": "0xb5eaaf62751ed35fa64ff20d34e57a823f813ebec25015b4f1d3dbf76aaa047b"
+  },
+  "saltNonce": 1791987150,
+  "startBlock": 48109431,
+  "steps": [
+    "createSafe",
+    "deployGuard",
+    "mint",
+    "setGuard",
+    "allowedTransfer"
+  ],
+  "threshold": 1,
+  "txs": {
+    "allowedTransfer": "0x913a8c3b19549576ff223820530e8562bb70ddcf1dfd2c804e5669dca9edfa80",
+    "createSafe": "0x257168461f4dc8befa58ba857bd6c9067fa4bb6f37d8795e9659db700b476645",
+    "deployGuard": "0x7c01b16c891bfefeb1187786a9cc8f1018868122c29d85cd3b43f9324abd58d2",
+    "mint": "0xeee60e6e834e11876530786b791047dde7b9acbcffe9f8cae2e03a15712e3dc9",
+    "setGuard": "0x3b850751ec36253d699343d197baa35bab6fc399b3e1182f03fd4c96c8dfcf53"
+  }
+}

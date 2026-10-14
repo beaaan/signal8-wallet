@@ -21,10 +21,10 @@ Interfaces are in `src/interfaces/`. Status (see [PLAN.md §5.1](../docs/PLAN.md
 | `src/mocks/MockSignalCover.sol`, `FlowCreditLine.sol`, `PaymentRouter.sol`, `MockMMFVault.sol`, `EvidenceRegistry.sol` + `test/Mocks.t.sol` | first version |
 | `src/LocalSafe.sol` | stand-in Safe for Anvil and tests (one admin, no signatures); also the standalone wallet on the local FISCO chain, which has no Safe. Base Sepolia uses the real 2-of-3 Safe |
 | `src/MockVNDDeposit.sol` + `test/FiscoYagi.t.sol` | mock bank-issued VND deposit token (mVND, 6 decimals) for the Yagi replay on FISCO; the test runs the Yagi deployment with chain id 20200, millisecond timestamps, NCHMF and no HKO relayer |
-| `src/PlanGuard.sol` + `test/PlanGuard.t.sol` | first version: blocks module, owner, threshold, guard and fallback changes and any delegatecall unless queued 24 h earlier; a delegatecall to `MultiSendCallOnly` is checked call by call; a queued entry is used up only when the Safe transaction succeeds. Deployed by the script, not set on the demo Safe |
+| `src/PlanGuard.sol` + `test/PlanGuard.t.sol` | first version: blocks module, owner, threshold, guard and fallback changes and any delegatecall unless queued 24 h earlier; a delegatecall to `MultiSendCallOnly` is checked call by call; a queued entry is used up only when the Safe transaction succeeds. Deployed by the script; set on a throwaway Safe on Base Sepolia (14 Oct), not on the demo Safe |
 | `test/PlanGuardFork.t.sol` | PlanGuard on a fresh 2-of-3 Safe made through the real Safe v1.4.1 contracts on a Base Sepolia fork, with signed Safe transactions; skips without `BASE_SEPOLIA_RPC` (CI) |
 | `script/Deploy.s.sol` → writes `deployments/<network>.json` | works on Anvil and on a local FISCO BCOS v3.16.3 chain (`deployments/fisco.json`); Base Sepolia deployment in `deployments/base-sepolia.json` |
-| `script/ThrowawayGuard.s.sol` → writes `deployments/base-sepolia-throwaway-guard.json` | sets PlanGuard on a new throwaway Safe; rehearsed on an anvil fork of Base Sepolia, not yet run live |
+| `script/ThrowawayGuard.s.sol` → writes `deployments/base-sepolia-throwaway-guard.json` | sets PlanGuard on a new throwaway Safe; rehearsed on an anvil fork, then run on Base Sepolia on 14 Oct (Safe `0x1C78…21A6`, guard `0xA3e1…7c65`, hashes in `docs/EVIDENCE.md`) |
 
 PlanGuard against real Safe bytecode (forks Base Sepolia; without `BASE_SEPOLIA_RPC` the suite skips):
 
