@@ -120,6 +120,19 @@ contract PlanGuardTest is Test {
         guard.checkTransaction(multiSend, 0, batch, 1, 0, 0, 0, address(0), payable(address(0)), "", address(0));
     }
 
+    /// MultiSendCallOnly v1.5.0 sends an entry with to == address(0) to the Safe itself (test/PlanGuardFork.t.sol
+    /// shows it on the real bytecode), so such an entry is checked as a call to the Safe.
+    function test_MultiSendEntryToAddressZeroCountsAsTheSafe() public {
+        bytes memory hidden = abi.encodeWithSignature("multiSend(bytes)", _pack(address(0), _disableModule()));
+        assertTrue(guard.isGuarded(multiSend, hidden, 1));
+        vm.prank(safe);
+        vm.expectRevert(abi.encodeWithSelector(PlanGuard.Blocked.selector, bytes4(keccak256("multiSend(bytes)"))));
+        guard.checkTransaction(multiSend, 0, hidden, 1, 0, 0, 0, address(0), payable(address(0)), "", address(0));
+
+        bytes memory transfer = abi.encodeWithSignature("transfer(address,uint256)", address(2), 1);
+        assertFalse(guard.isGuarded(multiSend, abi.encodeWithSignature("multiSend(bytes)", _pack(address(0), transfer)), 1));
+    }
+
     function test_MultiSendInnerDelegatecallOrMalformedIsGuarded() public {
         bytes memory inner = abi.encodeWithSignature("transfer(address,uint256)", address(2), 1);
         bytes memory delegated = abi.encodePacked(uint8(1), token, uint256(0), inner.length, inner);

@@ -154,7 +154,7 @@ contract PlanGuard {
     }
 
     /// @dev multiSend(bytes transactions), each packed as operation (1) | to (20) | value (32) | length (32) | data.
-    ///      Anything malformed, or any inner delegatecall, counts as guarded.
+    ///      Anything malformed, or any inner delegatecall, counts as guarded; `to` == address(0) counts as the Safe.
     function _batchGuarded(bytes memory data) internal view returns (bool) {
         if (data.length < 4 + 64 || _selector(data) != MULTI_SEND) return true;
         uint256 offset;
@@ -187,7 +187,8 @@ contract PlanGuard {
                     sel := mload(add(add(start, i), 85))
                 }
             }
-            if (_callGuarded(to, sel)) return true;
+            // MultiSendCallOnly v1.5.0 sends an entry with to == address(0) to the Safe itself (v1.4.1 does not)
+            if (_callGuarded(to == address(0) ? safe : to, sel)) return true;
             i += 85 + dataLen;
         }
         return false;
