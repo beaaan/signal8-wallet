@@ -164,19 +164,22 @@ export class Executor implements ActionSink {
   }
 
   private recordLedger(action: PlainAction, call: PlanCall, tx: Hex, payout?: bigint): void {
+    const ref = "ref" in action ? action.ref : undefined;
     if (!this.ledger || call.fn === "anchor" || call.fn === "claimCover") {
-      if (this.ledger && call.fn === "claimCover") this.ledger.record({ kind: "cover_claim", amount: payout ?? 0n, safeDelta: payout ?? 0n, vaultDelta: 0n, tx });
+      if (this.ledger && call.fn === "claimCover") this.ledger.record({ kind: "cover_claim", amount: payout ?? 0n, safeDelta: payout ?? 0n, vaultDelta: 0n, ref, tx });
       return;
     }
     const a = call.amount;
-    const effect: Record<Exclude<PlanCall["fn"], "anchor" | "claimCover">, [bigint, bigint]> = {
-      pay: [-a, 0n],
-      vaultDeposit: [-a, a],
-      vaultWithdraw: [a, -a],
-      creditDraw: [a, 0n],
+    // [Safe, vault, outstanding credit]; a draw is borrowing (debt), not income
+    const effect: Record<Exclude<PlanCall["fn"], "anchor" | "claimCover">, [bigint, bigint, bigint]> = {
+      pay: [-a, 0n, 0n],
+      vaultDeposit: [-a, a, 0n],
+      vaultWithdraw: [a, -a, 0n],
+      creditDraw: [a, 0n, a],
     };
-    const [safeDelta, vaultDelta] = effect[call.fn];
-    this.ledger.record({ kind: action.type as "pay", amount: a, planId: call.fn === "pay" ? call.planId : undefined, safeDelta, vaultDelta, tx });
+    const [safeDelta, vaultDelta, debtDelta] = effect[call.fn];
+    const pay = call.fn === "pay" ? { planId: call.planId, payee: call.to } : {};
+    this.ledger.record({ kind: action.type as "pay", amount: a, ...pay, safeDelta, vaultDelta, ...(debtDelta ? { debtDelta } : {}), ref, tx });
   }
 
   /** The agent stops itself (end-of-day reconciliation failed). Allowed by PlanModule for the agent key. */

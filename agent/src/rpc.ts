@@ -2,7 +2,8 @@
 // land on a node a few blocks behind: the first Base Sepolia replay saw a stale allowance, then an end-of-day ledger
 // mismatch whose five reads came from different blocks. This transport remembers the newest block seen in a receipt
 // and the next nonce of each sender it has sent for, pins "latest" reads to one fresh block at least that new, and
-// retries while a lagging node does not have that block yet. Local anvil chains use plain http.
+// retries while a lagging node does not have that block yet (also for reads that name their block, as the
+// reconciliation snapshot does: it reads every field at one block). Local anvil chains use plain http.
 
 import { custom, hexToBigInt, http, parseTransaction, recoverTransactionAddress, toHex, type Hex, type Transport } from "viem";
 
@@ -53,6 +54,8 @@ export function consistentTransport(url: string, opts: ConsistentOpts = {}): Tra
   async function pinned(method: string, params: unknown[]): Promise<unknown> {
     const at = PINNED[method]!;
     const tag = params[at];
+    // an explicit block (e.g. a reconciliation snapshot pinned to one block) is kept, but a lagging node is asked again
+    if (typeof tag === "string" && tag.startsWith("0x")) return retrying(method, params);
     if (high === 0n || (tag !== undefined && tag !== "latest" && tag !== "pending")) return base({ method, params });
     const p = [...params];
     p[at] = toHex(await fresh());

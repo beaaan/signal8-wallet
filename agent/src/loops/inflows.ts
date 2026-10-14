@@ -43,7 +43,7 @@ export interface InflowSource {
 }
 
 /** Blocks per eth_getLogs call. */
-const LOG_RANGE = 200n;
+export const LOG_RANGE = 200n;
 
 export function chainInflows(c: Chainish): InflowSource {
   return {
@@ -123,7 +123,10 @@ export class InflowWatcher {
     writeFileSync(this.o.checkpointFile, `${JSON.stringify(cp, null, 2)}\n`);
   }
 
-  /** With a ledger, each inflow is also recorded for the day's reconciliation (the Safe gets amount - swept). */
+  /**
+   * With a ledger, each inflow is also recorded for the period's reconciliation: the gross receipt, the Safe gets
+   * amount - swept, and the swept part repays the credit line (outstanding principal - swept). Never both gross and net.
+   */
   async poll(ledger?: Ledger): Promise<InflowMatch[]> {
     const { from, paid } = this.load();
     const to = await this.o.source.latestBlock();
@@ -132,7 +135,8 @@ export class InflowWatcher {
     const matches = matchInflows(events, this.o.receivables, paid, this.o.runId);
     for (const m of matches) {
       this.report(m);
-      ledger?.record({ kind: "inflow", amount: m.event.amount, safeDelta: m.event.amount - m.event.swept, vaultDelta: 0n, tx: m.event.tx, note: m.receivable?.id });
+      const e = m.event;
+      ledger?.record({ kind: "inflow", amount: e.amount, safeDelta: e.amount - e.swept, vaultDelta: 0n, ...(e.swept ? { debtDelta: -e.swept } : {}), tx: e.tx, note: m.receivable?.id });
     }
     this.save(to, paid);
     return matches;
