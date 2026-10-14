@@ -32,6 +32,16 @@ export interface PayeeControls {
   payroll?: { period: string; total: string; staff: Payroll["staff"] };
 }
 
+/**
+ * The owner's paid record for an invoice id, as a red-team case's trusted context. Its amount matters: a part
+ * payment below the purchase order leaves a balance, so a stand-in record would read as unpaid.
+ */
+export function paidRecord(loaded: PayeeControls, invoiceId: string): PaidInvoice {
+  const p = loaded.paid.find((x) => x.invoiceId === invoiceId);
+  if (!p) throw new Error(`no paid record for ${invoiceId} in the owner's paid invoices`);
+  return { ...p };
+}
+
 export function loadControls(paths = { orders: `${PATHS.fixtures}/purchase-orders.json`, paid: `${PATHS.fixtures}/paid-invoices.json`, payroll: PATHS.payroll }): PayeeControls {
   const orders = existsSync(paths.orders) ? PurchaseOrders.parse(JSON.parse(readFileSync(paths.orders, "utf8"))) : { suppliers: {}, orders: [] };
   const paid = existsSync(paths.paid) ? PaidInvoices.parse(JSON.parse(readFileSync(paths.paid, "utf8"))).paid : [];

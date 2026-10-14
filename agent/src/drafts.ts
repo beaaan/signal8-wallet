@@ -9,10 +9,12 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import { isFiscoNetwork } from "./config.ts";
 import { fmt } from "./exec/calls.ts";
 import { isMain } from "./isMain.ts";
 import { DecisionLog } from "./log.ts";
 import type { Hex } from "./policy/localCheck.ts";
+import { tokenSymbol } from "./token.ts";
 
 export interface HeldPayment {
   payee: string;
@@ -40,7 +42,14 @@ export interface DraftContext {
   held: HeldPayment[];
   /** Fictional demo terms; the owner checks them against the real policy and loan (data/fixtures/policy.txt, loan.txt). */
   terms?: { claimWindowDays?: number; sweepPercent?: number };
+  /** Token symbol for amounts (default: the agent's token, mUSD or mVND; see token.ts). */
+  token?: string;
 }
+
+const tok = (c: DraftContext) => c.token ?? tokenSymbol();
+
+/** Who approves an owner proposal: two Safe owners, or on the local FISCO chain the standalone wallet's one owner. */
+const approvers = (c: DraftContext) => (isFiscoNetwork(c.network) ? "the owner approves it (standalone wallet on the local FISCO chain)" : "two owners sign in Safe Wallet");
 
 export interface Draft {
   file: string; // file name inside the run's drafts folder
@@ -107,7 +116,7 @@ export function claimLetterEn(c: DraftContext): Draft {
     `| Insured account (Safe) | \`${c.safe}\` |`,
     `| Cover contract | ${c.cover ? `\`${c.cover.contract}\`` : "(not claimed)"} |`,
     `| Cover event id | ${c.cover?.eventId ? `\`${c.cover.eventId}\`` : "(not recorded)"} |`,
-    `| Parametric payout | ${c.cover?.payout !== undefined ? `${fmt(c.cover.payout)} mUSD` : "(not recorded)"} |`,
+    `| Parametric payout | ${c.cover?.payout !== undefined ? `${fmt(c.cover.payout)} ${tok(c)}` : "(not recorded)"} |`,
     `| Payout transaction | ${explorerTx(c.chainId, c.cover?.tx)} |`,
     `| Pre-storm evidence hash (PRE_STORM) | ${c.preStorm ? `\`${c.preStorm.hash}\`` : "(none)"} |`,
     `| Evidence anchor transaction | ${explorerTx(c.chainId, c.preStorm?.tx)} |`,
@@ -155,7 +164,7 @@ export function claimLetterZhHant(c: DraftContext): Draft {
     `| 受保帳戶（Safe） | \`${c.safe}\` |`,
     `| 保險合約 | ${c.cover ? `\`${c.cover.contract}\`` : "（未申領）"} |`,
     `| 保險事件編號 | ${c.cover?.eventId ? `\`${c.cover.eventId}\`` : "（未記錄）"} |`,
-    `| 參數賠款 | ${c.cover?.payout !== undefined ? `${fmt(c.cover.payout)} mUSD` : "（未記錄）"} |`,
+    `| 參數賠款 | ${c.cover?.payout !== undefined ? `${fmt(c.cover.payout)} ${tok(c)}` : "（未記錄）"} |`,
     `| 賠款交易 | ${explorerTx(c.chainId, c.cover?.tx)} |`,
     `| 風暴前證據雜湊（PRE_STORM） | ${c.preStorm ? `\`${c.preStorm.hash}\`` : "（無）"} |`,
     `| 證據上鏈交易 | ${explorerTx(c.chainId, c.preStorm?.tx)} |`,
@@ -186,24 +195,25 @@ export function deadlines(c: DraftContext): Deadline[] {
   const end = day(c.stormEnd, tz);
   const out: Deadline[] = [];
   const p = c.payroll;
+  const fisco = isFiscoNetwork(c.network);
   if (p.paidInStorm) {
-    out.push({ date: nextMonth(p.payday), what: `Next payroll (${p.staff} staff, ${fmt(p.total)} mUSD)`, action: "On an ordinary day payroll is an owner proposal: two owners sign in Safe Wallet." });
+    out.push({ date: nextMonth(p.payday), what: `Next payroll (${p.staff} staff, ${fmt(p.total)} ${tok(c)})`, action: `On an ordinary day payroll is an owner proposal: ${approvers(c)}.` });
   } else {
-    out.push({ date: p.payday, what: `Payroll ${p.period} (${p.staff} staff, ${fmt(p.total)} mUSD)`, action: "Proposed to the owners; two owners sign in Safe Wallet." });
+    out.push({ date: p.payday, what: `Payroll ${p.period} (${p.staff} staff, ${fmt(p.total)} ${tok(c)})`, action: `Proposed to the owners; ${approvers(c)}.` });
   }
   for (const h of c.held) {
     const late = h.dueDate && h.dueDate < end ? " (fell due during the storm)" : "";
     out.push({
       date: h.dueDate ?? end,
-      what: `Held supplier payment ${h.invoiceId ?? ""} to ${h.payee}, ${h.amount} mUSD${late}`.replace("  ", " "),
-      action: "Proposed to the owners after the storm; approve in Safe Wallet or reschedule with the supplier.",
+      what: `Held supplier payment ${h.invoiceId ?? ""} to ${h.payee}, ${h.amount} ${tok(c)}${late}`.replace("  ", " "),
+      action: `Proposed to the owners after the storm; ${fisco ? "the owner approves it" : "approve in Safe Wallet"} or reschedule with the supplier.`,
     });
   }
   if (c.credit && c.credit.amount > 0n) {
     const pct = c.terms?.sweepPercent ?? SWEEP_PERCENT;
     out.push({
       date: "",
-      what: `Credit line: drew ${fmt(c.credit.amount)} mUSD in the storm${c.credit.outstanding !== undefined ? `, ${fmt(c.credit.outstanding)} outstanding` : ""}`,
+      what: `Credit line: drew ${fmt(c.credit.amount)} ${tok(c)} in the storm${c.credit.outstanding !== undefined ? `, ${fmt(c.credit.outstanding)} outstanding` : ""}`,
       action: `Repaid automatically by ${pct}% of each customer payment now the storm is over; check the loan's final repayment date.`,
     });
   }

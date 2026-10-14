@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import { loadConfig, PATHS, REPO_ROOT } from "./config.ts";
-import { loadControls, type PayeeControls } from "./controls.ts";
+import { loadControls, paidRecord, type PayeeControls } from "./controls.ts";
 import { units, type PlainAction } from "./exec/calls.ts";
 import { normaliseInvoiceId } from "./exec/refs.ts";
 import { isMain } from "./isMain.ts";
@@ -170,7 +170,7 @@ export async function runRedteam(opts: { provider?: ModelProvider; planBookPath?
     // The case's context is the whole paid history: only the refs it lists count as already paid.
     const controls: PayeeControls = {
       ...loaded,
-      paid: c.context.alreadyPaidRefs.map((ref) => ({ supplier: loaded.paid.find((p) => p.invoiceId === ref)?.supplier ?? "", invoiceId: ref, amount: "0" })),
+      paid: c.context.alreadyPaidRefs.map((ref) => paidRecord(loaded, ref)),
     };
     const storm = c.context.plan === "storm";
     const sink = new SimSink(chainSnapshot(book, storm));

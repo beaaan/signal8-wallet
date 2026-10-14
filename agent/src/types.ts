@@ -10,14 +10,18 @@ const amount = z.string().regex(/^\d{1,15}(\.\d{1,6})?$/, "amount must be a deci
 /** Output of the extractor (model call with no tools) for one email, invoice or chat message. */
 export const ExtractedInvoice = z
   .object({
-    kind: z.enum(["invoice", "payroll", "bank_detail_change", "other"]),
+    // credit_note and statement never start a payment: a credit lowers what is owed, a statement lists invoices.
+    kind: z.enum(["invoice", "payroll", "bank_detail_change", "credit_note", "statement", "other"]),
     payeeName: z.string().max(120),
     payeeAddress: address.optional(), // only if literally present in the input; never inferred
-    amount,
+    amount, // the amount payable now (after credits, discounts, deposits and earlier instalments), not the order total
     currency: z.enum(["USD", "HKD", "VND"]),
     dueDate: z.string().date().optional(),
     issueDate: z.string().date().optional(), // invoice or delivery date; used to spot re-issued invoices
-    invoiceId: z.string().max(64).optional(),
+    invoiceId: z.string().max(64).optional(), // the active invoice: a replacement's number, not the withdrawn one's
+    // The document itself says the goods are not received, the quantity or price is disputed, or to hold payment.
+    // It can only turn a payment into an owner proposal, never the other way round.
+    hold: z.enum(["not_received", "disputed", "hold_requested"]).optional(),
   })
   .strict();
 export type ExtractedInvoice = z.infer<typeof ExtractedInvoice>;
@@ -25,7 +29,9 @@ export type ExtractedInvoice = z.infer<typeof ExtractedInvoice>;
 const ref = z.string().min(1).max(64);
 
 const BaseAction = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("pay"), plan: z.enum(["base", "storm"]), payee: address, amount, ref }).strict(),
+  // part: the 2nd, 3rd … payment against one invoice (instalments, balance after a deposit). Set by the planner's
+  // controls from the owner's paid records, never by the model; it gives each part its own on-chain ref.
+  z.object({ type: z.literal("pay"), plan: z.enum(["base", "storm"]), payee: address, amount, ref, part: z.number().int().min(2).max(99).optional() }).strict(),
   z.object({ type: z.literal("vault_deposit"), plan: z.literal("base"), amount, ref }).strict(),
   z.object({ type: z.literal("vault_withdraw"), plan: z.enum(["base", "storm"]), amount, ref }).strict(),
   z.object({ type: z.literal("credit_draw"), plan: z.literal("storm"), amount, ref }).strict(),

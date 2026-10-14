@@ -5,7 +5,8 @@
 //   pay, ref "payroll:<payPeriod>"  → keccak256(abi.encode(employee, payPeriod))
 //   pay, any other ref              → keccak256(abi.encode(payee, normalised invoiceId)), the ref string being
 //                                     the invoice id; "lk 0917" and "LK-0917" are the same invoice, and two
-//                                     suppliers may both send an invoice numbered "1001"
+//                                     suppliers may both send an invoice numbered "1001". Part n ≥ 2 of one
+//                                     invoice (an instalment) appends "/n", which no normalised id contains
 //   every other action              → keccak256(actionId), the ref string being the action id
 // Replays put the run id in payPeriod / actionId ("2025-09#<runId>") so reruns on one chain don't collide.
 
@@ -23,8 +24,9 @@ export function normaliseInvoiceId(invoiceId: string): string {
   return id.toUpperCase().replace(/[^A-Z0-9]/g, "") + (i < 0 ? "" : invoiceId.slice(i));
 }
 
-export function invoiceRef(payee: Hex, invoiceId: string): Hex {
-  return keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [payee, normaliseInvoiceId(invoiceId)]));
+export function invoiceRef(payee: Hex, invoiceId: string, part?: number): Hex {
+  const id = normaliseInvoiceId(invoiceId) + (part && part > 1 ? `/${part}` : "");
+  return keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [payee, id]));
 }
 
 export function payrollRef(employee: Hex, payPeriod: string): Hex {
@@ -46,7 +48,7 @@ export function refFor(action: RefAction): Hex {
   if (action.type === "pay") {
     return action.ref.startsWith(PAYROLL_PREFIX)
       ? payrollRef(action.payee, action.ref.slice(PAYROLL_PREFIX.length))
-      : invoiceRef(action.payee, action.ref);
+      : invoiceRef(action.payee, action.ref, action.part);
   }
   return actionRef(action.ref);
 }

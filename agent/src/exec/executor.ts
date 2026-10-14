@@ -13,12 +13,14 @@ import { readSnapshot, revertReason, walletFor, type Chainish, type Wallet } fro
 import type { Ledger } from "../ledger.ts";
 import { DecisionLog, JsonlFile } from "../log.ts";
 import { localCheck, type Hex, type PlanCall, type Snapshot } from "../policy/localCheck.ts";
+import { tokenSymbol } from "../token.ts";
 import type { Action, Decision } from "../types.ts";
 import { describe, fmt, toCall, type PlainAction } from "./calls.ts";
 import { refFor } from "./refs.ts";
 import { ProposalWriter, type PlanChange, type Proposal, type SafeProposer } from "./safeProposer.ts";
 
 export { describe, fmt, plain, toCall, TOKEN_DECIMALS, units, type PlainAction } from "./calls.ts";
+export { tokenSymbol } from "../token.ts";
 
 export interface ExecResult {
   outcome: Decision["outcome"];
@@ -57,7 +59,7 @@ export class Executor implements ActionSink {
     private readonly opts: ExecutorOptions = {},
   ) {
     this.wallet = walletFor(c, "agent");
-    this.proposals = new ProposalWriter(c.dep, new JsonlFile<Proposal>(resolve(c.cfg.logDir, "proposals.jsonl")), c.cfg.local, opts.proposer);
+    this.proposals = new ProposalWriter(c.dep, new JsonlFile<Proposal>(resolve(c.cfg.logDir, "proposals.jsonl")), c.cfg.local || c.cfg.fisco, opts.proposer);
     this.ledger = opts.ledger;
   }
 
@@ -154,7 +156,7 @@ export class Executor implements ActionSink {
             // not Claimed
           }
         }
-        if (payout !== undefined) summary = `Claimed the typhoon cover: ${fmt(payout)} mUSD paid to the Safe (storm plan)`;
+        if (payout !== undefined) summary = `Claimed the typhoon cover: ${fmt(payout)} ${tokenSymbol()} paid to the Safe (storm plan)`;
       }
       this.recordLedger(action, call, tx, payout);
       return this.record(input, action, { outcome: "executed", stage: "chain", tx, summary, payout });
@@ -164,19 +166,22 @@ export class Executor implements ActionSink {
   }
 
   private recordLedger(action: PlainAction, call: PlanCall, tx: Hex, payout?: bigint): void {
+    const ref = "ref" in action ? action.ref : undefined;
     if (!this.ledger || call.fn === "anchor" || call.fn === "claimCover") {
-      if (this.ledger && call.fn === "claimCover") this.ledger.record({ kind: "cover_claim", amount: payout ?? 0n, safeDelta: payout ?? 0n, vaultDelta: 0n, tx });
+      if (this.ledger && call.fn === "claimCover") this.ledger.record({ kind: "cover_claim", amount: payout ?? 0n, safeDelta: payout ?? 0n, vaultDelta: 0n, ref, tx });
       return;
     }
     const a = call.amount;
-    const effect: Record<Exclude<PlanCall["fn"], "anchor" | "claimCover">, [bigint, bigint]> = {
-      pay: [-a, 0n],
-      vaultDeposit: [-a, a],
-      vaultWithdraw: [a, -a],
-      creditDraw: [a, 0n],
+    // [Safe, vault, outstanding credit]; a draw is borrowing (debt), not income
+    const effect: Record<Exclude<PlanCall["fn"], "anchor" | "claimCover">, [bigint, bigint, bigint]> = {
+      pay: [-a, 0n, 0n],
+      vaultDeposit: [-a, a, 0n],
+      vaultWithdraw: [a, -a, 0n],
+      creditDraw: [a, 0n, a],
     };
-    const [safeDelta, vaultDelta] = effect[call.fn];
-    this.ledger.record({ kind: action.type as "pay", amount: a, planId: call.fn === "pay" ? call.planId : undefined, safeDelta, vaultDelta, tx });
+    const [safeDelta, vaultDelta, debtDelta] = effect[call.fn];
+    const pay = call.fn === "pay" ? { planId: call.planId, payee: call.to } : {};
+    this.ledger.record({ kind: action.type as "pay", amount: a, ...pay, safeDelta, vaultDelta, ...(debtDelta ? { debtDelta } : {}), ref, tx });
   }
 
   /** The agent stops itself (end-of-day reconciliation failed). Allowed by PlanModule for the agent key. */

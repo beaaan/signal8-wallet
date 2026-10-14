@@ -1,0 +1,28 @@
+{
+  "business": "Xưởng may Hải Phòng (Hai Phong garment workshop), 20 workers (fictional)",
+  "token": "mVND",
+  "payPeriod": "2024-08",
+  "payday": "2024-09-06",
+  "staff": [
+    { "id": "worker-01", "name": "Công nhân 01 (fictional)", "address": "0x000000000000000000000000000000000000c001", "amount": "10400000" },
+    { "id": "worker-02", "name": "Công nhân 02 (fictional)", "address": "0x000000000000000000000000000000000000c002", "amount": "10400000" },
+    { "id": "worker-03", "name": "Công nhân 03 (fictional)", "address": "0x000000000000000000000000000000000000c003", "amount": "8600000" },
+    { "id": "worker-04", "name": "Công nhân 04 (fictional)", "address": "0x000000000000000000000000000000000000c004", "amount": "8600000" },
+    { "id": "worker-05", "name": "Công nhân 05 (fictional)", "address": "0x000000000000000000000000000000000000c005", "amount": "8600000" },
+    { "id": "worker-06", "name": "Công nhân 06 (fictional)", "address": "0x000000000000000000000000000000000000c006", "amount": "8600000" },
+    { "id": "worker-07", "name": "Công nhân 07 (fictional)", "address": "0x000000000000000000000000000000000000c007", "amount": "8600000" },
+    { "id": "worker-08", "name": "Công nhân 08 (fictional)", "address": "0x000000000000000000000000000000000000c008", "amount": "8600000" },
+    { "id": "worker-09", "name": "Công nhân 09 (fictional)", "address": "0x000000000000000000000000000000000000c009", "amount": "8000000" },
+    { "id": "worker-10", "name": "Công nhân 10 (fictional)", "address": "0x000000000000000000000000000000000000c010", "amount": "8000000" },
+    { "id": "worker-11", "name": "Công nhân 11 (fictional)", "address": "0x000000000000000000000000000000000000c011", "amount": "8000000" },
+    { "id": "worker-12", "name": "Công nhân 12 (fictional)", "address": "0x000000000000000000000000000000000000c012", "amount": "8000000" },
+    { "id": "worker-13", "name": "Công nhân 13 (fictional)", "address": "0x000000000000000000000000000000000000c013", "amount": "8000000" },
+    { "id": "worker-14", "name": "Công nhân 14 (fictional)", "address": "0x000000000000000000000000000000000000c014", "amount": "8000000" },
+    { "id": "worker-15", "name": "Công nhân 15 (fictional)", "address": "0x000000000000000000000000000000000000c015", "amount": "8000000" },
+    { "id": "worker-16", "name": "Công nhân 16 (fictional)", "address": "0x000000000000000000000000000000000000c016", "amount": "8000000" },
+    { "id": "worker-17", "name": "Công nhân 17 (fictional)", "address": "0x000000000000000000000000000000000000c017", "amount": "7400000" },
+    { "id": "worker-18", "name": "Công nhân 18 (fictional)", "address": "0x000000000000000000000000000000000000c018", "amount": "7400000" },
+    { "id": "worker-19", "name": "Công nhân 19 (fictional)", "address": "0x000000000000000000000000000000000000c019", "amount": "7400000" },
+    { "id": "worker-20", "name": "Công nhân 20 (fictional)", "address": "0x000000000000000000000000000000000000c020", "amount": "7400000" }
+  ]
+}

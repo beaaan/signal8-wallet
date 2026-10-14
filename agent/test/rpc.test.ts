@@ -60,6 +60,14 @@ describe("consistentTransport", () => {
     expect(b.calls.at(-1)!.params).toEqual([{ to: "0x01" }, toHex(90n)]);
   });
 
+  it("asks again when a lagging node does not have an explicitly named block yet (one-block snapshots)", async () => {
+    const b = balancer();
+    const t = consistentTransport("http://rpc", { base: b.base, waitMs: 0 })({});
+    // no receipt seen: the stale node (head 95) answers first and refuses block 100
+    expect(await t.request({ method: "eth_call", params: [{ to: "0x01" }, toHex(100n)] })).toBe("0x01");
+    expect(b.calls.map((c) => [c.node, (c.params as unknown[])[1]])).toEqual([["stale", toHex(100n)], ["fresh", toHex(100n)]]);
+  });
+
   it("never hands out a nonce below one it has already sent", async () => {
     const b = balancer();
     const t = consistentTransport("http://rpc", { base: async (a) => (a.method === "eth_sendRawTransaction" ? "0xhash" : b.base(a)), waitMs: 0 })({});

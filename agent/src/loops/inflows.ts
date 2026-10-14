@@ -12,11 +12,13 @@ import { z } from "zod";
 import { paymentRouterAbi } from "../abis.ts";
 import type { Chainish } from "../chain.ts";
 import { PATHS } from "../config.ts";
+import { FISCO_LOG_RANGE } from "../fisco.ts";
 import { fmt, units } from "../exec/calls.ts";
 import { withRun } from "../exec/refs.ts";
 import type { Ledger } from "../ledger.ts";
 import type { DecisionLog } from "../log.ts";
 import type { Hex } from "../policy/localCheck.ts";
+import { tokenSymbol } from "../token.ts";
 
 export const Receivables = z.object({
   note: z.string().optional(),
@@ -24,7 +26,7 @@ export const Receivables = z.object({
 });
 export type Receivable = z.infer<typeof Receivables>["receivables"][number];
 
-export function loadReceivables(path = resolve(PATHS.fixtures, "receivables.json")): Receivable[] {
+export function loadReceivables(path = PATHS.receivables): Receivable[] {
   return existsSync(path) ? Receivables.parse(JSON.parse(readFileSync(path, "utf8"))).receivables : [];
 }
 
@@ -43,16 +45,18 @@ export interface InflowSource {
 }
 
 /** Blocks per eth_getLogs call. */
-const LOG_RANGE = 200n;
+export const LOG_RANGE = 200n;
 
 export function chainInflows(c: Chainish): InflowSource {
+  // FISCO v3.16.3 silently answers only the first 10 blocks of a longer range (fisco.ts FISCO_LOG_RANGE)
+  const range = c.cfg.fisco ? FISCO_LOG_RANGE : LOG_RANGE;
   return {
     latestBlock: () => c.pub.getBlockNumber({ cacheTime: 0 }),
     async inflows(fromBlock, toBlock) {
       const out: InflowEvent[] = [];
       // public Base Sepolia RPCs cap eth_getLogs at 200 blocks, and a checkpoint can be hours old
-      for (let from = fromBlock; from <= toBlock; from += LOG_RANGE) {
-        const to = from + LOG_RANGE - 1n < toBlock ? from + LOG_RANGE - 1n : toBlock;
+      for (let from = fromBlock; from <= toBlock; from += range) {
+        const to = from + range - 1n < toBlock ? from + range - 1n : toBlock;
         const logs = await c.pub.getContractEvents({ address: c.dep.contracts.PaymentRouter, abi: paymentRouterAbi, eventName: "Inflow", fromBlock: from, toBlock: to });
         out.push(...logs.map((l) => ({ invoiceRef: l.args.invoiceRef!, amount: l.args.amount!, swept: l.args.swept!, tx: l.transactionHash!, block: l.blockNumber! })));
       }
@@ -123,7 +127,10 @@ export class InflowWatcher {
     writeFileSync(this.o.checkpointFile, `${JSON.stringify(cp, null, 2)}\n`);
   }
 
-  /** With a ledger, each inflow is also recorded for the day's reconciliation (the Safe gets amount - swept). */
+  /**
+   * With a ledger, each inflow is also recorded for the period's reconciliation: the gross receipt, the Safe gets
+   * amount - swept, and the swept part repays the credit line (outstanding principal - swept). Never both gross and net.
+   */
   async poll(ledger?: Ledger): Promise<InflowMatch[]> {
     const { from, paid } = this.load();
     const to = await this.o.source.latestBlock();
@@ -132,7 +139,8 @@ export class InflowWatcher {
     const matches = matchInflows(events, this.o.receivables, paid, this.o.runId);
     for (const m of matches) {
       this.report(m);
-      ledger?.record({ kind: "inflow", amount: m.event.amount, safeDelta: m.event.amount - m.event.swept, vaultDelta: 0n, tx: m.event.tx, note: m.receivable?.id });
+      const e = m.event;
+      ledger?.record({ kind: "inflow", amount: e.amount, safeDelta: e.amount - e.swept, vaultDelta: 0n, ...(e.swept ? { debtDelta: -e.swept } : {}), tx: e.tx, note: m.receivable?.id });
     }
     this.save(to, paid);
     return matches;
@@ -143,16 +151,17 @@ export class InflowWatcher {
     const swept = e.swept > 0n ? `, ${fmt(e.swept)} swept to the credit line` : "";
     const input = `inflow:${m.receivable?.id ?? e.invoiceRef.slice(0, 18)}`;
     const r = m.receivable;
+    const t = tokenSymbol();
     if (m.kind === "matched") {
-      this.o.log.write({ input, stage: "chain", outcome: "executed", action: "inflow", tx: e.tx, summary: `Customer payment matched: ${r!.id} from ${r!.customer}, ${fmt(e.amount)} mUSD${swept}` });
+      this.o.log.write({ input, stage: "chain", outcome: "executed", action: "inflow", tx: e.tx, summary: `Customer payment matched: ${r!.id} from ${r!.customer}, ${fmt(e.amount)} ${t}${swept}` });
       return;
     }
     const why =
       m.kind === "unmatched"
-        ? { reason: "UnmatchedInflow", summary: `Customer payment of ${fmt(e.amount)} mUSD with an unknown invoice ref ${e.invoiceRef.slice(0, 10)}…; owner to identify it${swept}` }
+        ? { reason: "UnmatchedInflow", summary: `Customer payment of ${fmt(e.amount)} ${t} with an unknown invoice ref ${e.invoiceRef.slice(0, 10)}…; owner to identify it${swept}` }
         : m.kind === "short"
-          ? { reason: "ShortPayment", summary: `${r!.id} from ${r!.customer}: received ${fmt(m.received!)} of ${fmt(units(r!.amount))} mUSD; owner to follow up${swept}` }
-          : { reason: "Overpayment", summary: `${r!.id} from ${r!.customer}: received ${fmt(m.received!)} for ${fmt(units(r!.amount))} mUSD due; owner to refund or credit the difference${swept}` };
+          ? { reason: "ShortPayment", summary: `${r!.id} from ${r!.customer}: received ${fmt(m.received!)} of ${fmt(units(r!.amount))} ${t}; owner to follow up${swept}` }
+          : { reason: "Overpayment", summary: `${r!.id} from ${r!.customer}: received ${fmt(m.received!)} for ${fmt(units(r!.amount))} ${t} due; owner to refund or credit the difference${swept}` };
     this.o.log.write({ input, stage: "owner", outcome: "proposed", action: "inflow_flag", tx: e.tx, ...why });
   }
 }

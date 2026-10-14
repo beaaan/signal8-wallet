@@ -175,7 +175,7 @@ Spec: [specs/contracts.md](specs/contracts.md). Build in this order; each step e
    - Unit tests for every revert path.
    - Fuzz: random amounts and payees never exceed caps; `timeUnit = 1000` behaves the same.
    - **Invariant:** spend per plan per day ≤ its daily cap, and across plans ≤ the ceiling; the agent can never change configuration; storm-plan actions never execute while `isStorm()` is false; tokens leave the Safe only to payees in the executing plan or into the vault for the Safe; credit per event ≤ its cap; each ref executes once.
-5. **`SignalAttestor` (12 to 13 Oct).** EIP-712 verification of HKO and GDACS attestations, signing-time freshness (`issuedAt`) with the official time kept as `sourceTime`, nonces, event id from GDACS only, 12 h HKO and 24 h GDACS expiry, configurable chain id and `timeUnit` (FISCO returns 0 from `CHAINID` and uses milliseconds). Tests with forged, stale, future, replayed and malformed attestations.
+5. **`SignalAttestor` (12 to 13 Oct).** EIP-712 verification of HKO and GDACS attestations, signing-time freshness (`issuedAt`) with the official time kept as `sourceTime`, nonces, event id from GDACS only, 12 h HKO and 24 h GDACS expiry, configurable chain id and `timeUnit` (FISCO uses milliseconds; we expected 0 from `CHAINID`, but v3.16.3 returns its web3 chain id, 20200, which the attestor is built with). Tests with forged, stale, future, replayed and malformed attestations.
 6. **Mocks (12 to 14 Oct).**
    - `MockSignalCover`: pays a fixed sum to the Safe once per event id while storm mode is on.
    - `FlowCreditLine` + `PaymentRouter`: credit limit, `draw`, and a router that clients pay into; it forwards `sweepBps` to the lender and the rest to the Safe, and skips the sweep while storm mode is on.
@@ -237,6 +237,8 @@ Spec: [specs/agent.md](specs/agent.md), sections "Relayers" and "Replay".
 2. Deploy `PlanModule` (standalone vault version, no Safe), `SignalAttestor` with the FISCO chain id, and a mock VND deposit token. `TIMESTAMP` is in milliseconds on FISCO: use the contracts' time-unit constant.
 3. `data/replays/yagi-2024.json`: Vietnam's level 4 disaster risk warning on 6 Sep 2024, landfall in Quảng Ninh and Hải Phòng around 13:00 on 7 Sep, GDACS Red alert. Area D confirms the exact bulletin times from Vietnamese sources.
 4. Run it; record the hashes as "local chain" in `docs/EVIDENCE.md`.
+
+Status (14 Oct): done on FISCO BCOS v3.16.3 (v3.16.4's web3 RPC refuses zero-balance senders). The "standalone vault" is `LocalSafe` with one owner key; the token is `MockVNDDeposit` (mVND). The replay ran end to end without an ordinary day: 27 transactions in `docs/EVIDENCE.md`, the fake Zalo message refused, the Circular 53 request drafted. Commands: `contracts/README.md` "Local FISCO BCOS". Bulletin times are still approximate.
 
 ### 5.7 Pitch and docs (area D)
 

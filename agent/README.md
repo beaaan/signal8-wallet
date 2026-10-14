@@ -29,7 +29,7 @@ npm run relayer:gdacs  # same for GDACS
    npm run evidence       # markdown rows for docs/EVIDENCE.md from the latest run; -- --write puts them into the file
    ```
 
-   The ordinary day matches the customer payment to `data/fixtures/receivables.json`, pays due invoices, sweeps to the vault and reconciles its ledger with the chain before anchoring the daily report (see below). At storm end the held supplier payments become owner proposals and the drafts are written to `logs/drafts/<runId>/`. The run summary and `logs/run-<id>.json` (`storm` key) state the cover payout; PlanModule's `Executed` event for a claim carries the amount the Safe received.
+   The ordinary day matches the customer payment to `data/fixtures/receivables.json`, pays due invoices, sweeps to the vault and reconciles its ledger with the chain before anchoring the daily report (see below). At storm end the held supplier payments become owner proposals and the drafts are written to `logs/drafts/<runId>/`. The run summary and `logs/run-<id>.json` (`storm` key) state the cover payout; PlanModule's `Executed` event for a claim carries the amount the Safe received. The storm period (from the ordinary day's close to the end of the replay: cover, payroll, credit draw, the post-storm receipt) is reconciled and anchored as its own report, `logs/report-<date>-<runId>-storm.json`; `run-<id>.json` lists both periods under `periods`.
 
    Before the ordinary day the runner checks that the plan book hashes to the plans stored on-chain (exit 2 otherwise), and that today's `spentToday` / `spentAllToday` leave room for the run; the whole run lands in one chain day, so run it again on a fresh chain or tomorrow (UTC). Rehearse without using up a chain's day on a fork: `anvil --fork-url <rpc> --port 8555` and `--rpc http://127.0.0.1:8555`.
 4. API for the dashboard and arena: `npm run serve` (port `AGENT_API_PORT`, default 8787). The arena (`POST /api/arena`) only runs on a local network (`anvil`, `anvil-<name>`) and only when the plan book matches the chain; otherwise the server starts read-only. Limits: 2,000 characters, 5 attempts per minute per IP and 20 overall; a run longer than `ARENA_TIMEOUT_MS` (default 50 s) answers 202 and lands on the board when it finishes. `X-Forwarded-For` is read only from loopback or with `TRUST_PROXY=1`, and only its last entry. `GET /api/decisions?lang=zh-Hant` (en, zh-Hans, vi) adds the owner explanation to each line. For the demo, run the arena on its own chain (`NETWORK=anvil-arena`, see `../docs/DEMO.md`).
@@ -43,7 +43,7 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 - Always: one line in `logs/proposals.jsonl` with the Safe transactions the owners would sign (`token.transfer`, vault `approve`+`deposit`/`withdraw`, `draw`, `claim`, `anchor`, or `PlanModule.queueChange(setter)` for a plan change).
 - On `base-sepolia` with `SAFE_API_KEY` (and `SAFE_ADDRESS`, which must equal the deployment's Safe): `exec/safeProposer.ts` also builds the Safe transaction with protocol-kit (MultiSend for several calls), takes the next nonce from the service, signs the safeTxHash with the agent key **as a delegate** and calls api-kit `proposeTransaction`. Two owners still sign in Safe Wallet. If the key is missing or the service fails, the proposal stays logged and the decision line says so.
 - Each proposal records its refs; a payment whose ref is already in `proposals.jsonl` (for this PlanModule) or already used on-chain is not proposed or paid again.
-- The agent address must first be added as a delegate of the Safe (by an owner, in Safe Wallet or with api-kit `addSafeDelegate`).
+- The agent address must first be added as a delegate of the Safe by one owner: `OWNER_PRIVATE_KEY=0x… npm run safe:delegate` (needs `SAFE_API_KEY`; signs an EIP-712 message, no transaction; the key is used for that command only). `npm run safe:delegate -- --check` lists the delegates. Safe Wallet's settings can do the same.
 - **Not tested live.** The service client and signer are injected and unit-tested with fakes (`test/safeProposer.test.ts`: nonce from the service, signature recovers to the agent, fallback on errors). There is no Safe Transaction Service for anvil, so the proposer has not been run against the real service from this environment.
 
 ## Owner's records and red team
@@ -56,10 +56,30 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 
 `src/drafts.ts` writes, at storm end, Markdown drafts the owner reviews, signs and sends (the agent never sends anything): an insurance claim letter (English, and Traditional Chinese for HK) citing the cover event id, the payout tx and the PRE_STORM hash; a deadline list (payroll, held supplier payments with due dates, credit repayment, claim window); and for a Vietnamese region (Yagi) a Circular 53/2024/TT-NHNN restructuring request in Vietnamese. Files go to `logs/drafts/<runId>/`, and each is a decision line (stage `owner`, outcome `proposed`, action `draft`). Preview without a chain: `npx tsx src/drafts.ts --event yagi-2024`. The 30-day claim window, the 10% sweep and the Circular 53 conditions are demo assumptions to check against the real policy, loan and circular.
 
+## Yagi on a local FISCO BCOS chain
+
+`NETWORK=fisco` points the agent at a local FISCO BCOS v3 chain's web3 RPC (`FISCO_RPC`, default `http://127.0.0.1:8545`; chain id from `FISCO_CHAIN_ID`, default 20200, checked against the node and `deployments/fisco.json` before a replay). Build the chain and deploy as in [contracts/README.md](../contracts/README.md#local-fisco-bcos-yagi-stretch), then:
+
+```bash
+# AGENT_PRIVATE_KEY, GDACS_RELAYER_PRIVATE_KEY, NCHMF_RELAYER_PRIVATE_KEY, DEMO_CLIENT_PRIVATE_KEY: the throwaway FISCO keys
+NETWORK=fisco MODEL_PROVIDER=rules \
+PLAN_BOOK=../data/fixtures/plans/plan-book.yagi.json \
+PAYROLL=../data/fixtures/yagi/payroll.json RECEIVABLES=../data/fixtures/yagi/receivables.json \
+npm run replay -- --event yagi-2024 --speed 3600 --skip-everyday
+```
+
+What changes on FISCO (`src/fisco.ts` lists what we measured on v3.16.3):
+
+- **Local signal.** Outside Hong Kong the attestor counts NCHMF, not HKO, so the replay's local-source attestations are signed with `NCHMF_RELAYER_PRIVATE_KEY` (`relayerKeyRole` in `relayers/submit.ts`). `yagi-2024.json` maps risk level 4 → 8, landfall → 10, cancel → 0; GDACS attests YAGI-24 (1001090, Red, lists VNM).
+- **Time.** Contracts see milliseconds (`timeUnit` 1000); attestations still carry seconds. The web3 RPC reports header times in seconds, and `headerSeconds` also accepts a millisecond header. FISCO seals no empty blocks and runs `eth_call` at the latest block's time, so before an attestation on an idle chain (latest block over 60 s old) the relayer sends itself a 0-value transfer to seal a fresh block (the role `evm_mine` plays on anvil).
+- **RPC.** Plain http, no read-your-writes pinning: `eth_call` at a block number fails there. Inflow logs are read in 10-block windows, because `eth_getLogs` silently answers only the first 10 blocks of a longer range.
+- **Labels.** The plan book's token (`mVND`) labels logs, the run's transaction list and the drafts (`src/token.ts`); the storm loop's dollar-sized forecast and brace margin are scaled by 25,000 for mVND. `explain.ts` still parses only mUSD lines.
+- **No Safe.** Owner proposals are logged to `logs/proposals.jsonl` only; the deadline list says the one owner approves.
+
 ## Everyday: inflows and reconciliation
 
 - `loops/inflows.ts` reads `PaymentRouter` `Inflow` events since a checkpoint (`state/inflows-<network>.json`; a replay starts at its own first block), matches `invoiceRef` = keccak256(id) (or id#runId in replays) to `data/fixtures/receivables.json`, logs matches and flags short payments, overpayments and unknown refs for the owner. Partial payments add up.
-- `loops/reconcile.ts`: at end of day the ledger (executed actions recorded by the executor, plus inflows at amount − swept) is compared with the chain (Safe balance, vault `maxWithdraw`, `spentToday` per plan). The daily report, with the result, is anchored first; on a mismatch the agent then calls `PlanModule.pause()` with its own key, logs it, appends to `logs/alerts.jsonl` and prints an alert. The replay stops there. Tested with a fake chain reader (`test/reconcile.test.ts`).
+- `loops/reconcile.ts`: at the end of a period the ledger (executed actions recorded by the executor, plus inflows: gross, amount − swept to the Safe, swept off the credit line) is compared with chain snapshots each read at one block: Safe balance, vault `maxWithdraw`, `spentToday` per plan, the lender's outstanding principal, and the Safe's token `Transfer` logs since the opening block (each must be a recorded transaction, so offsetting unrecorded movements are caught). The period report (`loops/report.ts`, version 2, see `../docs/specs/agent.md`) is built from that compared snapshot and anchored first; on a mismatch the agent then calls `PlanModule.pause()` with its own key, logs it, appends to `logs/alerts.jsonl` and prints an alert, even if the report could not be written or anchored. The replay stops there. Tested with fake readers and a fake RPC node (`test/reconcile.test.ts`, `test/period-report.test.ts`, `test/reconciliation-review.test.ts`).
 
 ## Live relayers
 
@@ -110,11 +130,12 @@ JSON mode there guarantees JSON but not the schema, so the schema is written int
 | `src/server.ts`, `src/evidence.ts`, `src/keys.ts` | `npm run serve`, `npm run evidence`, `npm run keys:new` |
 | `src/explain.ts`, `src/llm/planCompiler.ts` | owner explanations in four languages; plan book drafts from policy text |
 | `src/bare.ts`, `src/redteamTable.ts` | bare-agent baseline; SECURITY.md §5 tables |
+| `src/fisco.ts`, `src/token.ts` | the local FISCO BCOS chain's differences (time, idle chain, node check); the deployment's token label and sizing (mUSD, mVND) |
 
 Logs (`logs/`) and state (`state/`) are gitignored; `LOG_DIR` and `STATE_DIR` override them.
 
 ## Not built yet, or not verified
 
-- Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is a manual owner step.
+- Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is one owner command (`npm run safe:delegate`), not yet run.
 - The model provider, the plan compiler's `--model` path and the bare-agent baseline have not been called live (no model key here).
-- The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only.
+- The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only, and its FISCO run skipped the ordinary day (no Vietnamese supplier invoices in the fixtures). The dashboard (`web/`) does not read the FISCO deployment.

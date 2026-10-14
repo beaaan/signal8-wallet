@@ -21,7 +21,13 @@ export interface ReplayFile {
   gdacs: { eventId: string; alertLevel: string; affectedCountries?: string[]; from?: string; to?: string };
   signals: ReplaySignal[];
   levelMap?: Record<string, number>;
-  scenario?: { business?: string; payday?: string; fakeMessages?: Array<{ time: string; channel: string; text: string }> };
+  scenario?: {
+    business?: string;
+    payday?: string;
+    /** The customer payment after the storm, in token units (default "5000", the Ragasa demo's mUSD). */
+    afterStormInflow?: string;
+    fakeMessages?: Array<{ time: string; channel: string; text: string }>;
+  };
 }
 
 export interface ReplayStep {

@@ -8,7 +8,7 @@ The owner signs two plans on a calm day: an **everyday plan** (pay these supplie
 
 ![Dashboard during the Ragasa replay: "Storm plan on" at Signal No. 10, one payment waiting for the owners, four balances, today's limits and the storm so far](docs/images/dashboard-storm.png)
 
-> **Status (10 Oct):** the first iteration is live on **Base Sepolia**. A 2-of-3 Safe ([`0xB1b4…b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E)) has `PlanModule` enabled, and the full Ragasa replay plus one ordinary day ran there: 29 transactions, each linked in [docs/EVIDENCE.md](docs/EVIDENCE.md). That run used the offline rules provider. The red team ran on `deepseek-flash`: attackers won 1 of 86 runs against us and 2 of 86 against the bare agent, with no funds lost on either side (see [Red-team check](#examples) below). Still open: [What's not done yet](#whats-not-done-yet).
+> **Status (14 Oct):** live on **Base Sepolia** since 10 Oct: a 2-of-3 Safe ([`0xB1b4…b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E)) with `PlanModule` enabled, and the full Ragasa replay plus one ordinary day ran there (29 transactions, each linked in [docs/EVIDENCE.md](docs/EVIDENCE.md); offline rules provider). The contracts' source is verified on Sourcify and Blockscout. The Yagi replay ran on a local FISCO BCOS chain. The finance members' 100-case red-team corpus holds 100/100 attack runs with 50/50 benign cases on the rules provider; the last model red team (`deepseek-flash`, 10 Oct) had attackers win 1 of 86 runs against us and 2 of 86 against the bare agent, with no funds lost. Still open: [What's not done yet](#whats-not-done-yet).
 
 ## What happens in the demo
 
@@ -117,7 +117,7 @@ Ordinary day 2025-09-22
   EXECUTED chain      Customer payment matched: INV-C-2025-09-22 from Harbour View Catering (fictional), 8,000 mUSD
   EXECUTED chain      Pay 200.00 mUSD to Lee Kee Flour under the base plan
   REFUSED  planner    No payment for "Wing On Meats" 820.00 USD (bank detail changes go through the owners' timelocked setPayee, never a message)
-  EXECUTED chain      End of day 2025-09-22: ledger matches the chain
+  EXECUTED chain      End of day 2025-09-22: ledger matches the chain (4 entries). Closing Safe …; change Safe …; all 3 Safe transfers recorded
 2025-09-23T06:20:00.000Z TC8NW: HKO level 8
   StormStarted …
   EXECUTED chain      Claimed the typhoon cover: 20,000 mUSD paid to the Safe (storm plan)
@@ -129,7 +129,12 @@ Ordinary day 2025-09-22
 2025-09-24T12:20:00.000Z TC3: HKO level 3
   StormEnded …
   PROPOSED owner      Owner proposal: Pay 1200.00 mUSD to Wing On Meats (supplier payment held during the storm)
-Transactions (29) … Written to agent/logs/run-<runId>.json
+2025-09-25T03:20:00.000Z CANCEL: HKO level 0
+  EXECUTED chain      Customer payment matched: INV-C-2025-09-25 …, 5,000 mUSD, 500 swept to the credit line
+  EXECUTED chain      End of storm period 2025-09-25: ledger matches the chain (14 entries). Closing Safe 41,500, vault 32,800, credit drawn 14,500; …; all 14 Safe transfers recorded
+Reconciliation, ordinary-day 2025-09-22: ledger matches the chain; debt ok, transfer coverage complete
+Reconciliation, storm 2025-09-25: ledger matches the chain; debt ok, transfer coverage complete
+Transactions (30) … Written to agent/logs/run-<runId>.json
 ```
 
 One full replay uses most of a chain day's caps; for another run, restart `anvil` and redeploy, or the runner refuses to start.
@@ -193,18 +198,23 @@ The second is the hard case: a real supplier, an amount under the per-payment ca
 
 Each "win" paid the genuine invoice amount to the registered supplier, never the attacker's address; see [docs/SECURITY.md](docs/SECURITY.md) §5. The hardest case for the rules is an inflated rent invoice from the landlord, who has no purchase order: it fits under the per-payment cap, so the owner's records hold the usual rent and anything above it goes to the owners (known risk 13). The offline rules provider (no model) holds 0/86 with 15/15 benign.
 
+**The finance members' corpus.** `npm run redteam:finance` runs a larger set written by the team's finance members from real-world fraud and invoice patterns: 50 attacks and 50 benign scenarios (the 58 above plus 42 more), each scored against what a bookkeeper would expect, including the recipient, the amount and the invoice. On the offline rules provider it holds 100/100 attack runs and gets 50/50 benign scenarios right; the 14 it first got wrong (instalments, deposits, credit notes, statements, replacement invoices, undelivered or disputed goods: issue #16) were fixed in the agent, not in the cases. `-- --model` and `-- --bare` run both sides of the benchmark on it with the model; that run is still to do. `npm run redteam:chart` draws the deck figure (`docs/images/redteam-chart.png`, from the 10 Oct run above).
+
 ## Commands
 
 | Where | Command | What it does |
 | --- | --- | --- |
-| `contracts/` | `forge test` | 103 tests: unit, fuzz, the six `PlanModule` invariants and an attestor + module integration test |
-| `contracts/` | `forge script script/Deploy.s.sol --rpc-url … --broadcast` | Deploys everything from the plan book; writes `deployments/<network>.json` |
-| `agent/` | `npm test` | 296 tests, no chain or network needed |
-| `agent/` | `npm run replay -- --event ragasa-2025 [--speed N] [--pause-at-steps] [--dry-run] [--yes]` | The storm replay (`--help` lists the flags; asks before running on a non-local network) |
+| `contracts/` | `forge test` | 111 tests (unit, fuzz, the six `PlanModule` invariants, an attestor + module integration test, the FISCO/Yagi configuration) and 15 `PlanGuard` tests on a fork of the real Safe v1.4.1 contracts (they run when `BASE_SEPOLIA_RPC` is set) |
+| `contracts/` | `forge script script/Deploy.s.sol --rpc-url … --broadcast` | Deploys everything from the plan book; writes `deployments/<network>.json` (local FISCO BCOS: see [contracts/README.md](contracts/README.md#local-fisco-bcos-yagi-stretch)) |
+| `agent/` | `npm test` | 410 tests, no chain or network needed |
+| `agent/` | `npm run replay -- --event ragasa-2025 [--speed N] [--pause-at-steps] [--dry-run] [--yes]` | The storm replay (`--help` lists the flags; asks before running on a non-local network). `--event yagi-2024` with `NETWORK=fisco` runs Yagi on a local FISCO chain |
 | `agent/` | `npm run serve` | Decision log and arena API on :8787 |
 | `agent/` | `npm run redteam` | Offline attack and benign cases; writes `redteam/results/rules-summary.json` |
 | `agent/` | `npm run redteam:table [-- ../redteam/results/rules-summary.json]` | Prints the paired model table by default, or the separate rules-only table with the explicit file |
 | `agent/` | `npm run redteam:bare` | The bare-agent baseline (needs `MODEL_API_KEY`; simulated wallet, no chain) |
+| `agent/` | `npm run redteam:finance [-- --model \| --bare \| --table \| --chart]` | The 100-case finance corpus: offline rules by default; ours or the bare agent with the model; the SECURITY.md tables; the deck figure |
+| `agent/` | `npm run redteam:chart` | The deck figure from the paired model run (`docs/images/redteam-chart.svg`) |
+| `agent/` | `npm run safe:delegate [-- --check]` | One owner registers the agent as a Safe delegate (`OWNER_PRIVATE_KEY`, `SAFE_API_KEY`); `--check` lists delegates |
 | `agent/` | `npm run relayer:hko -- --live`, `npm run relayer:gdacs -- --live` | Live relayers: attest on change, re-attest every 6 h |
 | `agent/` | `npm run plan:hash -- <plan-book.json>` | Plan hash and the on-chain parameters |
 | `agent/` | `npm run plan:rehash -- <plan-book.json>` | The Safe transactions that store a reworded plan book's hash in both plans, refusing any limit change |
@@ -212,20 +222,21 @@ Each "win" paid the genuine invoice amount to the registered supplier, never the
 | `agent/` | `npm run explain -- --lang zh-Hant` | Two-line owner explanations of recent decisions (en, zh-Hant, zh-Hans, vi) |
 | `agent/` | `npm run keys:new` | Fresh testnet keys into `.env` (never printed), prints addresses to fund |
 | `agent/` | `npm run evidence [-- --write]` | `docs/EVIDENCE.md` rows from the last run; `--write` puts them into the file |
+| `contracts/` | `script/verify-keyless.sh` | Verifies a broadcast deployment on Sourcify and Blockscout (no API key) |
+| `contracts/` | `forge script script/ThrowawayGuard.s.sol --rpc-url base_sepolia --broadcast --slow` | Sets `PlanGuard` on a new throwaway 1-of-1 Safe and checks it blocks owner and guard changes (never the demo Safe) |
 | `web/` | `npm run dev` | Website on :3000 (`?big=1` or `b` for presenter mode) |
 
 The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MODEL_NAME`, default `claude-opus-5-5`), or any OpenAI-compatible API such as DeepSeek with `MODEL_PROVIDER=openai` and `MODEL_BASE_URL` (see [agent/README.md](agent/README.md#model)), and an offline rules version otherwise; tests and CI always use the offline one.
 
 ## What's not done yet
 
-- **Base Sepolia with the model.** The contracts are deployed behind the 2-of-3 Safe and the Ragasa replay ran there end to end (`docs/EVIDENCE.md`), but on the offline rules provider; it still needs a run with the model.
-- **Safe proposals** are built and unit-tested with a fake Safe service, but not yet sent to the real one: there is no Safe API key yet, the agent is not yet registered as a Safe delegate, and proposals go to `agent/logs/proposals.jsonl`.
-- **Basescan verification.** The contracts are deployed but not verified; it needs a Basescan API key (`forge script … --verify`).
+- **A model run on Base Sepolia, and the model red team.** The 10 Oct Base Sepolia run used the offline rules provider, with the earlier fixture amounts. Both the replay (`NETWORK=base-sepolia npm run replay -- --event ragasa-2025 --yes`, then `npm run evidence -- --write`) and the 100-case benchmark (`npm run redteam:finance -- --model` and `-- --bare`) are one command each, once the model endpoint is reachable over HTTPS. The next replay anchors two reports (the ordinary day and the storm period): 30 transactions.
+- **Safe proposals** are built and tested with a fake Safe service, not yet the real one: they need a Safe API key, then one owner runs `npm run safe:delegate`. Until then proposals go to `agent/logs/proposals.jsonl`.
+- **Basescan verification** needs a Basescan API key; the source is already verified on Sourcify (exact match) and Blockscout.
+- **`PlanGuard` on a live Safe.** It is fork-tested against the real Safe v1.4.1 contracts; the throwaway-Safe run on Base Sepolia (`script/ThrowawayGuard.s.sol`) is ready and waiting for a go-ahead, and the demo Safe needs two owners and a guard deployed from the current source ([SECURITY.md](docs/SECURITY.md) known risk 7).
 - **Owner keys.** The demo Safe's three owner keys are testnet keys held together for now; the partner and backup keys move to teammates ([SECURITY.md](docs/SECURITY.md) known risk 19).
-- **`PlanGuard`** is deployed and tested against a stand-in Safe, but not set on any Safe yet (it goes on a throwaway Safe first).
-- **Model red team** ran with `deepseek-flash` on 10 Oct; it is to be rerun after the case freeze on 17 Oct.
 - **Translations** (zh-Hant, zh-Hans, vi) still need a native speaker's review.
-- Not built: the FISCO BCOS port and Yagi on FISCO.
+- **Yagi on FISCO BCOS** ran end to end on a local 4-node FISCO BCOS v3.16.3 chain (27 transactions in `docs/EVIDENCE.md`, verifiable only on our node), with a mock bank-issued VND deposit token and a one-key standalone wallet instead of the 2-of-3 Safe; it skipped the ordinary day, drew no credit (the forecast stayed above its buffer) and its bulletin times are still approximate. The dashboard does not read the FISCO deployment.
 - Not started: the technical document, the deck and the video.
 
 ## Where things are

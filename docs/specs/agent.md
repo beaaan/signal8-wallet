@@ -45,17 +45,19 @@ agent/src/
 
 ```ts
 ExtractedInvoice = {
-  kind: "invoice" | "payroll" | "bank_detail_change" | "other",
+  kind: "invoice" | "payroll" | "bank_detail_change" | "credit_note" | "statement" | "other",
   payeeName: string,
   payeeAddress?: `0x${string}`,   // only if literally present; never inferred
-  amount: string,                  // decimal string in token units
+  amount: string,                  // decimal string in token units: the amount payable now, not the order total
   currency: "USD" | "HKD" | "VND",
   dueDate?: string,                // ISO date
-  invoiceId?: string,
+  issueDate?: string,              // invoice or delivery date (re-issue check)
+  invoiceId?: string,              // the active invoice: a replacement's number, not the withdrawn one's
+  hold?: "not_received" | "disputed" | "hold_requested",  // the document's own word that it is not payable yet
 }
 
 Action =
-  | { type: "pay";            plan: "base" | "storm"; payee: `0x${string}`; amount: string; ref: string }
+  | { type: "pay";            plan: "base" | "storm"; payee: `0x${string}`; amount: string; ref: string; part?: number }
   | { type: "vault_deposit";  plan: "base";  amount: string; ref: string }
   | { type: "vault_withdraw"; plan: "base" | "storm"; amount: string; ref: string }
   | { type: "credit_draw";    plan: "storm"; amount: string; ref: string }
@@ -70,7 +72,7 @@ How the executor maps each action (there is no generic call; see [contracts.md](
 
 | Action | `PlanModule` function | `ref` |
 | --- | --- | --- |
-| `pay` | `pay(planId, payee, amount, ref)` | supplier: `keccak256(abi.encode(payee, invoiceId))` with the id upper-cased and stripped to A–Z and 0–9 (so "lk 0917" is "LK-0917", and two suppliers may share a number); payroll: `keccak256(abi.encode(employee, payPeriod))` |
+| `pay` | `pay(planId, payee, amount, ref)` | supplier: `keccak256(abi.encode(payee, invoiceId))` with the id upper-cased and stripped to A–Z and 0–9 (so "lk 0917" is "LK-0917", and two suppliers may share a number); part n ≥ 2 of one invoice appends `/n` to the id; payroll: `keccak256(abi.encode(employee, payPeriod))` |
 | `vault_deposit` | `vaultDeposit(BASE, amount, ref)` | `keccak256(actionId)` |
 | `vault_withdraw` | `vaultWithdraw(planId, amount, ref)` | `keccak256(actionId)` |
 | `credit_draw` | `creditDraw(amount, ref)` | `keccak256(actionId)` |
@@ -79,6 +81,13 @@ How the executor maps each action (there is no generic call; see [contracts.md](
 | `propose_to_owner` | Safe proposal through API Kit, signed by the agent as delegate | as for the inner action |
 
 Refs are deterministic, so a retried or duplicated action reverts with `RefUsed()` instead of paying twice. `localCheck.ts` checks `refUsed` first.
+
+What the deterministic planner wrapper does with one invoice, whichever provider planned it (`llm/planner.ts`):
+
+- A credit note or a statement never starts a payment (refused). Bank-detail changes and payroll messages are refused as before.
+- An invoice already paid in full is refused. With a purchase order for that invoice id, a further part (an instalment, the balance after a deposit) is allowed up to what the order still allows (order amount minus the owner's paid records for that id); the planner sets `part` from those records, never the model, so each part has its own one-use ref. Without a purchase order an invoice is paid once.
+- A re-issue (another number, same supplier and amount, same date or none), an amount above what the order still allows, a missing order where one is required, or an amount above the usual amount sends the payment to the owners.
+- `hold` set (the document says not received, disputed, or hold) sends the payment to the owners. Untrusted text can only make a payment more cautious this way, never allow one.
 
 ## Relayers
 
@@ -120,6 +129,7 @@ npm run replay -- --event ragasa-2025 --speed 600 [--run-id <id>] [--rpc <url>] 
 - `--dry-run` prints the timeline on the compressed clock and sends nothing (CI uses it). An unknown flag or a bad `--speed` stops the runner before anything runs; on a public testnet it asks before sending unless `--yes`.
 - Before the ordinary day it checks that the local plan book hashes to the on-chain `planHash` and refuses to start otherwise.
 - At the end it prints every successful transaction hash; `npm run evidence -- --write` puts them in `docs/EVIDENCE.md`.
+- **Yagi on a local FISCO BCOS chain** (`NETWORK=fisco`, stretch): outside Hong Kong the local-source attestations come from the NCHMF relayer's key (`NCHMF_RELAYER_PRIVATE_KEY`; source `keccak256("NCHMF")`, `yagi-2024.json`'s `levelMap`), the Yagi fixtures come from `PLAN_BOOK`, `PAYROLL` and `RECEIVABLES`, and the runner checks the node's `eth_chainId` against `deployments/fisco.json` instead of asking. On an idle FISCO chain the relayer first seals a fresh block with a 0-value transfer to itself, since FISCO makes no empty blocks and simulates at the latest block's time. Details: `agent/README.md`.
 
 Replay file format (see `data/replays/ragasa-2025.json`):
 
@@ -156,7 +166,36 @@ Deterministic state machine; the planner only fills amounts.
 1. Read `PaymentRouter.Inflow` events; match `invoiceRef` to open invoices; flag mismatches.
 2. For bills due within 2 days: `pay` base-plan payees (suppliers) under the base plan; anything else becomes an owner proposal.
 3. Above buffer + margin: `vault_deposit`.
-4. 23:59 local: build the day's report (ledger vs chain), hash it, `anchor DAILY_REPORT`. On mismatch, call `PlanModule.pause()` with the agent's own key and alert the owner. The backend never holds the guardian key.
+4. 23:59 local: reconcile the day's ledger with the chain, build the day's report from the compared snapshot, hash it, `anchor DAILY_REPORT`. On mismatch, call `PlanModule.pause()` with the agent's own key and alert the owner, whether or not the report could be written or anchored (a report error is logged and kept in the alert as `reportError`; if the pause fails too, the alert tells the owners to pause from Safe Wallet or with the guardian key). A read error before the comparison is not a mismatch: nothing is verified, paused or reported. The backend never holds the guardian key.
+
+### Reconciliation and the period report (`loops/reconcile.ts`, `loops/report.ts`)
+
+Reconciliation compares a period's ledger with two chain snapshots, opening and closing, each read at one block (never older than the agent's newest receipt or, for the closing one, than the opening block; `rpc.ts` retries a lagging node). Three checks, reported separately:
+
+- **Balances:** Safe token balance, vault `maxWithdraw` (2 base units of ERC-4626 rounding) and `spentToday` per plan (skipped across a UTC rollover) moved as the ledger says.
+- **Debt:** the lender's outstanding principal (`FlowCreditLine.drawn()`) moved by recorded credit draws minus router repayment sweeps. A customer receipt is booked once: gross for the invoice, gross − swept to the Safe, swept off the debt.
+- **Event coverage:** the token's `Transfer` logs from or to the Safe after the opening block, up to the closing block (200-block ranges, de-duplicated by tx hash + log index). Every one must belong to a recorded transaction with the same net amount, so unrecorded movements are flagged even when they net to zero; a ledger entry that moves Safe cash needs its transaction hash (an owner's direct payment included). Without the logs, coverage is `limited`: a quiet day does not fail, but the report does not claim completeness.
+
+The report is written to `logs/report-<date>[-<runId>][-<period>].json` as canonical JSON (sorted keys), never over an existing file, and its keccak256 is anchored as `DAILY_REPORT`. A replay closes two periods, each with its own ledger, reconciliation and report: `ordinary-day` (file name unchanged) and `storm`, from the ordinary day's compared closing snapshot to the end of the replay (one more anchor transaction). `run-<runId>.json` lists them under `periods`, with `closed: false` for a period the run did not reach.
+
+Version 2 (issue #18) fields; amounts are token base units (6 decimals) as decimal strings:
+
+| Field | Meaning |
+| --- | --- |
+| `version` | `2`. Reports without it are version 1: closing balances read again after the comparison, no opening, debt or event checks. Version-1 reports and their anchors are historical evidence and are not rewritten. |
+| `period` | `{ id, from, to, note? }`: `ordinary-day` or `storm`, business dates |
+| `chain` | network, chain id, token address, symbol and decimals, and the Safe, vault, credit line and PlanModule addresses |
+| `blocks` | `{ opening, closing }`: the block each snapshot was read at (`null` when not pinned) |
+| `openingBalances`, `balances` | `{ safe, vault, creditDrawn }` at opening and closing; `balances` is the closing snapshot reconciliation compared. `creditDrawn` is outstanding principal, not total borrowed |
+| `movements` | the period's ledger entries: `kind`, `amount`, `safeDelta`, `vaultDelta`, `debtDelta`, `planId`, `payee`, `ref`, `tx`, `note` |
+| `receipts` | customer receipts: `gross` (settles invoices), `swept` (repaid the credit line), `net` (reached the Safe), `flagged` (short, over or unknown) |
+| `inflows` | each receipt: `kind`, `receivable`, `amount` (gross), `swept`, `net`, `tx` |
+| `results` | each input: `outcome`, `reason`, `tx`; payments add `type`, `plan`, `invoiceId`, `dueDate`, `payee`, `payeeName`, `amount`, `ref`. A proposal is pending approval and a refusal is evidence only, neither is a cash movement |
+| `scheduled` | later-due payments with `invoiceId` and `dueDate`; not paid |
+| `reconciliation` | `{ ok, diffs }`, or `null` when no reconciliation ran (`null` is not a pass) |
+| `checks` | `balances`, `spentToday` (`ok`, `mismatch`, `skipped`), `debt` (`ok`, `mismatch`, `not_read`), `coverage` (`status` `complete`, `gaps` or `limited`, `fromBlock`, `toBlock`, `transfers`, `unrecorded`, `unmatched`, `untraced`), `expectedChange` (ledger) and `observedChange` (chain): changes over the period, not balances |
+
+`ok` is true only when balances, counters, debt (when read) and coverage (when read) all agree. The decision-log line names closing balances and changes separately: `Closing Safe 10,000, vault 7,000, credit drawn 200 (block N); change Safe 0, vault +7,000, credit -800, …`.
 
 ## Decision log
 

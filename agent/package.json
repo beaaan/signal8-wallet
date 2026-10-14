@@ -18,12 +18,15 @@
     "evidence": "tsx src/evidence.ts",
     "keys:new": "tsx src/keys.ts",
     "redteam": "tsx src/redteam.ts",
+    "redteam:finance": "tsx test/support/financeHarness.ts",
     "relayer:hko": "tsx src/relayers/live.ts hko",
     "relayer:gdacs": "tsx src/relayers/live.ts gdacs",
     "explain": "tsx src/explain.ts",
     "plan:compile": "tsx src/llm/planCompiler.ts",
     "redteam:bare": "tsx src/bare.ts",
-    "redteam:table": "tsx src/redteamTable.ts"
+    "redteam:table": "tsx src/redteamTable.ts",
+    "redteam:chart": "tsx src/redteamChart.ts",
+    "safe:delegate": "tsx src/safeDelegate.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",

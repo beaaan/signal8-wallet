@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "business": "Xưởng may Hải Phòng (Hai Phong garment workshop), 20 workers (fictional)",
+  "region": "VN-QN-HP",
+  "token": {
+    "symbol": "mVND",
+    "decimals": 6
+  },
+  "dailyCeiling": "300000000",
+  "payees": [
+    { "id": "supplier-fabric", "name": "Dong Hai Textiles (fictional)", "address": "0x000000000000000000000000000000000000b101", "role": "supplier", "plans": ["base"] },
+    { "id": "supplier-trims", "name": "An Phat Trims (fictional)", "address": "0x000000000000000000000000000000000000b102", "role": "supplier", "plans": ["base"] },
+    { "id": "supplier-landlord", "name": "Workshop landlord (fictional)", "address": "0x000000000000000000000000000000000000b103", "role": "supplier", "plans": ["base"] },
+    { "id": "worker-01", "name": "Công nhân 01 (fictional)", "address": "0x000000000000000000000000000000000000c001", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-02", "name": "Công nhân 02 (fictional)", "address": "0x000000000000000000000000000000000000c002", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-03", "name": "Công nhân 03 (fictional)", "address": "0x000000000000000000000000000000000000c003", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-04", "name": "Công nhân 04 (fictional)", "address": "0x000000000000000000000000000000000000c004", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-05", "name": "Công nhân 05 (fictional)", "address": "0x000000000000000000000000000000000000c005", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-06", "name": "Công nhân 06 (fictional)", "address": "0x000000000000000000000000000000000000c006", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-07", "name": "Công nhân 07 (fictional)", "address": "0x000000000000000000000000000000000000c007", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-08", "name": "Công nhân 08 (fictional)", "address": "0x000000000000000000000000000000000000c008", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-09", "name": "Công nhân 09 (fictional)", "address": "0x000000000000000000000000000000000000c009", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-10", "name": "Công nhân 10 (fictional)", "address": "0x000000000000000000000000000000000000c010", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-11", "name": "Công nhân 11 (fictional)", "address": "0x000000000000000000000000000000000000c011", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-12", "name": "Công nhân 12 (fictional)", "address": "0x000000000000000000000000000000000000c012", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-13", "name": "Công nhân 13 (fictional)", "address": "0x000000000000000000000000000000000000c013", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-14", "name": "Công nhân 14 (fictional)", "address": "0x000000000000000000000000000000000000c014", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-15", "name": "Công nhân 15 (fictional)", "address": "0x000000000000000000000000000000000000c015", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-16", "name": "Công nhân 16 (fictional)", "address": "0x000000000000000000000000000000000000c016", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-17", "name": "Công nhân 17 (fictional)", "address": "0x000000000000000000000000000000000000c017", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-18", "name": "Công nhân 18 (fictional)", "address": "0x000000000000000000000000000000000000c018", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-19", "name": "Công nhân 19 (fictional)", "address": "0x000000000000000000000000000000000000c019", "role": "staff", "plans": ["storm"] },
+    { "id": "worker-20", "name": "Công nhân 20 (fictional)", "address": "0x000000000000000000000000000000000000c020", "role": "staff", "plans": ["storm"] }
+  ],
+  "plans": {
+    "base": {
+      "perTxCap": "60000000",
+      "dailyCap": "150000000",
+      "creditCapPerEvent": "0",
+      "actions": ["pay", "vault_deposit", "vault_withdraw"]
+    },
+    "storm": {
+      "perTxCap": "12000000",
+      "dailyCap": "200000000",
+      "creditCapPerEvent": "400000000",
+      "actions": ["pay", "vault_withdraw", "credit_draw", "cover_claim"]
+    }
+  },
+  "summary": {
+    "en": "Amounts are in mVND, a mock bank-issued Vietnamese dong deposit token on a local FISCO BCOS test chain: it stands for a deposit at a licensed bank, not a cryptocurrency (crypto-assets are not a lawful means of payment in Vietnam). On ordinary days the assistant may pay our three suppliers up to 60,000,000 mVND per payment and 150,000,000 mVND a day, and move spare cash into or out of the bank's money-market fund. Wages need the owner to sign. When NCHMF issues a natural-disaster risk warning of level 4 or higher for Quang Ninh or Hai Phong and GDACS confirms the storm, the storm plan lets it pay the 20 workers on schedule (up to 12,000,000 mVND per payment, 200,000,000 mVND a day), claim the typhoon cover, and draw up to 400,000,000 mVND of the credit line per storm. Supplier payments wait until the storm passes. Across both plans, the assistant's payments to suppliers and workers never exceed 300,000,000 mVND a day. Fund movements, credit drawn and insurance payouts are tracked separately.",
+    "vi": "Số tiền tính bằng mVND, token tiền gửi VND giả lập do ngân hàng phát hành, chạy trên chuỗi thử nghiệm FISCO BCOS cục bộ: nó đại diện cho tiền gửi tại một ngân hàng được cấp phép, không phải tiền mã hóa (tiền mã hóa không phải là phương tiện thanh toán hợp pháp tại Việt Nam). Vào ngày thường, trợ lý được trả tiền cho ba nhà cung cấp của xưởng, tối đa 60.000.000 mVND mỗi khoản và 150.000.000 mVND mỗi ngày, và được chuyển tiền nhàn rỗi vào hoặc rút ra khỏi quỹ thị trường tiền tệ của ngân hàng. Trả lương cần chủ xưởng ký. Khi Trung tâm Dự báo khí tượng thủy văn quốc gia (NCHMF) ban bố rủi ro thiên tai cấp độ 4 trở lên cho Quảng Ninh hoặc Hải Phòng và GDACS xác nhận có bão, kế hoạch bão cho phép trợ lý trả lương đúng hạn cho 20 công nhân (tối đa 12.000.000 mVND mỗi khoản, 200.000.000 mVND mỗi ngày), yêu cầu bồi thường bảo hiểm bão, và rút tối đa 400.000.000 mVND từ hạn mức tín dụng cho mỗi cơn bão. Các khoản trả cho nhà cung cấp sẽ chờ đến khi bão qua. Tính chung cả hai kế hoạch, các khoản trợ lý trả cho nhà cung cấp và công nhân không vượt quá 300.000.000 mVND mỗi ngày. Tiền chuyển vào hoặc rút ra khỏi quỹ, tiền rút tín dụng và tiền bồi thường bảo hiểm được theo dõi riêng."
+  },
+  "citations": [
+    {
+      "rule": "dailyCeiling",
+      "doc": "yagi/policy.txt",
+      "clause": "4.1",
+      "quote": "Payments to registered suppliers and workers through the PlanModule payment action must never exceed 300,000,000 in total on any day, combining the everyday and storm plans."
+    },
+    {
+      "rule": "plans.base.perTxCap",
+      "doc": "yagi/policy.txt",
+      "clause": "1.1",
+      "quote": "On an ordinary day the assistant may pay our registered suppliers up to 60,000,000 per payment and 150,000,000 per day in total."
+    },
+    {
+      "rule": "plans.storm.perTxCap",
+      "doc": "yagi/policy.txt",
+      "clause": "3.2",
+      "quote": "During a storm the assistant pays our workers on schedule, up to 12,000,000 per payment and 200,000,000 per day in total."
+    },
+    {
+      "rule": "plans.storm.creditCapPerEvent",
+      "doc": "yagi/loan.txt",
+      "clause": "4.2",
+      "quote": "During a declared typhoon event the Borrower may draw up to 400,000,000 per event without further approval. (fictional)"
+    },
+    {
+      "rule": "plans.storm.actions.cover_claim",
+      "doc": "yagi/policy.txt",
+      "clause": "2.1",
+      "quote": "The Insurer pays the Benefit of 500,000,000 once per event while NCHMF has a natural-disaster risk warning of level 4 or higher in force for Quang Ninh or Hai Phong and GDACS confirms the storm. (fictional)"
+    },
+    {
+      "rule": "plans.storm.dailyCap",
+      "doc": "yagi/payroll.json",
+      "clause": "total",
+      "quote": "20 workers, monthly wages totalling 166,000,000. (fictional)"
+    }
+  ]
+}
