@@ -21,25 +21,49 @@ export const PATHS = {
   replays: resolve(REPO_ROOT, "data/replays"),
   fixtures: resolve(REPO_ROOT, "data/fixtures"),
   invoices: resolve(REPO_ROOT, "data/fixtures/invoices"),
-  payroll: resolve(REPO_ROOT, "data/fixtures/payroll.json"),
+  /** PAYROLL overrides it (the Yagi replay uses data/fixtures/yagi/payroll.json). Read when used, after .env loads. */
+  get payroll(): string {
+    return process.env.PAYROLL ? resolve(process.env.PAYROLL) : resolve(REPO_ROOT, "data/fixtures/payroll.json");
+  },
+  /** RECEIVABLES overrides it (the Yagi replay uses data/fixtures/yagi/receivables.json). */
+  get receivables(): string {
+    return process.env.RECEIVABLES ? resolve(process.env.RECEIVABLES) : resolve(REPO_ROOT, "data/fixtures/receivables.json");
+  },
   planBook: resolve(REPO_ROOT, "data/fixtures/plans/plan-book.json"),
   planBookExample: resolve(REPO_ROOT, "data/fixtures/plans/plan-book.example.json"),
   redteam: resolve(REPO_ROOT, "redteam"),
 };
 
-/** "anvil" or "anvil-<name>" (a local chain; the name selects deployments/<name>.json), or "base-sepolia". */
+/**
+ * "anvil" or "anvil-<name>" (a local chain; the name selects deployments/<name>.json), "base-sepolia", or "fisco" /
+ * "fisco-<name>" (a local FISCO BCOS chain's web3 RPC; Yagi replay, stretch).
+ */
 export type Network = string;
 
 /** Local anvil chains: public dev keys allowed, arena allowed. */
 export function isLocalNetwork(network: string): boolean {
   return network === "anvil" || network.startsWith("anvil-");
 }
-export type KeyRole = "agent" | "hkoRelayer" | "gdacsRelayer" | "demoClient";
+
+/**
+ * A local FISCO BCOS v3 chain (web3 RPC). Not an anvil: no dev-key fallback, no evm_mine, no arena, no Safe
+ * Transaction Service. Its EVM sees block.timestamp in milliseconds (contracts take timeUnit 1000).
+ */
+export function isFiscoNetwork(network: string): boolean {
+  return network === "fisco" || network.startsWith("fisco-");
+}
+
+/** eth_chainId of a FISCO BCOS v3 chain built by build_chain.sh (config.genesis [web3] chain_id). */
+export const FISCO_DEFAULT_CHAIN_ID = 20200;
+
+export type KeyRole = "agent" | "hkoRelayer" | "gdacsRelayer" | "nchmfRelayer" | "demoClient";
 
 export const KEY_ENV: Record<KeyRole, string> = {
   agent: "AGENT_PRIVATE_KEY",
   hkoRelayer: "HKO_RELAYER_PRIVATE_KEY",
   gdacsRelayer: "GDACS_RELAYER_PRIVATE_KEY",
+  /** Vietnam (Yagi) only: the NCHMF bulletin relayer fills the local-source slot outside Hong Kong. */
+  nchmfRelayer: "NCHMF_RELAYER_PRIVATE_KEY",
   demoClient: "DEMO_CLIENT_PRIVATE_KEY",
 };
 
@@ -48,6 +72,7 @@ const ANVIL_KEYS: Record<KeyRole, `0x${string}`> = {
   agent: "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
   hkoRelayer: "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e",
   gdacsRelayer: "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356",
+  nchmfRelayer: "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6", // anvil #9, Deploy.s.sol's default
   demoClient: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
 };
 
@@ -58,19 +83,35 @@ export const Deployment = z.object({
   chainId: z.number().int(),
   startBlock: z.number().int().optional(),
   region: z.string(),
+  /** 1 on EVM chains, 1000 on FISCO (block.timestamp in milliseconds). */
   timeUnit: z.number().int().optional(),
+  /** The EIP-712 chain id SignalAttestor was built with (a constructor parameter); defaults to chainId. */
+  attestorChainId: z.number().int().optional(),
+  /** The token PlanModule accounts in: MockUSD, or MockVNDDeposit (mVND) on the Vietnam deployment. */
+  token: z.object({ contract: z.string(), symbol: z.string(), decimals: z.number().int() }).optional(),
   planHash: z.string().optional(),
-  contracts: z.object({
-    Safe: address,
-    PlanModule: address,
-    SignalAttestor: address,
-    MockUSD: address,
-    MockSignalCover: address,
-    FlowCreditLine: address,
-    PaymentRouter: address,
-    MockMMFVault: address,
-    EvidenceRegistry: address,
-  }),
+  contracts: z
+    .object({
+      Safe: address,
+      PlanModule: address,
+      SignalAttestor: address,
+      MockUSD: address.optional(),
+      MockVNDDeposit: address.optional(),
+      MockSignalCover: address,
+      FlowCreditLine: address,
+      PaymentRouter: address,
+      MockMMFVault: address,
+      EvidenceRegistry: address,
+    })
+    // The agent reads the token as contracts.MockUSD (the token slot), whichever mock it is.
+    .transform(({ MockUSD, MockVNDDeposit, ...rest }, ctx) => {
+      const token = MockUSD ?? MockVNDDeposit;
+      if (!token) {
+        ctx.addIssue({ code: "custom", message: "deployment has no token (MockUSD or MockVNDDeposit)" });
+        return z.NEVER;
+      }
+      return { ...rest, MockUSD: token };
+    }),
 });
 export type Deployment = z.infer<typeof Deployment>;
 
@@ -80,6 +121,8 @@ export interface Config {
   chainId: number;
   /** anvil or anvil-<name>: dev-key fallback, arena, evm_mine. */
   local: boolean;
+  /** fisco or fisco-<name>: a local FISCO BCOS chain (plain http transport, no Safe service, idle-chain refresh). */
+  fisco: boolean;
   /** baseUrl and reasoningEffort apply to MODEL_PROVIDER=openai (any OpenAI-compatible API, e.g. DeepSeek). */
   model: { provider: "anthropic" | "openai" | "rules"; name: string; hasKey: boolean; baseUrl?: string; reasoningEffort?: string };
   /** Safe Transaction Service (base-sepolia proposals); the key itself is read with safeApiKey(). */
@@ -105,8 +148,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { rpcUrl?
   if (env === process.env) loadEnvFile();
   const network = env.NETWORK || "anvil";
   const local = isLocalNetwork(network);
-  if (!local && network !== "base-sepolia") throw new Error(`NETWORK must be anvil, anvil-<name> or base-sepolia, not "${network}"`);
-  const rpcUrl = opts.rpcUrl || env.RPC_URL || (local ? "http://127.0.0.1:8545" : env.BASE_SEPOLIA_RPC || "https://sepolia.base.org");
+  const fisco = isFiscoNetwork(network);
+  if (!local && !fisco && network !== "base-sepolia") throw new Error(`NETWORK must be anvil, anvil-<name>, base-sepolia or fisco, not "${network}"`);
+  const rpcUrl =
+    opts.rpcUrl ||
+    (fisco ? env.FISCO_RPC?.trim() : undefined) ||
+    env.RPC_URL ||
+    (local || fisco ? "http://127.0.0.1:8545" : env.BASE_SEPOLIA_RPC || "https://sepolia.base.org");
+  const fiscoChainId = env.FISCO_CHAIN_ID?.trim() ? Number(env.FISCO_CHAIN_ID) : FISCO_DEFAULT_CHAIN_ID;
+  if (fisco && !(Number.isSafeInteger(fiscoChainId) && fiscoChainId > 0)) throw new Error(`FISCO_CHAIN_ID must be a positive integer, not "${env.FISCO_CHAIN_ID}"`);
   const safeAddress = env.SAFE_ADDRESS?.trim();
   if (safeAddress && !/^0x[0-9a-fA-F]{40}$/.test(safeAddress)) throw new Error("SAFE_ADDRESS is not an address");
   const provider = (env.MODEL_PROVIDER || (env.MODEL_API_KEY ? "anthropic" : "rules")) as Config["model"]["provider"];
@@ -120,8 +170,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, opts: { rpcUrl?
   return {
     network,
     rpcUrl,
-    chainId: local ? 31337 : 84532,
+    chainId: local ? 31337 : fisco ? fiscoChainId : 84532,
     local,
+    fisco,
     model: {
       provider,
       name: env.MODEL_NAME || DEFAULT_MODEL,

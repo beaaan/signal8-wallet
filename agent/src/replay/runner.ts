@@ -10,7 +10,7 @@
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
-import { loadConfig, PATHS } from "../config.ts";
+import { loadConfig, loadDeployment, PATHS } from "../config.ts";
 import { isMain } from "../isMain.ts";
 import { buildSteps, loadReplay } from "./timeline.ts";
 
@@ -83,8 +83,18 @@ if (isMain(import.meta.url)) {
   const speed = Number(opts.speed ?? "600");
   const dryRun = switches.has("dry-run");
   if (!dryRun) {
-    const cfg = loadConfig();
-    if (!cfg.local && !switches.has("yes") && !(await confirm(`This sends real transactions on ${cfg.network} and uses up today's caps. Continue? [y/N] `))) {
+    const cfg = loadConfig(process.env, { rpcUrl: opts.rpc });
+    if (cfg.fisco) {
+      // A local FISCO BCOS chain: no prompt (not a public testnet), but check the node matches deployments/<network>.json.
+      try {
+        const { checkFiscoNode } = await import("../fisco.ts");
+        const node = await checkFiscoNode(cfg, loadDeployment(cfg.network));
+        console.log(`FISCO BCOS node ${node.client}, chain id ${node.chainId}, block ${node.blockNumber} (local chain, timeUnit 1000)`);
+      } catch (err) {
+        console.error(`replay failed: ${err instanceof Error ? err.message : err}`);
+        process.exit(1);
+      }
+    } else if (!cfg.local && !switches.has("yes") && !(await confirm(`This sends real transactions on ${cfg.network} and uses up today's caps. Continue? [y/N] `))) {
       console.log("Cancelled.");
       process.exit(1);
     }

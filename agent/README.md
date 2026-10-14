@@ -56,6 +56,26 @@ Anything outside the active plan (over a cap, a payee in the other plan, `propos
 
 `src/drafts.ts` writes, at storm end, Markdown drafts the owner reviews, signs and sends (the agent never sends anything): an insurance claim letter (English, and Traditional Chinese for HK) citing the cover event id, the payout tx and the PRE_STORM hash; a deadline list (payroll, held supplier payments with due dates, credit repayment, claim window); and for a Vietnamese region (Yagi) a Circular 53/2024/TT-NHNN restructuring request in Vietnamese. Files go to `logs/drafts/<runId>/`, and each is a decision line (stage `owner`, outcome `proposed`, action `draft`). Preview without a chain: `npx tsx src/drafts.ts --event yagi-2024`. The 30-day claim window, the 10% sweep and the Circular 53 conditions are demo assumptions to check against the real policy, loan and circular.
 
+## Yagi on a local FISCO BCOS chain
+
+`NETWORK=fisco` points the agent at a local FISCO BCOS v3 chain's web3 RPC (`FISCO_RPC`, default `http://127.0.0.1:8545`; chain id from `FISCO_CHAIN_ID`, default 20200, checked against the node and `deployments/fisco.json` before a replay). Build the chain and deploy as in [contracts/README.md](../contracts/README.md#local-fisco-bcos-yagi-stretch), then:
+
+```bash
+# AGENT_PRIVATE_KEY, GDACS_RELAYER_PRIVATE_KEY, NCHMF_RELAYER_PRIVATE_KEY, DEMO_CLIENT_PRIVATE_KEY: the throwaway FISCO keys
+NETWORK=fisco MODEL_PROVIDER=rules \
+PLAN_BOOK=../data/fixtures/plans/plan-book.yagi.json \
+PAYROLL=../data/fixtures/yagi/payroll.json RECEIVABLES=../data/fixtures/yagi/receivables.json \
+npm run replay -- --event yagi-2024 --speed 3600 --skip-everyday
+```
+
+What changes on FISCO (`src/fisco.ts` lists what we measured on v3.16.3):
+
+- **Local signal.** Outside Hong Kong the attestor counts NCHMF, not HKO, so the replay's local-source attestations are signed with `NCHMF_RELAYER_PRIVATE_KEY` (`relayerKeyRole` in `relayers/submit.ts`). `yagi-2024.json` maps risk level 4 → 8, landfall → 10, cancel → 0; GDACS attests YAGI-24 (1001090, Red, lists VNM).
+- **Time.** Contracts see milliseconds (`timeUnit` 1000); attestations still carry seconds. The web3 RPC reports header times in seconds, and `headerSeconds` also accepts a millisecond header. FISCO seals no empty blocks and runs `eth_call` at the latest block's time, so before an attestation on an idle chain (latest block over 60 s old) the relayer sends itself a 0-value transfer to seal a fresh block (the role `evm_mine` plays on anvil).
+- **RPC.** Plain http, no read-your-writes pinning: `eth_call` at a block number fails there. Inflow logs are read in 10-block windows, because `eth_getLogs` silently answers only the first 10 blocks of a longer range.
+- **Labels.** The plan book's token (`mVND`) labels logs, the run's transaction list and the drafts (`src/token.ts`); the storm loop's dollar-sized forecast and brace margin are scaled by 25,000 for mVND. `explain.ts` still parses only mUSD lines.
+- **No Safe.** Owner proposals are logged to `logs/proposals.jsonl` only; the deadline list says the one owner approves.
+
 ## Everyday: inflows and reconciliation
 
 - `loops/inflows.ts` reads `PaymentRouter` `Inflow` events since a checkpoint (`state/inflows-<network>.json`; a replay starts at its own first block), matches `invoiceRef` = keccak256(id) (or id#runId in replays) to `data/fixtures/receivables.json`, logs matches and flags short payments, overpayments and unknown refs for the owner. Partial payments add up.
@@ -110,6 +130,7 @@ JSON mode there guarantees JSON but not the schema, so the schema is written int
 | `src/server.ts`, `src/evidence.ts`, `src/keys.ts` | `npm run serve`, `npm run evidence`, `npm run keys:new` |
 | `src/explain.ts`, `src/llm/planCompiler.ts` | owner explanations in four languages; plan book drafts from policy text |
 | `src/bare.ts`, `src/redteamTable.ts` | bare-agent baseline; SECURITY.md §5 tables |
+| `src/fisco.ts`, `src/token.ts` | the local FISCO BCOS chain's differences (time, idle chain, node check); the deployment's token label and sizing (mUSD, mVND) |
 
 Logs (`logs/`) and state (`state/`) are gitignored; `LOG_DIR` and `STATE_DIR` override them.
 
@@ -117,4 +138,4 @@ Logs (`logs/`) and state (`state/`) are gitignored; `LOG_DIR` and `STATE_DIR` ov
 
 - Safe Transaction Service proposals are unit-tested only (see above); adding the agent as a delegate is a manual owner step.
 - The model provider, the plan compiler's `--model` path and the bare-agent baseline have not been called live (no model key here).
-- The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only.
+- The live relayers run against the real HKO and GDACS endpoints, but a full live storm (attest → refresh after 6 h) has only been exercised with the fake clock. There is no live source for the Yagi (NCHMF) relayer; the Yagi variant is replay-only, and its FISCO run skipped the ordinary day (no Vietnamese supplier invoices in the fixtures). The dashboard (`web/`) does not read the FISCO deployment.

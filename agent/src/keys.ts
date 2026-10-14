@@ -12,8 +12,12 @@ const ROLE_LABEL: Record<KeyRole, string> = {
   agent: "agent (PlanModule.agent; Safe delegate, not an owner)",
   hkoRelayer: "HKO relayer",
   gdacsRelayer: "GDACS relayer",
+  nchmfRelayer: "NCHMF relayer (Vietnam, local FISCO chain only)",
   demoClient: "demo client (pays invoices into PaymentRouter)",
 };
+
+/** The Base Sepolia backend's roles. The NCHMF relayer exists only for the local FISCO (Yagi) chain. */
+const GENERATED: KeyRole[] = ["agent", "hkoRelayer", "gdacsRelayer", "demoClient"];
 
 /**
  * Fills empty `KEY=` lines in place and appends missing keys. Returns the new file text and the roles filled.
@@ -22,7 +26,7 @@ const ROLE_LABEL: Record<KeyRole, string> = {
 export function fillEnv(text: string, gen: () => `0x${string}` = generatePrivateKey): { text: string; filled: Partial<Record<KeyRole, `0x${string}`>> } {
   const filled: Partial<Record<KeyRole, `0x${string}`>> = {};
   let out = text;
-  for (const role of Object.keys(KEY_ENV) as KeyRole[]) {
+  for (const role of GENERATED) {
     const name = KEY_ENV[role];
     const line = new RegExp(`^${name}=(.*)$`, "m").exec(out);
     const current = line?.[1]?.replace(/#.*$/, "").trim();

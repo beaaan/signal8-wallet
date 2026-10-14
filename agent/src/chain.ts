@@ -44,7 +44,8 @@ export function connect(cfg: Config, dep: Deployment): Chainish {
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [cfg.rpcUrl] } },
   });
-  const transport = cfg.local ? http(cfg.rpcUrl) : consistentTransport(cfg.rpcUrl);
+  // One local node (anvil, or FISCO's web3 RPC on node0) needs no read-your-writes pinning; public RPCs do (rpc.ts).
+  const transport = cfg.local || cfg.fisco ? http(cfg.rpcUrl) : consistentTransport(cfg.rpcUrl);
   const pub = createPublicClient({ chain, transport }) as PublicClient;
   return { cfg, dep, chain, pub, region: regionId(dep.region), transport };
 }

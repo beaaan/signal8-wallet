@@ -19,6 +19,7 @@ import { PAYROLL_PREFIX, withRun } from "../exec/refs.ts";
 import type { DecisionLog } from "../log.ts";
 import { canonicalJson } from "../plan.ts";
 import type { Hex } from "../policy/localCheck.ts";
+import { tokenSizing, tokenSymbol } from "../token.ts";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/) as unknown as z.ZodType<Hex>;
 
@@ -53,6 +54,16 @@ export const FORECAST = {
   disruptedInflow: units("1000"),
   buffer: units("10000"), // never plan to go below this
 };
+
+/** FORECAST in the deployment's token: its dollar-sized amounts × tokenSizing() (25,000 for mVND on FISCO). */
+export function sizedForecast(k: bigint = tokenSizing(), f: typeof FORECAST = FORECAST): typeof FORECAST {
+  return { ...f, weeklyOutflow: f.weeklyOutflow * k, weeklyInflow: f.weeklyInflow * k, disruptedInflow: f.disruptedInflow * k, buffer: f.buffer * k };
+}
+
+/** Margin over payroll the brace (Signal 3, or risk level 4 in Vietnam) withdraws to: 2,000 dollars, token-sized. */
+export function braceMargin(k: bigint = tokenSizing()): bigint {
+  return units("2000") * k;
+}
 
 /** Lowest projected balance and the credit needed to keep it above the buffer. */
 export function forecast(cash: bigint, f: typeof FORECAST = FORECAST): { minBalance: bigint; need: bigint } {
@@ -167,7 +178,7 @@ export class StormLoop {
         stage: "owner",
         outcome: "executed",
         action: "notify",
-        summary: `Signal 1: storm plan signed and matches (${this.d.localPlanHash.slice(0, 10)}…). Cash ${fmt(b.safe)} + vault ${fmt(b.vault)} mUSD. At Signal 3 I withdraw to the storm buffer and hold supplier payments.`,
+        summary: `Signal 1: storm plan signed and matches (${this.d.localPlanHash.slice(0, 10)}…). Cash ${fmt(b.safe)} + vault ${fmt(b.vault)} ${tokenSymbol()}. At Signal 3 I withdraw to the storm buffer and hold supplier payments.`,
       });
     }
 
@@ -181,8 +192,8 @@ export class StormLoop {
         this.record.cover = { tx: claim.tx, payout: claim.payout, eventId: await this.d.chain.eventId?.().catch(() => undefined) };
       }
       const b = await this.d.chain.balances();
-      const f = forecast(b.safe);
-      this.d.log.write({ input, stage: "planner", outcome: "executed", action: "forecast", summary: `Forecast re-run: lowest balance ${fmt(f.minBalance)} mUSD in 13 weeks, credit need ${fmt(f.need)}` });
+      const f = forecast(b.safe, sizedForecast());
+      this.d.log.write({ input, stage: "planner", outcome: "executed", action: "forecast", summary: `Forecast re-run: lowest balance ${fmt(f.minBalance)} ${tokenSymbol()} in 13 weeks, credit need ${fmt(f.need)}` });
     } else if (!stormNow && this.storm) {
       this.storm = false;
       this.record.stormEnd = sourceTime;
@@ -192,7 +203,7 @@ export class StormLoop {
 
   private async brace(input: string, code: string, sourceTime: Date, stormNow: boolean): Promise<void> {
     this.braced = true;
-    const buffer = this.d.stormBuffer ?? payrollTotal(this.d.payroll) + units("2000");
+    const buffer = this.d.stormBuffer ?? payrollTotal(this.d.payroll) + braceMargin();
     const b = await this.d.chain.balances();
     const short = buffer > b.safe ? buffer - b.safe : 0n;
     const withdraw = short < b.vault ? short : b.vault;
@@ -222,7 +233,7 @@ export class StormLoop {
         "payroll on an ordinary day needs two owners (staff are storm-plan payees only)",
         pays.map((a) => ({ ...a, plan: "storm" }) as PlainAction),
         input,
-        `Owner proposal: payroll ${p.payPeriod}, ${p.staff.length} staff, ${fmt(payrollTotal(p))} mUSD`,
+        `Owner proposal: payroll ${p.payPeriod}, ${p.staff.length} staff, ${fmt(payrollTotal(p))} ${tokenSymbol()}`,
       );
       return;
     }
@@ -231,7 +242,7 @@ export class StormLoop {
     this.record.payrollPaidInStorm = paid === pays.length;
 
     const b = await this.d.chain.balances();
-    const f = forecast(b.safe);
+    const f = forecast(b.safe, sizedForecast());
     const room = await this.d.chain.creditRoom();
     const lineRoom = b.creditLimit > b.creditDrawn ? b.creditLimit - b.creditDrawn : 0n;
     let draw = f.need < room ? f.need : room;

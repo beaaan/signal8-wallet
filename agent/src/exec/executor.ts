@@ -13,12 +13,14 @@ import { readSnapshot, revertReason, walletFor, type Chainish, type Wallet } fro
 import type { Ledger } from "../ledger.ts";
 import { DecisionLog, JsonlFile } from "../log.ts";
 import { localCheck, type Hex, type PlanCall, type Snapshot } from "../policy/localCheck.ts";
+import { tokenSymbol } from "../token.ts";
 import type { Action, Decision } from "../types.ts";
 import { describe, fmt, toCall, type PlainAction } from "./calls.ts";
 import { refFor } from "./refs.ts";
 import { ProposalWriter, type PlanChange, type Proposal, type SafeProposer } from "./safeProposer.ts";
 
 export { describe, fmt, plain, toCall, TOKEN_DECIMALS, units, type PlainAction } from "./calls.ts";
+export { tokenSymbol } from "../token.ts";
 
 export interface ExecResult {
   outcome: Decision["outcome"];
@@ -57,7 +59,7 @@ export class Executor implements ActionSink {
     private readonly opts: ExecutorOptions = {},
   ) {
     this.wallet = walletFor(c, "agent");
-    this.proposals = new ProposalWriter(c.dep, new JsonlFile<Proposal>(resolve(c.cfg.logDir, "proposals.jsonl")), c.cfg.local, opts.proposer);
+    this.proposals = new ProposalWriter(c.dep, new JsonlFile<Proposal>(resolve(c.cfg.logDir, "proposals.jsonl")), c.cfg.local || c.cfg.fisco, opts.proposer);
     this.ledger = opts.ledger;
   }
 
@@ -154,7 +156,7 @@ export class Executor implements ActionSink {
             // not Claimed
           }
         }
-        if (payout !== undefined) summary = `Claimed the typhoon cover: ${fmt(payout)} mUSD paid to the Safe (storm plan)`;
+        if (payout !== undefined) summary = `Claimed the typhoon cover: ${fmt(payout)} ${tokenSymbol()} paid to the Safe (storm plan)`;
       }
       this.recordLedger(action, call, tx, payout);
       return this.record(input, action, { outcome: "executed", stage: "chain", tx, summary, payout });
