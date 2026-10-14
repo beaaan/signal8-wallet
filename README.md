@@ -8,13 +8,13 @@ The owner signs two plans on a calm day: an **everyday plan** (pay these supplie
 
 ![Dashboard during the Ragasa replay: "Storm plan on" at Signal No. 10, one payment waiting for the owners, four balances, today's limits and the storm so far](docs/images/dashboard-storm.png)
 
-> **Status (14 Oct):** live on **Base Sepolia** since 10 Oct: a 2-of-3 Safe ([`0xB1b4…b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E)) with `PlanModule` enabled, and the full Ragasa replay plus one ordinary day ran there (29 transactions, each linked in [docs/EVIDENCE.md](docs/EVIDENCE.md); offline rules provider). The contracts' source is verified on Sourcify and Blockscout. The Yagi replay ran on a local FISCO BCOS chain. On the finance members' 100-case red-team corpus with a model (`deepseek-flash`, 14 Oct), attackers won 1 of 100 runs against us with no funds lost and we got 50/50 benign cases right (after a planner prompt fix the first run exposed; 44/50 before it), against 5 of 100, 4,820.00 mUSD lost and 41/50 for a bare agent holding a wallet tool; the offline rules provider holds 100/100 with 50/50 benign. Still open: [What's not done yet](#whats-not-done-yet).
+> **Status (14 Oct):** live on **Base Sepolia** since 10 Oct: a 2-of-3 Safe ([`0xB1b4…b60E`](https://sepolia.basescan.org/address/0xB1b4169eA856a2Edb709AE0ee284ceee10E7b60E)) with `PlanModule` enabled, and the full Ragasa replay plus one ordinary day ran there with the model (`deepseek-flash`, 14 Oct: 31 transactions, none reverted, each linked in [docs/EVIDENCE.md](docs/EVIDENCE.md); the first run on 10 Oct used the offline rules provider). The contracts' source is verified on Sourcify and Blockscout. The Yagi replay ran on a local FISCO BCOS chain. On the finance members' 100-case red-team corpus with a model (`deepseek-flash`, 14 Oct), attackers won 1 of 100 runs against us with no funds lost and we got 50/50 benign cases right (after a planner prompt fix the first run exposed; 44/50 before it), against 5 of 100, 4,820.00 mUSD lost and 41/50 for a bare agent holding a wallet tool; the offline rules provider holds 100/100 with 50/50 benign. Still open: [What's not done yet](#whats-not-done-yet).
 
 ## What happens in the demo
 
 The replay plays Super Typhoon Ragasa (Hong Kong, 22 to 25 Sep 2025) from the recorded HKO signals, compressed into a couple of minutes. Each row is something the agent does, and what you see on the dashboard.
 
-The current fictional supplier fixtures are 200 mUSD for flour and rice flour, 1,200 for pork shoulder, and 820 for prawns, pending finance sign-off. Screenshots and the 10 Oct Base Sepolia evidence use the earlier fixture amounts; their recorded transactions are preserved.
+The current fictional supplier fixtures are 200 mUSD for flour and rice flour, 1,200 for pork shoulder, and 820 for prawns, pending finance sign-off. Screenshots and the 10 Oct Base Sepolia run use the earlier fixture amounts; their recorded transactions are preserved. The 14 Oct model run uses the current ones.
 
 | Official time (HKT) | Signal | What the agent does | On the dashboard |
 | --- | --- | --- | --- |
@@ -149,7 +149,7 @@ Deployed on 10 Oct (chain 84532); every address and deploy transaction is in [do
 | PlanModule (enabled on the Safe by two owners) | [`0x12F764eEFb924d6109af638a218bDDAD96607c4A`](https://sepolia.basescan.org/address/0x12F764eEFb924d6109af638a218bDDAD96607c4A) |
 | SignalAttestor | [`0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2`](https://sepolia.basescan.org/address/0x76E9AD7D0aEF73d13eB87461a0e9918f549B78D2) |
 
-The Ragasa replay and one ordinary day ran there on 10 Oct (run 1791607899): 29 transactions, each with a Basescan link in EVIDENCE.md. To run it again you need the funded testnet keys in `.env` (`npm run keys:new` makes them; see [agent/README.md](agent/README.md)):
+The Ragasa replay and one ordinary day ran there with the model on 14 Oct (run 1791987647): 31 transactions, each with a Basescan link in EVIDENCE.md, with both reconciliations (the ordinary day and the storm period) matching the chain. The first run, on 10 Oct (run 1791607899, rules provider, earlier fixture amounts), had 29 and is kept there too. To run it again you need the funded testnet keys in `.env` (`npm run keys:new` makes them; see [agent/README.md](agent/README.md)):
 
 ```bash
 cd agent
@@ -229,7 +229,7 @@ The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MO
 
 ## What's not done yet
 
-- **A model run on Base Sepolia.** The 10 Oct Base Sepolia run used the offline rules provider, with the earlier fixture amounts. The replay with the model is one command (`NETWORK=base-sepolia npm run replay -- --event ragasa-2025 --yes`, then `npm run evidence -- --write`); the next replay anchors two reports (the ordinary day and the storm period): 30 transactions. The model red team on the 100-case corpus is done (14 Oct, above).
+- **Re-signing the reworded plan book.** The 14 Oct model replay on Base Sepolia ran on the plan book the owners signed on 10 Oct: the 13 Oct rewording (mUSD wording, a daily-ceiling note, no limit changes) has a new hash the chain does not hold, and the agent refuses to act on it. From `agent/`, `npm run plan:rehash -- ../data/fixtures/plans/plan-book.example.json` prints the Safe transactions; two owners sign them and apply them after the 24 h delay.
 - **Safe proposals** are built and tested with a fake Safe service, not yet the real one: they need a Safe API key, then one owner runs `npm run safe:delegate`. Until then proposals go to `agent/logs/proposals.jsonl`.
 - **Basescan verification** needs a Basescan API key; the source is already verified on Sourcify (exact match) and Blockscout.
 - **`PlanGuard` on the demo Safe.** It is fork-tested against the real Safe v1.4.1 contracts and, since 14 Oct, set on a live throwaway Safe on Base Sepolia, where it let an ordinary transfer through and blocks owner and guard changes ([EVIDENCE.md](docs/EVIDENCE.md)). Setting it on the demo Safe needs two owners and a guard deployed from the current source ([SECURITY.md](docs/SECURITY.md) known risk 7).

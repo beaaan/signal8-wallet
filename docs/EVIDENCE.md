@@ -56,9 +56,54 @@ Where each step of the Ragasa walkthrough (`docs/PLAN.md` §4) and the ordinary 
 
 Written by `npm run evidence -- --write` from the newest `agent/logs/run-<runId>.json`; everything between the markers is replaced on each write.
 
-First Base Sepolia run (10 Oct, run 1791607899) used `MODEL_PROVIDER=rules`: the DeepSeek endpoint was not reachable from the deploy environment, so the extractor and planner ran on rules; rerun with the model before submission. Three earlier attempts the same day stopped on stale reads from the load-balanced public RPC (fixed in `agent/src/rpc.ts`); the third ended with the agent pausing PlanModule on a false ledger mismatch ([`0xf063d626…`](https://sepolia.basescan.org/tx/0xf063d6260a5ee66ffa220389a07ab0a659bff3df9056e59cb1c3cfac6bd6d1fb)), and owners 1 and 2 unpaused it ([`0x3034fadb…`](https://sepolia.basescan.org/tx/0x3034fadb7c734c76c12da69416d4df03a74234a7055d53978ea90328b858093e)). Those runs also count toward that day's spent caps.
+Run 1791987647 (14 Oct, below) is the replay with the model: `MODEL_PROVIDER=openai`, `deepseek-flash`, the same endpoint as the red team. It used the plan book the owners signed on-chain on 10 Oct (hash `0x354c96c8…`: `data/fixtures/plans/plan-book.example.json` as of the commit before 03a9223). The 13 Oct rewording of that file (mUSD wording and a daily-ceiling note; no cap, payee or action changes, checked with `npm run plan:hash`) hashes to `0xb6b90f2a…` and has not been signed on-chain, so the agent refused to start with it (`PlanHashMismatch`, nothing sent). All 31 transactions succeeded (receipts checked on Base Sepolia), and both reconciliations matched the chain. The first Base Sepolia run, on the rules provider, is under [Earlier run](#earlier-run-10-oct-rules-provider).
 
 <!-- evidence:start -->
+Run id: 1791987647 (base-sepolia, chain 84532); GDACS TC-1001211 salted as TC-1001211#1791987647 = `0xbb65dc5765532b95458180abb68cc0b718a04be09dffa2ba48e49a04ecc22db2`. Completed 2026-10-14T14:29:44.272Z
+
+| # | Replay time (HKT) | Signal | Action | Tx hash | Result |
+| --- | --- | --- | --- | --- | --- |
+| 6 | 2025-09-22 12:20 |  | GDACS attestation: TC-1001211 (Super Typhoon Ragasa), Red | [0x71f53221…](https://sepolia.basescan.org/tx/0x71f53221791ec10858f95078bfd097b493ce0b1aa9d945244e1deb3137a5bce5) | ok |
+| 7 | 2025-09-22 12:20 | No. 1 | HKO attestation: TC1 (level 1) | [0x78752a3f…](https://sepolia.basescan.org/tx/0x78752a3ffa01a0f5027872eca88dc88ec37c10cb4ccd32efb41c6f8f6190f64b) | ok |
+| 8 | 2025-09-22 21:40 | No. 3 | HKO attestation: TC3 (level 3) | [0x58aff90c…](https://sepolia.basescan.org/tx/0x58aff90cbfb807a4f6bb32cb923db6c49229db539c3efb4f9418d048abe2b9e5) | ok |
+| 9 | 2025-09-22 21:40 | No. 3 | Withdraw 15000 mUSD from the vault to the Safe (base plan) | [0xaeb98141…](https://sepolia.basescan.org/tx/0xaeb98141a1619c4132f7d3f716328919f82408ca09a321cbed0a4ba64d9af763) | ok |
+| 10 | 2025-09-22 21:40 | No. 3 | Anchor PRE_STORM evidence hash 0xeee13fbc… | [0xe95bea9a…](https://sepolia.basescan.org/tx/0xe95bea9ab43bdf2409ca2d1483d3a5ee149cb950605566dde1f1d5366a6fd70f) | ok |
+| 11 | 2025-09-23 14:20 | No. 8 NW | HKO attestation: TC8NW (level 8) → StormStarted | [0x08b93721…](https://sepolia.basescan.org/tx/0x08b93721db24793a50319946f32683f337229added61d5a10dadc2d092230dd0) | ok |
+| 12 | 2025-09-23 14:20 | No. 8 NW | Claimed the typhoon cover: 20,000 mUSD paid to the Safe (storm plan) | [0x5f87c1c4…](https://sepolia.basescan.org/tx/0x5f87c1c43435cd3732e2864e4186717b09b60d7e1b1abd3bdb8f98e75fa88d7b) | ok |
+| 13 | 2025-09-24 01:40 | No. 9 | HKO attestation: TC9 (level 9) | [0xe6495735…](https://sepolia.basescan.org/tx/0xe6495735d50d05acf019f90680e7e565c6ad8adb0cbfe7df9e8563739f8f6903) | ok |
+| 14 | 2025-09-24 02:40 | No. 10 | HKO attestation: TC10 (level 10) | [0x7e46b631…](https://sepolia.basescan.org/tx/0x7e46b6319686e390bc8d6cf8ed0726be214a0b75172978126ae709eadb91b3e8) | ok |
+| - | 2025-09-24 02:45 | | Fake email: refused at planner (bank detail changes go through the owners' timelocked setPayee, never a message) | n/a | refused |
+| 15 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 01 under the storm plan (payroll:2025-09#1791987647) | [0xb6dd5d1e…](https://sepolia.basescan.org/tx/0xb6dd5d1ea17c1b11b788cec74cd11b20f1b2a9c73ce5bf0c431cf1c25fa58d4c) | ok |
+| 16 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 02 under the storm plan (payroll:2025-09#1791987647) | [0x17ea29c4…](https://sepolia.basescan.org/tx/0x17ea29c4c2c3f177bce4e87705067768c68f7a05e6c609407d2031a92124b305) | ok |
+| 17 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 03 under the storm plan (payroll:2025-09#1791987647) | [0x17e04c5e…](https://sepolia.basescan.org/tx/0x17e04c5ea40ebdb5fa8c949a44aea228b1bcc42f71906de10fbc3f450ed997f9) | ok |
+| 18 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 04 under the storm plan (payroll:2025-09#1791987647) | [0x09aa0925…](https://sepolia.basescan.org/tx/0x09aa0925b4043a9cdd31e76f57972fe0da37e2ebf5af51d30d32a93301aa3e7f) | ok |
+| 19 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 05 under the storm plan (payroll:2025-09#1791987647) | [0xe9b2cffb…](https://sepolia.basescan.org/tx/0xe9b2cffb26d9bd64140e1a9a3c69ad04b3a37c1cf75e72ca965d1b16a12ebcbe) | ok |
+| 20 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 06 under the storm plan (payroll:2025-09#1791987647) | [0xf1c14c76…](https://sepolia.basescan.org/tx/0xf1c14c767033655107f61e5bb15be621020a3f8db83eb1f7ef9328f9edca6f00) | ok |
+| 21 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 07 under the storm plan (payroll:2025-09#1791987647) | [0xf9271e4d…](https://sepolia.basescan.org/tx/0xf9271e4d9a73dff774ab0c4d47525f3216f0be55f9f86b9723812bc0527824d0) | ok |
+| 22 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 08 under the storm plan (payroll:2025-09#1791987647) | [0x33b64da5…](https://sepolia.basescan.org/tx/0x33b64da56005d56f1b13eb5b1ec4c5a38470ede05a147eb3ab2b634ed2525cc8) | ok |
+| 23 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 09 under the storm plan (payroll:2025-09#1791987647) | [0xe0b8456e…](https://sepolia.basescan.org/tx/0xe0b8456e7dd8376c0fc0cb227acb1f711c2e1ee058d264e019eb580146e183fd) | ok |
+| 24 | 2025-09-24 09:00 | No. 10 | Pay 2300 mUSD to Staff 10 under the storm plan (payroll:2025-09#1791987647) | [0xa5d5526c…](https://sepolia.basescan.org/tx/0xa5d5526c2b28bc23ebc82785eec6a88bd6c54fd95354ab43901e187fe0d0b80a) | ok |
+| 25 | 2025-09-24 09:00 | No. 10 | Draw 15000 mUSD of emergency credit (storm plan) | [0x0da7d7c1…](https://sepolia.basescan.org/tx/0x0da7d7c128cd56032e77b1aa9f22fd07cd7f757e111ab8550ea6b5793a469bc9) | ok |
+| 26 | 2025-09-24 13:20 | No. 8 SE | HKO attestation: TC8SE (level 8) | [0x0d4c321b…](https://sepolia.basescan.org/tx/0x0d4c321b6101964e80d676f05c17cab80b3325c6c5a3489c934dd475cb5eda0f) | ok |
+| 27 | 2025-09-24 20:20 | No. 3 | HKO attestation: TC3 (level 3) → StormEnded | [0xfe53c957…](https://sepolia.basescan.org/tx/0xfe53c9579209dc33cbc4e468009da11b551b7941ce312deca333c1dbbc876439) | ok |
+| 28 | 2025-09-25 08:20 | No. 1 | HKO attestation: TC1 (level 1) | [0x3c7087ae…](https://sepolia.basescan.org/tx/0x3c7087ae0e2e9d4beac8825b81a017463888061bce1f8ecbc1f96ce5e9c8d04e) | ok |
+| 29 | 2025-09-25 11:20 | Cancelled | HKO attestation: CANCEL (level 0) | [0xa6616339…](https://sepolia.basescan.org/tx/0xa6616339e7e0f72888bae413134c77c4d90b80a5d83b48e3e9dea05f249aff1e) | ok |
+| 30 | 2025-09-25 11:20 | Cancelled | Customer paid 5,000 mUSD for INV-C-2025-09-25#1791987647 into PaymentRouter (simulated client, not the agent) | [0xb7e72e85…](https://sepolia.basescan.org/tx/0xb7e72e859cc0401a33ee5520c43fd56a60b9c81f78458996acc52171eadad5c8) | ok |
+| 31 | 2025-09-25 11:20 | Cancelled | Anchor DAILY_REPORT evidence hash 0x293305e7… | [0x6bed10de…](https://sepolia.basescan.org/tx/0x6bed10def9ae9dcc30599c4d0299a40b5ef782b6b6f37b7dabd79293fd8b523c) | ok |
+
+| # | Action | Tx hash | Result |
+| --- | --- | --- | --- |
+| 1 | Customer paid 8,000 mUSD for INV-C-2025-09-22#1791987647 into PaymentRouter (simulated client, not the agent) | [0x391d7e0f…](https://sepolia.basescan.org/tx/0x391d7e0f085af7eb9b632e1872bc5418c75d13f87318a6297dabbb4e44689e9b) | ok |
+| 2 | Pay 200.00 mUSD to Lee Kee Flour under the base plan (LK-0921#1791987647) | [0x8d64c573…](https://sepolia.basescan.org/tx/0x8d64c57337e19698bd6452dd1417b933f801e292f695c1d8e81ee4ddeea9a2d6) | ok |
+| 3 | Pay 820.00 mUSD to Wing On Meats under the base plan (WO-2240#1791987647) | [0x3e90bb5a…](https://sepolia.basescan.org/tx/0x3e90bb5a499cd5f447ef553290f6d6862aedabc8fd1387462beb2a20fbe4e782) | ok |
+| 4 | Move 37680 mUSD of surplus into the money-market vault | [0x76d2dfc3…](https://sepolia.basescan.org/tx/0x76d2dfc398cd30e23720f2cb4223c186a3d193b597526f5e26200a638726e18a) | ok |
+| 5 | Anchor DAILY_REPORT evidence hash 0x3ed8dff9… | [0x0e722a9a…](https://sepolia.basescan.org/tx/0x0e722a9a6b3364d5e2dd6f99620ab901051d9f0b8e4dd92fa7c833c97bff1b3b) | ok |
+<!-- evidence:end -->
+
+### Earlier run (10 Oct, rules provider)
+
+First Base Sepolia run (10 Oct, run 1791607899) used `MODEL_PROVIDER=rules`: the DeepSeek endpoint was not reachable from the deploy environment, so the extractor and planner ran on rules. Three earlier attempts the same day stopped on stale reads from the load-balanced public RPC (fixed in `agent/src/rpc.ts`); the third ended with the agent pausing PlanModule on a false ledger mismatch ([`0xf063d626…`](https://sepolia.basescan.org/tx/0xf063d6260a5ee66ffa220389a07ab0a659bff3df9056e59cb1c3cfac6bd6d1fb)), and owners 1 and 2 unpaused it ([`0x3034fadb…`](https://sepolia.basescan.org/tx/0x3034fadb7c734c76c12da69416d4df03a74234a7055d53978ea90328b858093e)). Those runs also count toward that day's spent caps.
+
 Run id: 1791607899 (base-sepolia, chain 84532); GDACS TC-1001211 salted as TC-1001211#1791607899 = `0x959fd8796223b96c4a3133f33a2f69ad1c4794151c1e41fc5d4bd0b7003f4adb`. Completed 2026-10-10T04:59:52.349Z
 
 | # | Replay time (HKT) | Signal | Action | Tx hash | Result |
@@ -96,7 +141,6 @@ Run id: 1791607899 (base-sepolia, chain 84532); GDACS TC-1001211 salted as TC-10
 | 2 | Pay 1250.50 mUSD to Lee Kee Flour under the base plan (LK-0921#1791607899) | [0x05877e29…](https://sepolia.basescan.org/tx/0x05877e29bb30256d5528d0edbc43860b5fc8f3c1c66bdd7a8f91ade34354186d) | ok |
 | 3 | Move 6749.5 mUSD of surplus into the money-market vault | [0x02dc6e6d…](https://sepolia.basescan.org/tx/0x02dc6e6d421efa6ee4f27f5ed674d95a4168e023244dbc426905f4d58540341e) | ok |
 | 4 | Anchor DAILY_REPORT evidence hash 0xe8d92ea4… | [0x2f3ab570…](https://sepolia.basescan.org/tx/0x2f3ab57025c46898995a38268505fbc2e21b68e2cc4443b42b303d1a677566a9) | ok |
-<!-- evidence:end -->
 
 ## Yagi replay (local FISCO BCOS, stretch)
 
