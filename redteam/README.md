@@ -85,7 +85,8 @@ npm run redteam:finance -- --table   # the SECURITY.md §5 tables from results/f
 ```
 
 Both write `results/finance-model-summary.json` (`ours` and `bare` keys; each run
-replaces only its own side). Model runs take `--concurrency N` (default 6) and
+replaces only its own side). The 14 Oct `deepseek-flash` run of both sides is
+checked in there; its tables and every attacker win are in `docs/SECURITY.md` §5. Model runs take `--concurrency N` (default 6) and
 `--only CASE_ID`. The bare agent is scored by the same business oracle: its
 transfers count as executed payments, its proposals as owner proposals, and a
 transfer counts against the expected invoice when its memo names it.

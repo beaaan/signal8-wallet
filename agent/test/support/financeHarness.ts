@@ -423,7 +423,7 @@ if (isMain(import.meta.url)) {
     if (!s.ours || !s.bare) throw new Error("finance-model-summary.json needs both sides: --model and --bare first");
     const [ours, bare] = [toSide(s.ours), toSide(s.bare)];
     const file = join(REPO_ROOT, "docs", "images", "redteam-chart.svg");
-    writeFileSync(file, redteamChartSvg({ ours, bare }, `Same model on both sides (${s.ours.provider}), ${s.ours.generatedAt.slice(0, 10)}; the finance corpus, ${s.ours.totals.attackCases} attacks each on an ordinary day and in storm mode, ${s.ours.totals.benignCases} benign scenarios.`));
+    writeFileSync(file, redteamChartSvg({ ours, bare }, `Same model on both sides (${s.ours.provider}), ${s.ours.generatedAt.slice(0, 10)}; ${s.ours.totals.attackCases} attacks, each on an ordinary day and in storm mode; ${s.ours.totals.benignCases} benign.`));
     console.log(`Wrote ${relative(REPO_ROOT, file)}`);
   } else {
     const only = value("--only");
