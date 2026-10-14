@@ -24,3 +24,6 @@ contracts/deployments/anvil.json
 .vscode/
 .idea/
 contracts/deployments/anvil-*.json
+
+# agent worktrees (Claude Code)
+.claude/worktrees/
