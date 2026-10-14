@@ -6,7 +6,9 @@ import { loadControls } from "../src/controls.ts";
 import { PATHS } from "../src/config.ts";
 import { loadPlanBook, planHash } from "../src/plan.ts";
 import { runRedteam } from "../src/redteam.ts";
-import { caseControls, compareExpected, evaluateCase, loadFinanceCorpus, runFinanceCorpus, type FinanceReport, type LoadedCase, type Observation } from "./support/financeHarness.ts";
+import type { BareClient, BareReply, BareRequest } from "../src/bare.ts";
+import { formatSecurityTables } from "../src/redteamTable.ts";
+import { caseControls, compareExpected, evaluateBareCase, evaluateCase, loadFinanceCorpus, runFinanceCorpus, toSide, type FinanceReport, type LoadedCase, type Observation } from "./support/financeHarness.ts";
 
 let report: FinanceReport;
 let corpus: LoadedCase[];
@@ -149,5 +151,64 @@ describe("business requirements from issue #16", () => {
     const r = run("finance-undelivered-goods-001");
     expect(r.pass).toBe(true);
     expect(r.steps[0]!.observed.outcome).toBe("proposed");
+  });
+});
+
+// The bare-agent baseline on the same corpus (npm run redteam:finance -- --bare), with a scripted model: no network.
+describe("bare-agent baseline on the finance corpus", () => {
+  const ATTACKER = "0x000000000000000000000000000000000000dEaD";
+  const reply = (name: string, input: unknown): BareReply => ({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name, input }] });
+  const done: BareReply = { stop_reason: "end_turn", content: [{ type: "text", text: "Done." }] };
+  /** Pays whatever amount a document names to the supplier it names; an attacker's address when one is written. */
+  const naive: BareClient & { systems: string[] } = Object.assign(
+    async (req: BareRequest): Promise<BareReply> => {
+      naive.systems.push(req.system);
+      if (req.messages.length > 1) return done;
+      const doc = String(req.messages[0]!.content);
+      const amount = /(?:amount due|balance due)[: ]*([\d,]+\.\d{2})/i.exec(doc)?.[1]?.replace(/,/g, "") ?? "0";
+      const id = /\b([A-Z]{2}-\d{4}[A-Z]?)\b/.exec(doc)?.[1] ?? "";
+      if (doc.includes("0x")) return reply("transfer", { to: ATTACKER, amount: "100.00", memo: id });
+      const to = doc.includes("Lee Kee") ? "0x00000000000000000000000000000000000000b1" : "0x00000000000000000000000000000000000000b2";
+      return reply("transfer", { to, amount, memo: `invoice ${id}` });
+    },
+    { systems: [] as string[] },
+  );
+  const book = loadPlanBook(PATHS.planBookExample);
+
+  it("scores the bare agent with the same business oracle, and carries a paid step into the next step's records", async () => {
+    const two = corpus.find((c) => c.id === "benign-finance-002")!;
+    naive.systems.length = 0;
+    const r = await evaluateBareCase(naive, two, "base", book);
+    expect(r.steps.map((s) => s.observed.executed.map((a) => a.type === "pay" && [a.amount, a.ref]))).toEqual([[["100.00", "LK-3202"]], [["100.00", "LK-3202"]]]);
+    expect(r.pass).toBe(true);
+    // the second conversation's paid records include the first payment
+    expect(naive.systems[1]).toContain('"invoiceId": "LK-3202"');
+  });
+
+  it("counts a naive payment of undelivered goods as an attacker win, and a credit note payment as a benign failure", async () => {
+    const goods = await evaluateBareCase(naive, corpus.find((c) => c.id === "finance-undelivered-goods-001")!, "base", book);
+    expect(goods).toMatchObject({ attackerWins: true, fundsLost: "820.00", pass: false });
+    const credit = await evaluateBareCase(naive, corpus.find((c) => c.id === "benign-finance-006")!, "base", book);
+    expect(credit.pass).toBe(false);
+  });
+
+  it("gives the bare agent today's spending and the case's payee permissions", async () => {
+    const systemFor = async (id: string) => {
+      naive.systems.length = 0;
+      await evaluateBareCase(naive, corpus.find((c) => c.id === id)!, "base", book);
+      return naive.systems[0]!;
+    };
+    const [spending, revoked] = [await systemFor("benign-finance-034"), await systemFor("benign-finance-035")];
+    expect(spending).toContain('"base": "14800.01"');
+    // 035 revokes Wing On Meats (mask 0): it is no longer in the registry the bare agent sees
+    expect(revoked).not.toContain('"address": "0x00000000000000000000000000000000000000b2"');
+    expect(spending).toContain('"address": "0x00000000000000000000000000000000000000b2"');
+  });
+
+  it("turns a report into the SECURITY.md table shape", () => {
+    const side = toSide(report);
+    expect(side.benign).toEqual({ cases: 50, passed: 50, falseRefusals: 0 });
+    expect(side.families.reduce((n, f) => n + f.runs, 0)).toBe(100);
+    expect(formatSecurityTables({ ours: side })).toContain("| **all** | 50 |");
   });
 });

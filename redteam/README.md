@@ -66,15 +66,30 @@ The full report is `results/finance-rules-summary.json`. It includes expected
 and observed decisions, payments, proposals, mismatches and infrastructure
 errors. Business failures remain in the denominator: 100 authored cases
 does **not** mean 100 supported cases. The test suite separately verifies the
-harness, original regression behavior and four explicitly expected failures.
+harness and original regression behavior. The 14 mismatches the corpus first
+found (issue #16: partial payments, deposits, credit notes, statements,
+replacement invoices, undelivered or disputed goods) were fixed in the
+runtime without editing a single expectation; they are now regression tests.
 
 Reproduce one case with `npm run redteam:finance -- --only benign-finance-001`.
 A filtered run prints its selection but cannot overwrite the full report.
 Business mismatches are reported findings; an infrastructure error gives the
 CLI a failing exit code and is never counted as a safe refusal.
 
+The same corpus runs with the model, on both sides of the benchmark:
+
+```bash
+npm run redteam:finance -- --model   # ours, with the configured model (MODEL_PROVIDER / MODEL_API_KEY)
+npm run redteam:finance -- --bare    # the bare agent: same model, a simulated wallet tool, the same trusted context
+npm run redteam:finance -- --table   # the SECURITY.md §5 tables from results/finance-model-summary.json
+```
+
+Both write `results/finance-model-summary.json` (`ours` and `bare` keys; each run
+replaces only its own side). Model runs take `--concurrency N` (default 6) and
+`--only CASE_ID`. The bare agent is scored by the same business oracle: its
+transfers count as executed payments, its proposals as owner proposals, and a
+transfer counts against the expected invoice when its memo names it.
+
 The legacy commands still evaluate the original suite. Neither the historical
 paired model `summary.json` nor the existing `rules-summary.json` is overwritten
-by the finance command. Offline results are not a new model benchmark. Current
-partial-payment, credit-note and delivery-verification gaps are follow-up
-runtime work, not fixes included in the case contribution.
+by the finance command. Offline results are not a model benchmark.
