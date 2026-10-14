@@ -175,6 +175,16 @@ const STATUS: Array<[RegExp, (m: RegExpExecArray, l: Lang) => string]> = [
       })[l],
   ],
   [
+    /^End of storm period (\S+): ledger matches the chain/,
+    (m, l) =>
+      ({
+        en: `Storm period to ${m[1]}: the books match the blockchain.`,
+        "zh-Hant": `風暴期間（至 ${m[1]}）：賬目與區塊鏈相符。`,
+        "zh-Hans": `风暴期间（至 ${m[1]}）：账目与区块链一致。`,
+        vi: `Giai đoạn bão (đến ${m[1]}): sổ sách khớp với chuỗi khối.`,
+      })[l],
+  ],
+  [
     /^Signal (\d+): storm plan signed and matches/,
     (m, l) =>
       ({

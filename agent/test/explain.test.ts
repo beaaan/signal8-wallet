@@ -120,6 +120,7 @@ describe("explain", () => {
     expect(explain(inflow, "en")[0]).toBe("Customer payment received: INV-C-2025-09-25 from Harbour View Catering, 5,000 mUSD; 500 of it repaid the credit line.");
     expect(explain(inflow, "vi")[0]).toContain("5.000 mUSD");
     expect(explain(line("End of day 2025-09-22: ledger matches the chain (3 entries; Safe -40,000)"), "zh-Hant")[0]).toBe("2025-09-22 日終：賬目與區塊鏈相符。");
+    expect(explain(line("End of storm period 2025-09-25: ledger matches the chain (14 entries). Closing Safe 41,500"), "vi")[0]).toBe("Giai đoạn bão (đến 2025-09-25): sổ sách khớp với chuỗi khối.");
     expect(explain(line("Forecast re-run: lowest balance -3,000 mUSD in 13 weeks, credit need 13,000"), "en")[0]).toBe("Cash forecast updated: lowest balance -3,000 mUSD over the next 13 weeks; credit needed 13,000 mUSD.");
     expect(explain(line("Holding 1 scheduled supplier payment(s) until the storm passes", "proposed"), "zh-Hans")[0]).toBe("暂缓 1 笔供应商付款，等风暴过后处理。");
     expect(explain(line("Draft for the owner to review and send: 保險索償信 (zh-Hant) → logs/drafts/1/claim-zh-Hant.md. The agent never sends it.", "proposed"), "zh-Hant")[0]).toContain("「保險索償信」");
