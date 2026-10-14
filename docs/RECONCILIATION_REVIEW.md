@@ -128,3 +128,34 @@ The runtime issue is linked in the review PR description. Existing invoice-proce
 Local report/run/log descriptions and content-hash prefix agree. Current simulation detects several balance/counter mismatches, handles the stated vault tolerance and preserves customer receipts with owner warnings. It does not establish complete event, debt or storm-period accounting; snapshot consistency and report detail also need runtime follow-up. A report callback error after a confirmed mismatch can skip the pause and persisted owner alert, so the current flow does not guarantee containment on that path.
 
 Bookkeeping sign-off is **not ready**: address the confirmed runtime findings, rerun the reviewed expectations, and obtain/verify the required Base Sepolia exports. Creating this documentation/test PR or its follow-up issue is not completion of the task.
+
+## Fixed in
+
+Issue #18, branch `fix/reconciliation-18` (base `35675ff`). The review above is unchanged and describes the runtime it reviewed. Historical reports, anchors, `docs/EVIDENCE.md` rows and `redteam/results/*` are not touched. New reports carry `"version": 2`; the format is in [agent.md](specs/agent.md#reconciliation-and-the-period-report-loopsreconcilets-loopsreportts).
+
+| Finding | Status | What changed | Now passing as a normal `it` |
+|---|---|---|---|
+| F01 report payload and provenance | Fixed | `loops/report.ts`: observed `openingBalances` from the one-block opening snapshot; `chain` (network, chain id, token address and decimals, contracts) and `blocks`; `movements` (ledger entries with payee, ref, tx, debt effect); `receipts` gross/swept/net; executed and proposed payments in `results` carry `invoiceId`, `dueDate`, `payee`, `payeeName`, `amount`, `ref`; `scheduled` adds invoice and due date | G01, G02 (R01 and R03 updated to the new payload) |
+| F02 deltas labelled as balances | Fixed | Decision line: `Closing Safe …, vault …, credit drawn … (block N); change Safe ±…, vault ±…, credit ±…`; report `checks.expectedChange` / `observedChange` are changes, `balances` are balances | G03 |
+| F03 event completeness | Fixed for the Safe's token movements | `chainReader.view(openingBlock)` reads the token's `Transfer` logs from and to the Safe over (opening, closing], in 200-block ranges, de-duplicated by tx hash + log index. `reconcile()` flags unrecorded transactions even when they net to zero, recorded transactions the logs contradict, and Safe-moving entries without a tx (so an owner's direct payment needs its transaction). `checks.balances` and `checks.coverage` are separate; without logs coverage is `limited`, which does not fail a quiet day | G04 (R16 updated) |
+| F04 debt not reconciled | Fixed | `ChainView.creditDrawn` (lender `drawn()` at the same block); `LedgerEntry.debtDelta`: credit draw +amount (executor), router sweep −swept (inflow watcher, which books gross once, gross − swept to the Safe); `checks.debt` | G05 (R17 updated) |
+| F05 snapshot boundaries | Fixed | `chainReader` reads every field at one block, never below the opening block; `rpc.ts` now also retries reads that name their block on a lagging node (R21 unchanged); the report serialises the compared closing snapshot instead of reading again | G06, G07 (R22, R23 updated) |
+| F06 storm/replay coverage | Fixed for the replay | `replay/run.ts` keeps a second ledger from the ordinary day's compared closing snapshot to the end of the replay (vault withdrawal, cover payout, payroll, credit draw, post-storm receipt and sweep), reconciles it and anchors `report-<date>-<runId>-storm.json`: one extra anchor transaction. `run-<runId>.json` lists both periods under `periods`, or `closed: false` for a period the run did not reach. The ordinary-day report still covers only the ordinary day | `test/period-report.test.ts`; anvil replay below |
+| F07 containment after a report error | Fixed | `closeDay` catches a report read, write or anchor error after a verified mismatch, logs it (`action: report`) and returns it as `reportError`; it then attempts the pause and persists the alert regardless. The alert keeps the diffs, closing block, `reportError`, the pause `error` and, if the pause failed, owner `guidance` (Safe Wallet or guardian). A read error before the comparison still throws: not verified, nothing paused | G08 (R24 updated) |
+
+Verification on this branch:
+
+- `npm run typecheck` passes. `vitest run`: **364/364**, 28 files. All 8 G assertions in `test/reconciliation-review.test.ts` now run as normal `it` (no `it.fails` left in that file); the R tests that characterised a gap now pin the fixed behaviour. The 4 `it.fails` in `test/finance-scenarios.test.ts` belong to issue #16 and are unchanged.
+- `test/period-report.test.ts` runs the production `chainReader` over `consistentTransport` with a fake node: an advancing head stays pinned to one block, a lagging replica is asked again, logs are read in ranges from and to the Safe and de-duplicated; plus debt over the storm example below, containment when report and pause both fail, and the storm-period report.
+- Local anvil replay (`ragasa-2025`, speed 100000, rules provider, anvil dev keys): completed; ordinary day (blocks 15→19) and storm period (19→46) both reconciled with debt `ok` and coverage `complete` (3 and 14 Safe transfers); each report file's keccak256 equals the hash in its anchor receipt. Storm-period change: Safe +31,500, vault −15,000, outstanding credit +14,500, the same totals as the [bookkeeping notes](submission/BOOKKEEPING_NOTES.md) storm example. `--skip-everyday` also completed. On the same anvil, an owner paying 100 out of the Safe and a client sending 100 in, both unrecorded, passed the balance check and were flagged by coverage; recorded with their transactions, they reconciled.
+- No Base Sepolia run. The Base Sepolia exports remain **Not verified**.
+
+Limits that remain:
+
+- Coverage checks the token's `Transfer` logs touching the Safe. Vault shares are checked by balance (`maxWithdraw`), and lender `Drawn`/`Repaid` events are not read; debt is checked by outstanding principal.
+- There is still no runtime path for owners to enter a direct Safe payment into the ledger; the comparison layer accepts one only with its transaction hash.
+- Anyone can send the token to the Safe. An unrecorded receipt is a mismatch and pauses the module, as an unexplained balance change did before; this is a nuisance-pause risk, not a loss.
+- A replay has two periods (ordinary day; storm through post-storm), not three, to keep one extra anchor transaction per run.
+- Without a reconciliation reader (`runEveryday` with no `reconcile`), opening and closing balances are plain reads, not one-block snapshots, and the report says `reconciliation: null`.
+
+Bookkeeping sign-off still needs the original Base Sepolia exports verified and a fresh Base Sepolia run with version-2 reports.

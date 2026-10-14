@@ -156,7 +156,36 @@ Deterministic state machine; the planner only fills amounts.
 1. Read `PaymentRouter.Inflow` events; match `invoiceRef` to open invoices; flag mismatches.
 2. For bills due within 2 days: `pay` base-plan payees (suppliers) under the base plan; anything else becomes an owner proposal.
 3. Above buffer + margin: `vault_deposit`.
-4. 23:59 local: build the day's report (ledger vs chain), hash it, `anchor DAILY_REPORT`. On mismatch, call `PlanModule.pause()` with the agent's own key and alert the owner. The backend never holds the guardian key.
+4. 23:59 local: reconcile the day's ledger with the chain, build the day's report from the compared snapshot, hash it, `anchor DAILY_REPORT`. On mismatch, call `PlanModule.pause()` with the agent's own key and alert the owner, whether or not the report could be written or anchored (a report error is logged and kept in the alert as `reportError`; if the pause fails too, the alert tells the owners to pause from Safe Wallet or with the guardian key). A read error before the comparison is not a mismatch: nothing is verified, paused or reported. The backend never holds the guardian key.
+
+### Reconciliation and the period report (`loops/reconcile.ts`, `loops/report.ts`)
+
+Reconciliation compares a period's ledger with two chain snapshots, opening and closing, each read at one block (never older than the agent's newest receipt or, for the closing one, than the opening block; `rpc.ts` retries a lagging node). Three checks, reported separately:
+
+- **Balances:** Safe token balance, vault `maxWithdraw` (2 base units of ERC-4626 rounding) and `spentToday` per plan (skipped across a UTC rollover) moved as the ledger says.
+- **Debt:** the lender's outstanding principal (`FlowCreditLine.drawn()`) moved by recorded credit draws minus router repayment sweeps. A customer receipt is booked once: gross for the invoice, gross − swept to the Safe, swept off the debt.
+- **Event coverage:** the token's `Transfer` logs from or to the Safe after the opening block, up to the closing block (200-block ranges, de-duplicated by tx hash + log index). Every one must belong to a recorded transaction with the same net amount, so unrecorded movements are flagged even when they net to zero; a ledger entry that moves Safe cash needs its transaction hash (an owner's direct payment included). Without the logs, coverage is `limited`: a quiet day does not fail, but the report does not claim completeness.
+
+The report is written to `logs/report-<date>[-<runId>][-<period>].json` as canonical JSON (sorted keys), never over an existing file, and its keccak256 is anchored as `DAILY_REPORT`. A replay closes two periods, each with its own ledger, reconciliation and report: `ordinary-day` (file name unchanged) and `storm`, from the ordinary day's compared closing snapshot to the end of the replay (one more anchor transaction). `run-<runId>.json` lists them under `periods`, with `closed: false` for a period the run did not reach.
+
+Version 2 (issue #18) fields; amounts are token base units (6 decimals) as decimal strings:
+
+| Field | Meaning |
+| --- | --- |
+| `version` | `2`. Reports without it are version 1: closing balances read again after the comparison, no opening, debt or event checks. Version-1 reports and their anchors are historical evidence and are not rewritten. |
+| `period` | `{ id, from, to, note? }`: `ordinary-day` or `storm`, business dates |
+| `chain` | network, chain id, token address, symbol and decimals, and the Safe, vault, credit line and PlanModule addresses |
+| `blocks` | `{ opening, closing }`: the block each snapshot was read at (`null` when not pinned) |
+| `openingBalances`, `balances` | `{ safe, vault, creditDrawn }` at opening and closing; `balances` is the closing snapshot reconciliation compared. `creditDrawn` is outstanding principal, not total borrowed |
+| `movements` | the period's ledger entries: `kind`, `amount`, `safeDelta`, `vaultDelta`, `debtDelta`, `planId`, `payee`, `ref`, `tx`, `note` |
+| `receipts` | customer receipts: `gross` (settles invoices), `swept` (repaid the credit line), `net` (reached the Safe), `flagged` (short, over or unknown) |
+| `inflows` | each receipt: `kind`, `receivable`, `amount` (gross), `swept`, `net`, `tx` |
+| `results` | each input: `outcome`, `reason`, `tx`; payments add `type`, `plan`, `invoiceId`, `dueDate`, `payee`, `payeeName`, `amount`, `ref`. A proposal is pending approval and a refusal is evidence only, neither is a cash movement |
+| `scheduled` | later-due payments with `invoiceId` and `dueDate`; not paid |
+| `reconciliation` | `{ ok, diffs }`, or `null` when no reconciliation ran (`null` is not a pass) |
+| `checks` | `balances`, `spentToday` (`ok`, `mismatch`, `skipped`), `debt` (`ok`, `mismatch`, `not_read`), `coverage` (`status` `complete`, `gaps` or `limited`, `fromBlock`, `toBlock`, `transfers`, `unrecorded`, `unmatched`, `untraced`), `expectedChange` (ledger) and `observedChange` (chain): changes over the period, not balances |
+
+`ok` is true only when balances, counters, debt (when read) and coverage (when read) all agree. The decision-log line names closing balances and changes separately: `Closing Safe 10,000, vault 7,000, credit drawn 200 (block N); change Safe 0, vault +7,000, credit -800, …`.
 
 ## Decision log
 
