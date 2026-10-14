@@ -1,0 +1,26 @@
+{
+  "attestorChainId": 20200,
+  "chainId": 20200,
+  "contracts": {
+    "EvidenceRegistry": "0x828df2204588a98dAeaEbd3DDBbcDb8A29fafeC4",
+    "FlowCreditLine": "0x8927a1132AfE6423081d708b71DDC0A75b847d9b",
+    "MockMMFVault": "0xeF36830011409e6DCB53EBd0e1Ef32c347E43bf9",
+    "MockSignalCover": "0xEf9E7D9E393EEFB8E37Acf1829d325E97439652E",
+    "MockVNDDeposit": "0x8d6e974602E5b9018cDB0a3C497da4fE327f65Ba",
+    "PaymentRouter": "0x345a8f4104550140E5136e34fA9AE708B9830515",
+    "PlanGuard": "0x9BEbDC50F850935c6C020a3648b1cff988381eA8",
+    "PlanModule": "0xb7F7bDd530Ae9b2Ebc6FA99436b34ca36ED4a69a",
+    "Safe": "0xa2f9471a78255fA9b82DF08b40C1ffDdce4be454",
+    "SignalAttestor": "0xcc5d7a891557475Ea1df854a43d70c235EaA246E"
+  },
+  "network": "fisco",
+  "planHash": "0x67cca2fa60827622dc54facd6d10d4b81869defdd6db207c8e2746cc2d201b35",
+  "region": "VN-QN-HP",
+  "startBlock": 0,
+  "timeUnit": 1000,
+  "token": {
+    "contract": "MockVNDDeposit",
+    "decimals": 6,
+    "symbol": "mVND"
+  }
+}
