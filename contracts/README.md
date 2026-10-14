@@ -20,8 +20,17 @@ Interfaces are in `src/interfaces/`. Status (see [PLAN.md §5.1](../docs/PLAN.md
 | `test/Integration.t.sol` | the real `SignalAttestor` with `PlanModule`: storm unlock, caps per pinned event, next storm is a new event, lapse after 12 h |
 | `src/mocks/MockSignalCover.sol`, `FlowCreditLine.sol`, `PaymentRouter.sol`, `MockMMFVault.sol`, `EvidenceRegistry.sol` + `test/Mocks.t.sol` | first version |
 | `src/LocalSafe.sol` | stand-in Safe for Anvil and tests only (one admin, no signatures); Base Sepolia uses the real 2-of-3 Safe |
-| `src/PlanGuard.sol` + `test/PlanGuard.t.sol` | first version: blocks module, owner, threshold, guard and fallback changes and any delegatecall unless queued 24 h earlier; a delegatecall to `MultiSendCallOnly` is checked call by call; a queued entry is used up only when the Safe transaction succeeds. Deployed by the script, not set on the Safe, not yet tried against real Safe bytecode |
+| `src/PlanGuard.sol` + `test/PlanGuard.t.sol` | first version: blocks module, owner, threshold, guard and fallback changes and any delegatecall unless queued 24 h earlier; a delegatecall to `MultiSendCallOnly` is checked call by call; a queued entry is used up only when the Safe transaction succeeds. Deployed by the script, not set on the demo Safe |
+| `test/PlanGuardFork.t.sol` | PlanGuard on a fresh 2-of-3 Safe made through the real Safe v1.4.1 contracts on a Base Sepolia fork, with signed Safe transactions; skips without `BASE_SEPOLIA_RPC` (CI) |
 | `script/Deploy.s.sol` → writes `deployments/<network>.json` | works on Anvil; Base Sepolia path untested |
+
+PlanGuard against real Safe bytecode (forks Base Sepolia; without `BASE_SEPOLIA_RPC` the suite skips):
+
+```bash
+BASE_SEPOLIA_RPC=<url> forge test --match-path test/PlanGuardFork.t.sol -vvv   # optional FORK_BLOCK pins the fork
+```
+
+It creates a 2-of-3 Safe through the canonical v1.4.1 `SafeProxyFactory` and `SafeL2` singleton, enables a cut-down `PlanModule`, sets `PlanGuard`, and checks with owner signatures: ordinary transfers and `MultiSendCallOnly` payroll batches pass; every module, owner, threshold, guard and fallback change, a batch hiding one, and a delegatecall to anything but `MultiSendCallOnly` (full `MultiSend`, `SignMessageLib`) are blocked until queued for 24 h, then pass once; a failed inner call keeps the queue entry (with `safeTxGas` 0 the Safe reverts with `GS013`; with `safeTxGas` > 0 it reports failure to the guard); `PlanModule` calls skip the guard (v1.4.1 does not run guards on module transactions); a queued `setGuard(address(0))` removes the guard after the delay. A guard bound to a different Safe passes `setGuard`'s ERC-165 check and then locks the Safe (`NotSafe` on every transaction), so check `guard.safe()` before setting it.
 
 Local chain (what the agent and website use until Base Sepolia):
 
