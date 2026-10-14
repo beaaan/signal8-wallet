@@ -23,6 +23,7 @@ Interfaces are in `src/interfaces/`. Status (see [PLAN.md §5.1](../docs/PLAN.md
 | `src/PlanGuard.sol` + `test/PlanGuard.t.sol` | first version: blocks module, owner, threshold, guard and fallback changes and any delegatecall unless queued 24 h earlier; a delegatecall to `MultiSendCallOnly` is checked call by call; a queued entry is used up only when the Safe transaction succeeds. Deployed by the script, not set on the demo Safe |
 | `test/PlanGuardFork.t.sol` | PlanGuard on a fresh 2-of-3 Safe made through the real Safe v1.4.1 contracts on a Base Sepolia fork, with signed Safe transactions; skips without `BASE_SEPOLIA_RPC` (CI) |
 | `script/Deploy.s.sol` → writes `deployments/<network>.json` | works on Anvil; Base Sepolia path untested |
+| `script/ThrowawayGuard.s.sol` → writes `deployments/base-sepolia-throwaway-guard.json` | sets PlanGuard on a new throwaway Safe; rehearsed on an anvil fork of Base Sepolia, not yet run live |
 
 PlanGuard against real Safe bytecode (forks Base Sepolia; without `BASE_SEPOLIA_RPC` the suite skips):
 
@@ -49,3 +50,22 @@ forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
 ```
 
 Optional: `REGION` (must match the params file's `region`), `MULTISEND_CALL_ONLY` (default: the canonical Safe v1.4.1 address), `NCHMF_RELAYER_ADDRESS`, `TIME_UNIT`, `ATTESTOR_CHAIN_ID`. The script refuses params whose plan hashes disagree and relayer addresses that repeat. On a local fork of Base Sepolia (chain id 84532 but a rehearsal) set `NETWORK=anvil-fork`, so the real `deployments/base-sepolia.json` is not overwritten.
+
+PlanGuard on a throwaway Safe (Base Sepolia, [SECURITY.md](../docs/SECURITY.md) known risk 7). `script/ThrowawayGuard.s.sol` never touches the demo Safe: it creates a new 1-of-1 Safe v1.4.1 owned by the `DEPLOYER_PRIVATE_KEY` address, deploys a `PlanGuard` bound to it, checks `guard.safe()` and sets it with a Safe transaction the deployer signs, then sends one allowed Safe transaction through the guard (the deployer, as `MockUSD` owner, mints 1 mUSD to the Safe and the Safe sends it back; without mint rights it sends 0 mUSD). It simulates, without broadcasting, `addOwnerWithThreshold` and `setGuard(address(0))`, requires both to revert with `Blocked(selector)` and logs them. Five transactions, about 1.31 M gas (Safe 259 k, guard 798 k, mint 53 k, `setGuard` 101 k, transfer 95 k): about 0.00001 ETH at 0.006 gwei plus the L1 data fee.
+
+```bash
+set -a; source ../.env; set +a   # DEPLOYER_PRIVATE_KEY, BASE_SEPOLIA_RPC
+forge script script/ThrowawayGuard.s.sol --rpc-url base_sepolia --broadcast --slow
+forge script script/ThrowawayGuard.s.sol --sig "record()"   # adds the tx hashes from broadcast/ to the file
+```
+
+The first command writes `deployments/base-sepolia-throwaway-guard.json` (Safe, guard, safeTxHashes, the simulated revert data); `record()` adds the transaction hashes. Optional: `MOCK_USD` (default: `deployments/base-sepolia.json`), `SALT_NONCE` (default: block time). Rehearsal on an anvil fork with a public dev key (the dev keys carry an EIP-7702 delegation on Base Sepolia; clear it on the fork):
+
+```bash
+anvil --fork-url "$BASE_SEPOLIA_RPC" --port 8565 &
+cast rpc anvil_setCode 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 0x --rpc-url http://127.0.0.1:8565
+export NETWORK=anvil-fork DEPLOYER_PRIVATE_KEY=$(cast wallet private-key "test test test test test test test test test test test junk" 0)   # anvil dev key 0
+forge script script/ThrowawayGuard.s.sol --rpc-url http://127.0.0.1:8565 --broadcast --slow
+forge script script/ThrowawayGuard.s.sol --sig "record()"
+rm -r broadcast/ThrowawayGuard.s.sol/84532; kill %1   # the fork run is not a Base Sepolia run
+```
