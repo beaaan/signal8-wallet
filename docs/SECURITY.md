@@ -1,6 +1,6 @@
 # Security self-assessment
 
-Required by the rules: permission tiers and a known-risk list. Fill in the red-team numbers on 18 Oct. Sections marked **TODO** are owned by the area in brackets.
+Required by the rules: permission tiers and a known-risk list. The red-team numbers in §5 are to be refreshed after the model rerun on the frozen cases (17 Oct).
 
 ## 1. Principle
 
