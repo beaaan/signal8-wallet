@@ -157,6 +157,8 @@ NETWORK=base-sepolia npm run replay -- --event ragasa-2025 --yes   # one run per
 npm run evidence -- --write                                        # puts the new hashes into docs/EVIDENCE.md
 ```
 
+Until the reworded plan book is re-signed ([What's not done yet](#whats-not-done-yet)), the agent refuses the current `plan-book.example.json` on Base Sepolia (`PlanHashMismatch`). Run it on the book the owners signed on 10 Oct: `git show 03a9223^:data/fixtures/plans/plan-book.example.json > /tmp/plan-book.signed.json`, then add `PLAN_BOOK=/tmp/plan-book.signed.json` to the replay command.
+
 Public RPCs are load-balanced, so a read right after a transaction can hit a node a few blocks behind. The agent pins each read to a block at least as new as its last receipt (`agent/src/rpc.ts`).
 
 ## Examples

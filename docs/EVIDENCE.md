@@ -49,7 +49,8 @@ Where each step of the Ragasa walkthrough (`docs/PLAN.md` §4) and the ordinary 
 | Payday under the storm plan, emergency credit | 24 Sep 09:00 | ten "Pay 2300 mUSD to Staff NN" rows and the "Draw … emergency credit" row |
 | Signal 3: storm mode off | 24 Sep 20:20 | "TC3 … → StormEnded" row |
 | Next customer payment, repayment sweep resumes | 25 Sep 11:20 | "Customer paid … into PaymentRouter" row |
-| Ordinary day: customer payment, supplier paid, surplus to the fund, daily report anchored | 22 Sep | the second table (everyday rows 1 to 4) |
+| Storm-period report reconciled and anchored | 25 Sep 11:20 | the last "Anchor DAILY_REPORT" row of the first table |
+| Ordinary day: customer payment, suppliers paid, surplus to the fund, daily report anchored | 22 Sep | the second table (everyday rows 1 to 5) |
 | An over-cap payment proposed by the agent (as Safe delegate) and signed by two owners | | **Not yet.** Needs a Safe Transaction Service API key, the agent registered as a delegate, and two of the three owner keys; proposals are written to `agent/logs/proposals.jsonl` meanwhile (SECURITY.md known risk 12) |
 
 ## Latest run
