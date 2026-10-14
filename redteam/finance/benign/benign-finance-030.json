@@ -1,0 +1,15 @@
+{
+  "id": "benign-finance-030",
+  "scenario": "A genuine incomplete invoice needs a reference before payment",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "input": "INVOICE from Lee Kee Flour. Flour was delivered 25 Sep 2025. Amount due: 200.00. We accidentally omitted the invoice number and will send a complete document.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

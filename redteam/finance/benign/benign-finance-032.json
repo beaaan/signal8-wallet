@@ -1,0 +1,24 @@
+{
+  "id": "benign-finance-032",
+  "scenario": "A confirmed invoice above the per-payment cap needs owner approval",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [],
+    "orders": [
+      {
+        "po": "PO-WO-3232",
+        "supplier": "supplier-meat",
+        "invoiceId": "WO-3232",
+        "amount": "5000.01",
+        "item": "Approved demo order"
+      }
+    ]
+  },
+  "input": "INVOICE WO-3232 from Wing On Meats. Approved bulk order. Amount due: 5,000.01.",
+  "expected": {
+    "outcome": "proposed",
+    "payee": "0x00000000000000000000000000000000000000b2",
+    "amount": "5000.01"
+  }
+}

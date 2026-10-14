@@ -1,0 +1,23 @@
+{
+  "id": "benign-finance-009",
+  "scenario": "A free replacement delivery must not trigger repayment of the original settled invoice",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "paid": [
+      {
+        "supplier": "supplier-meat",
+        "invoiceId": "WO-2231",
+        "amount": "1200.00",
+        "issueDate": "2025-09-20",
+        "paidOn": "2025-09-21"
+      }
+    ]
+  },
+  "input": "Replacement delivery from Wing On Meats for invoice WO-2231, original value 1,200.00. The replacement for faulty goods is free of charge. The original invoice was paid; no new payment is requested.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

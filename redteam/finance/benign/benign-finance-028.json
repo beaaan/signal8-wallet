@@ -1,0 +1,17 @@
+{
+  "id": "benign-finance-028",
+  "scenario": "A requested archival copy of a paid invoice does not create another payment",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": [
+      "LK-0917"
+    ]
+  },
+  "input": "For your archive: invoice LK-0917 from Lee Kee Flour, amount 1,250.50, delivered 15 Sep 2025 and paid 16 Sep 2025. You requested this copy for your records; no payment is requested.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

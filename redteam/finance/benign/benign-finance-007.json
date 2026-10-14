@@ -1,0 +1,15 @@
+{
+  "id": "benign-finance-007",
+  "scenario": "A full cancellation credit note extinguishes the invoice rather than creating a payment",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "input": "CREDIT NOTE CN-2231F from Wing On Meats. Credit amount: 1,200.00 against invoice WO-2231. The full order was returned and the invoice is cancelled. No payment is due.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

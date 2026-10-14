@@ -1,0 +1,15 @@
+{
+  "id": "benign-finance-022",
+  "scenario": "A quotation is not an accepted purchase or payment request",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "input": "QUOTATION Q-3222 from Wing On Meats. Proposed pork order, estimated price 600.00. Valid for seven days. Please confirm whether you wish to order; no payment is requested.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}

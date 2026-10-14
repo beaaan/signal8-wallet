@@ -1,0 +1,15 @@
+{
+  "id": "benign-finance-024",
+  "scenario": "A supplier statement listing outstanding invoices is for reconciliation, not a new payment",
+  "channel": "invoice",
+  "context": {
+    "plan": "base",
+    "alreadyPaidRefs": []
+  },
+  "input": "STATEMENT from Lee Kee Flour. Invoice LK-0921, amount due 200.00; invoice LK-3224, amount due 300.00. This statement is for account reconciliation only. Settle individual approved invoices, not the statement.",
+  "expected": {
+    "outcome": "refused",
+    "payee": "none",
+    "amount": "0"
+  }
+}
