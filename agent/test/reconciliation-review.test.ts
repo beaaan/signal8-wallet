@@ -169,8 +169,12 @@ describe("review: production daily-report producer", () => {
   it("R01 produces actual closing balances, refusal, schedule and matching report hash", () => {
     expect(produced.report.balances).toEqual({ safe: "10000000000", vault: "7000000000", creditDrawn: "200000000" });
     expect(produced.report.reconciliation).toEqual({ ok: true, diffs: [] });
-    expect(produced.report.inflows[0]).toMatchObject({ amount: "8000000000", swept: "800000000", receivable: "INV-C-2025-09-22", tx: tx(11) });
-    expect(produced.report.results).toContainEqual({ input: "invoice:lee-kee-flour-LK-0921.txt", outcome: "executed", tx: tx(101) });
+    expect(produced.report.inflows[0]).toMatchObject({ amount: "8000000000", swept: "800000000", net: "7200000000", receivable: "INV-C-2025-09-22", tx: tx(11) });
+    // #18: an executed payment now carries its invoice, payee, amount and ref (G02)
+    expect(produced.report.results).toContainEqual({
+      input: "invoice:lee-kee-flour-LK-0921.txt", outcome: "executed", tx: tx(101),
+      type: "pay", plan: "base", invoiceId: "LK-0921", dueDate: "2025-09-23", payee: book.payees[0]!.address, payeeName: "Lee Kee Flour", amount: "200.00", ref: "LK-0921#review",
+    });
     expect(produced.report.results).toContainEqual(expect.objectContaining({ outcome: "refused", input: "invoice:wing-on-meats-WO-2240-injected.txt" }));
     expect(produced.report.scheduled).toContainEqual(expect.objectContaining({ type: "pay", amount: "1200.00", ref: "WO-2231#review" }));
     expect(produced.json).toBe(canonicalJson(produced.report));
@@ -183,29 +187,38 @@ describe("review: production daily-report producer", () => {
     expect(unchecked.log.readNewest().some((r) => r.action === "reconcile")).toBe(false);
     expect(unchecked.anchorHashes).toHaveLength(1);
   });
-  it("R03 characterizes missing opening/payment fields; (#18) the log labels closing balances and changes apart", () => {
-    expect(produced.report.openingBalances).toBeUndefined();
-    expect(produced.report.results[0]).not.toHaveProperty("payee");
-    expect(produced.report.results[0]).not.toHaveProperty("amount");
+  it("R03 (fixed in #18) versioned report keeps movements and labels changes apart from closing balances", () => {
+    expect(produced.report.version).toBe(2);
+    expect(produced.report.movements?.map((m) => [m.kind, m.amount, m.safeDelta, m.debtDelta])).toEqual([
+      ["inflow", "8000000000", "7200000000", "-800000000"],
+      ["pay", "200000000", "-200000000", undefined],
+      ["vault_deposit", "7000000000", "-7000000000", undefined],
+    ]);
+    expect(produced.report.checks).toMatchObject({
+      balances: "ok", debt: "ok", coverage: { status: "limited" },
+      expectedChange: { safe: "0", vault: "7000000000", creditDrawn: "-800000000" },
+      observedChange: { safe: "0", vault: "7000000000", creditDrawn: "-800000000" },
+    });
     const summary = produced.log.readNewest().find((r) => r.action === "reconcile")?.summary;
     expect(summary).toContain("Closing Safe 10,000, vault 7,000, credit drawn 200");
     expect(summary).toContain("change Safe 0, vault +7,000, credit -800");
+    expect(summary).toContain("transfer coverage limited");
   });
-  it.fails("G01 business expectation: report includes observed opening balances", () => {
+  it("G01 business expectation: report includes observed opening balances", () => {
     expect(produced.report.openingBalances).toEqual({ safe: "10000000000", vault: "0", creditDrawn: "1000000000" });
   });
-  it.fails("G02 business expectation: executed payment has invoice, recipient and amount", () => {
+  it("G02 business expectation: executed payment has invoice, recipient and amount", () => {
     expect(produced.report.results[0]).toMatchObject({ invoiceId: "LK-0921", payee: book.payees[0]!.address, amount: "200.00" });
   });
   it("G03 business expectation: reconciliation summary labels closing Safe correctly", () => {
     expect(produced.log.readNewest().find((r) => r.action === "reconcile")?.summary).toContain("Safe 10,000");
   });
-  it("R23 producer rereads report balances after successful comparison", () => {
+  it("R23 (fixed in #18) report serialises the compared snapshot; a later, changed balance read does not reach it", () => {
     expect(drifted.result.reconciliation?.after.safe).toBe(units("10000"));
-    expect(drifted.report.balances.safe).toBe("9900000000");
+    expect(drifted.report.balances.safe).toBe("10000000000");
     expect(drifted.report.reconciliation?.ok).toBe(true);
   });
-  it.fails("G07 business expectation: report closing snapshot equals reconciled snapshot", () => {
+  it("G07 business expectation: report closing snapshot equals reconciled snapshot", () => {
     expect(drifted.report.balances.safe).toBe(drifted.result.reconciliation!.after.safe.toString());
   });
 });
