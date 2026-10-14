@@ -12,15 +12,18 @@ The workbook in this version corrects remaining-shortfall reporting and explains
 its assumptions and limits. Numeric inputs and the original credit-sizing
 algorithm are unchanged. See [Workbook review](WORKBOOK_REVIEW.md).
 
-The finance pack is still the original English import at this stage. A separate
-review PR will correct its research and pitch claims. Publication is not approval
-of its pricing or proposed runtime changes. This is not a final deck, a timed
-rehearsal or a product approval.
+The [finance pack](finance-pack.md) now separates reviewed research, current demo
+behaviour and unapproved proposals. [Review findings](REVIEW.md) records the
+corrections, evidence, unresolved decisions and remaining task gates.
+Publication is not approval of pricing or proposed runtime changes. This is not
+a final deck, a timed rehearsal or a product approval.
 
 ## Files
 
 - [Finance pack](finance-pack.md): product research, forecast discussion,
   business case, paperwork notes, pitch script, Q&A and deck outline.
+- [Review findings](REVIEW.md): scope, research qualifications, source-template
+  reproduction and finance/technical follow-up.
 - [Cash-flow workbook](ragasa-cashflow.xlsx): the original five-sheet structure
   with reviewed shortfall reporting, labels, assumptions and chart.
 - `exports/*.csv`: values exported from this exact workbook, one file per sheet.
