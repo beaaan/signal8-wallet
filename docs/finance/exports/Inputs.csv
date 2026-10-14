@@ -1,19 +1,27 @@
 "Assumptions (blue = input, yellow = key assumption)",,,,
 ,,,,
-Assumption,A: Agent today,B: Recommended,Unit,Note / source
-Starting cash,20000.0,20000.0,$,"Our assumption: ~16 buffer days, the JPMorgan Chase Institute median for small restaurants"
-Weekly customer receipts (normal),10000.0,10000.0,$/wk,From storm.ts FORECAST (Notion card)
-"Weekly fixed costs (wages, rent, utilities)",9000.0,6300.0,$/wk,"A: all 9,000 treated as fixed. B: wages ~4,500 + rent/utilities ~1,800"
-"Variable cost (food, packaging) % of receipts",0.0,0.27,%,"A: none. B: food cost ~27% of sales (assumption, typical 25-35%)"
-Weekly receipts in disrupted weeks,1000.0,1000.0,$/wk,From storm.ts FORECAST
-Storm starts in week,2.0,2.0,week #,Signal 8 raised; Ragasa replay
-Disrupted weeks,6.0,6.0,weeks,From storm.ts FORECAST
-Cash buffer floor,10000.0,10000.0,$,"From storm.ts FORECAST: never below 10,000"
-Typhoon cover payout,20000.0,20000.0,$,"Replay payout, paid same week as signal"
-Cover paid in week,2.0,2.0,week #,"Parametric: pays on the signal, no loss adjuster"
-Credit line: max draw per storm without approval,15000.0,15000.0,$,data/fixtures/loan.txt
-Credit line: total limit,50000.0,50000.0,$,data/fixtures/loan.txt
-Safety margin (weeks of fixed cost) added to draw,0.0,2.0,weeks,A: none. B: headroom because the forecast can be wrong
-Interest rate,0.08,0.08,% p.a.,Assumption; check HKD Prime. HKMC SFGS overall cap ~10% p.a.
-Arrangement fee on each draw,0.01,0.01,% of draw,Assumption
-Sweep of customer receipts to repay,0.1,0.1,%,"loan.txt: 10%, paused in a storm"
+Assumption,A: Fixed-cost reference,B: Proposed split costs,Unit,Note / source
+Starting cash,20000,20000,mUSD,"Assumption: 20,000 opening cash; not the live Safe balance. US restaurant comparison only [S01]."
+Weekly customer receipts (normal),10000,10000,mUSD/week,Selected runtime FORECAST amount [S03]; actual collections are scenario assumptions.
+"Weekly fixed costs (wages, rent, utilities)",9000,6300,mUSD/week,"B: 6,300 aggregate assumption, not a validated wage/rent split. Monthly payroll 23,000 averages 5,307.69/week [S04]."
+"Variable cost (food, packaging) % of receipts",0,0.27,%,B: 27% scenario assumption; no shop-specific or Hong Kong market validation is claimed.
+Weekly receipts in disrupted weeks,1000,1000,mUSD/week,"Selected runtime FORECAST amount [S03], not measured Ragasa shop sales."
+Storm starts in week,2,2,week #,Scenario timing: one normal week before six disrupted weeks; not the post-payroll runtime horizon [S03].
+Disrupted weeks,6,6,weeks,"Six disrupted weeks are a demo assumption [S03], not the HKO warning duration."
+Cash buffer floor,10000,10000,mUSD,Target operating cash floor [S03]. Not guaranteed when caps bind or funding arrives late.
+Typhoon cover payout,20000,20000,mUSD,Fictional demo payout. Does not include an insurance premium or prove eligibility for a real product.
+Cover paid in week,2,2,week #,Scenario payout timing. The retained draw-sizing formula does not account for payout delay.
+Credit line: max draw per storm without approval,15000,15000,mUSD,Mock per-event limit [S05]. No change to signed limits.
+Credit line: total limit,50000,50000,mUSD,Mock total line [S05]. Opening debt assumed zero; this is not available room for an indebted borrower.
+Safety margin (weeks of fixed cost) added to draw,0,2,weeks,"B: proposed two-week headroom, not implemented in current runtime [S03]."
+Interest rate,0.08,0.08,% p.a.,"Illustrative 8% assumption. HKMC 10% overall ceiling is a dated 11 Nov 2024 snapshot [S02, p8], not a current quote or approval."
+Arrangement fee on each draw,0.01,0.01,% of draw,"Illustrative 1% on each draw, not a charge implemented by the mock lender."
+Sweep of customer receipts to repay,0.1,0.1,%,"10% gross-receipts sweep outside storm weeks [S05]. Repays principal, not operating expense."
+,,,,
+,,,,
+Source key (reviewed 14 October 2026),,,,
+S01,,,,https://www.jpmorganchase.com/institute/all-topics/business-growth-and-entrepreneurship/report-cash-flows-balances-and-buffer-days
+S02,,,,https://www.hkmc.com.hk/files/product_shortcut/6/74/eng/SFGS%20Factsheet_Eng%20eff%2018%20Nov%202024_Final%20clean.pdf
+S03,,,,https://github.com/beaaan/signal8-wallet/blob/24145ab39d5aaf7f0ba8840bc2acfcd3859d5e82/agent/src/loops/storm.ts
+S04,,,,https://github.com/beaaan/signal8-wallet/blob/24145ab39d5aaf7f0ba8840bc2acfcd3859d5e82/data/fixtures/payroll.json
+S05,,,,https://github.com/beaaan/signal8-wallet/blob/24145ab39d5aaf7f0ba8840bc2acfcd3859d5e82/data/fixtures/loan.txt

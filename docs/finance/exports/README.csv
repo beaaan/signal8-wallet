@@ -1,21 +1,23 @@
-"Signal 8 Wallet: 13-week cash-flow forecast, Mrs Chan's dim sum shop through Typhoon Ragasa"
-Card: 'Cash-flow forecast for the Ragasa storm' (FinTechathon 2026). Units: MockUSD (treated as USD).
+Signal 8 Wallet: illustrative 13-week cash-flow scenarios
+"Units: mUSD, a fictional USD-denominated demo token. 1 mUSD is treated as approximately US$1, not HK$1."
 ""
 How to use
-1. Change only BLUE cells on the Inputs sheet (yellow = key assumptions to defend). Everything else is formula.
-2. Scenario A = the agent's current FORECAST assumptions (agent/src/loops/storm.ts) as written on the Notion card.
-"3. Scenario B = recommended: splits costs into fixed (wages, rent) and variable (food), and adds a safety margin to the credit draw."
-"4. Forecast_A / Forecast_B: week-by-week cash, without the wallet and with it (cover payout + credit draw + 10% sweep)."
-5. Summary: side-by-side results and the chart for the deck.
+Change only blue cells on Inputs. The two supplied scenarios remain side-by-side; neither is an exact runtime replay.
+"A: fixed-cost reference scenario. It shares selected FORECAST amounts, not its cash balance, payroll timing or cost implementation."
+B: proposed fixed/variable costs and two-week headroom. These assumptions have not been adopted by the runtime or signed policy.
+"Forecast_A and Forecast_B compare no emergency funding with simulated cover plus credit. Credit creates debt, not revenue."
+Summary shows week-end balances. Its remaining shortfall also checks opening cash; neither view establishes intra-week liquidity.
 ""
-Credit draw rule modelled (what the agent should do at Signal 8):
-"draw = MIN(cap, MAX(0, buffer - (lowest projected cash without wallet + cover payout)) + safety margin weeks x weekly fixed cost)"
-Interest is paid weekly in cash; the 10% sweep of customer payments repays principal and is paused during storm weeks.
-""
-Sources for benchmark numbers
-"Cash buffer: JPMorgan Chase Institute, 'Cash is King: Flows, Balances, and Buffer Days' (2016): median small business 27 buffer days, median small restaurant 16 days."
-  NOTE: the pitch outline credits the 27-day figure to the NY Fed. The source is the JPMorgan Chase Institute.
-"Starting cash 20,000 = 15.6 days of 9,000/week outflows, i.e. roughly the median restaurant buffer (16 days). This is OUR assumption: replace with the value in storm.ts if it differs."
-"Signal 8+ frequency ~1.4 per year (51 events 1980-2016), average duration ~13 hours: Swiss Re Corporate Solutions, Insur8 product page."
-Food cost 27% of sales in Scenario B: typical full-service restaurant range is roughly 25-35%; flagged as an assumption to confirm.
-Interest 8% p.a.: assumption for an unsecured SME revolving line in HKD (HKMC SFGS caps overall rate at ~10% p.a.). Check current HKD Prime before the pitch.
+Credit draw sizing retained for comparison
+The original pre-cost sizing formula is retained. It offsets cover against the projected minimum without respecting payout timing.
+"Remaining shortfall is now measured from actual modelled cash flows after costs, capped credit, payout timing and sweep."
+Interest uses opening debt / 52 and is paid weekly. No interest is charged in the draw week. Opening debt is assumed zero.
+"Excluded: insurance premium, undrawn commitment fee, statutory employment costs and full monthly payroll payment timing."
+A 10% gross-receipts sweep repays principal outside disrupted weeks. Credit may remain at week 13.
+Source IDs are defined on Inputs. Scenario assumptions are not market quotations or regulatory approval.
+"The 16-day restaurant / 27-day small-business medians are from a 2016 US study using 2015 accounts, not current Hong Kong data."
+"Starting cash 20,000 is a scenario assumption. At 9,000 weekly outflows this corresponds to 15.6 days, not a validated shop reserve."
+"Fixed cost 6,300 and variable cost 27% remain unvalidated proposals. Payroll averages 23,000 x 12 / 52 = 5,307.69 weekly."
+"The 8% rate and 1% draw fee are illustrative. The HKMC ceiling cited is a dated 11 November 2024 snapshot, including relevant fees."
+"Negative cash represents an unmet funding requirement, not an approved overdraft. The 10,000 operating floor is a target, not a guarantee."
+"Chart: illustrative scenario B. It compares financing assumptions, not the isolated causal benefit of an AI wallet."
