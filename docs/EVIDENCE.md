@@ -17,9 +17,24 @@ Topic F requires real transaction hashes. `npm run evidence` prints the rows fro
 | MockMMFVault | [`0xba7F8bEA8EE05bCF838546Be239e470640eFe1eF`](https://sepolia.basescan.org/address/0xba7F8bEA8EE05bCF838546Be239e470640eFe1eF) | [`0x4cf6b52e…`](https://sepolia.basescan.org/tx/0x4cf6b52eee5b1a7f5d2d12faa14de932f5f2c2e1799cbae67fc37e0076c0854a) |
 | EvidenceRegistry | [`0xeB7D846D782d6C69c28Caa2B2eD2d155125B8382`](https://sepolia.basescan.org/address/0xeB7D846D782d6C69c28Caa2B2eD2d155125B8382) | [`0xcd5a1568…`](https://sepolia.basescan.org/tx/0xcd5a15686d3ee2f5c129d183047c8d1154de3861be4586c6e9e4e9a4eb4e643a) |
 
-Source code: all nine project contracts are verified as an **exact match** on [Sourcify](https://repo.sourcify.dev/84532/0x12F764eEFb924d6109af638a218bDDAD96607c4A) and verified on [Blockscout](https://base-sepolia.blockscout.com/address/0x12F764eEFb924d6109af638a218bDDAD96607c4A?tab=contract) (14 Oct, `contracts/script/verify-keyless.sh`; the links show PlanModule, the other addresses work the same way). Basescan verification still needs a Basescan API key. The verified PlanGuard source is the one deployed on 10 Oct; the repo's `PlanGuard.sol` has since gained a one-line fix (SECURITY.md known risk 7), so a newly deployed guard will differ from `0x10A1…5F8e`.
+Source code: all nine project contracts are verified as an **exact match** on [Sourcify](https://repo.sourcify.dev/84532/0x12F764eEFb924d6109af638a218bDDAD96607c4A) and verified on [Blockscout](https://base-sepolia.blockscout.com/address/0x12F764eEFb924d6109af638a218bDDAD96607c4A?tab=contract) (14 Oct, `contracts/script/verify-keyless.sh`; the links show PlanModule, the other addresses work the same way). Basescan verification still needs a Basescan API key. The verified PlanGuard source is the one deployed on 10 Oct; the repo's `PlanGuard.sol` has since gained a one-line fix (SECURITY.md known risk 7), so a newly deployed guard will differ from `0x10A1…5F8e`. The throwaway-Safe guard below is deployed from the current source and verified the same way.
 
-Safe v1.4.1 (SafeL2 singleton, canonical SafeProxyFactory). Owners enabled PlanModule with two signatures in [`0x630e9e9d…`](https://sepolia.basescan.org/tx/0x630e9e9daaec9ee6b78b66c79a3e3d046dad9a6a677fe4c965ad1c8eb3cd4967). PlanGuard is deployed but not set on the Safe (SECURITY.md known risk 7). The three owner keys are testnet keys held together for now (SECURITY.md known risk 19).
+Safe v1.4.1 (SafeL2 singleton, canonical SafeProxyFactory). Owners enabled PlanModule with two signatures in [`0x630e9e9d…`](https://sepolia.basescan.org/tx/0x630e9e9daaec9ee6b78b66c79a3e3d046dad9a6a677fe4c965ad1c8eb3cd4967). PlanGuard is not set on the demo Safe; it is set on a separate throwaway Safe below (SECURITY.md known risk 7). The three owner keys are testnet keys held together for now (SECURITY.md known risk 19).
+
+### PlanGuard on a throwaway Safe (14 Oct)
+
+`contracts/script/ThrowawayGuard.s.sol`, broadcast on 14 Oct (blocks 48109434 to 48109438; full record in `contracts/deployments/base-sepolia-throwaway-guard.json`). A new 1-of-1 Safe v1.4.1 owned by the deployer key, with a `PlanGuard` built from the current source (Sourcify exact match, Blockscout verified). This is not the demo Safe.
+
+| Step | Address or Safe tx | Transaction |
+| --- | --- | --- |
+| Throwaway Safe created (1-of-1, SafeL2 v1.4.1) | [`0x1C78d136aE3277D93EA5db3D994cDAf1396e21A6`](https://sepolia.basescan.org/address/0x1C78d136aE3277D93EA5db3D994cDAf1396e21A6) | [`0x25716846…`](https://sepolia.basescan.org/tx/0x257168461f4dc8befa58ba857bd6c9067fa4bb6f37d8795e9659db700b476645) |
+| PlanGuard deployed, bound to that Safe | [`0xA3e176F0b23E8D6d58b1c36A8A3EB950E8067c65`](https://sepolia.basescan.org/address/0xA3e176F0b23E8D6d58b1c36A8A3EB950E8067c65) | [`0x7c01b16c…`](https://sepolia.basescan.org/tx/0x7c01b16c891bfefeb1187786a9cc8f1018868122c29d85cd3b43f9324abd58d2) |
+| 1 mUSD minted to the Safe | | [`0xeee60e6e…`](https://sepolia.basescan.org/tx/0xeee60e6e834e11876530786b791047dde7b9acbcffe9f8cae2e03a15712e3dc9) |
+| `setGuard(PlanGuard)` as a Safe transaction the owner signs | Safe tx `0xb5eaaf62…` | [`0x3b850751…`](https://sepolia.basescan.org/tx/0x3b850751ec36253d699343d197baa35bab6fc399b3e1182f03fd4c96c8dfcf53) |
+| Allowed Safe transaction through the guard: 1 mUSD back to the owner | Safe tx `0x2b87bd01…` | [`0x913a8c3b…`](https://sepolia.basescan.org/tx/0x913a8c3b19549576ff223820530e8562bb70ddcf1dfd2c804e5669dca9edfa80) |
+| Blocked: `addOwnerWithThreshold`, `setGuard(address(0))` | not sent | reverts with `Blocked(0x0d582f13)` and `Blocked(0xe19a9dd9)` |
+
+The two blocked transactions are simulations, not transactions: the script requires each to revert before it broadcasts anything, and after the broadcast an `eth_call` of the owner-signed `execTransaction` against the live Safe reverted with the same `PlanGuard.Blocked(selector)` data. The Safe's guard storage slot holds the guard's address, and `guard.safe()` returns the throwaway Safe. Gas: 259 k (Safe), 798 k (guard), 53 k (mint), 101 k (`setGuard`), 95 k (transfer).
 
 ## What each step of the demo leaves on-chain
 
