@@ -87,6 +87,8 @@ Run id: 1791607899 (base-sepolia, chain 84532); GDACS TC-1001211 salted as TC-10
 
 **Local chain only.** These hashes are from a 4-node FISCO BCOS v3.16.3 Air chain that we ran on one machine (web3 RPC on 127.0.0.1:8545, chain id 20200). There is no public explorer; they can be checked only on our node, and a rebuilt chain gives different hashes. Nothing here touched Base Sepolia or any public chain. Keys were throwaway keys made for this chain.
 
+After the reconciliation fixes (issue #18) were merged, the same replay was run again on that chain against a fresh deployment of the merged code (run 1791983271): 28 transactions instead of 27, the extra one anchoring the new storm-period report, which reconciled with debt "ok" and transfer coverage "complete"; the fake Zalo message was again refused. The table below is the first run, matching `contracts/deployments/fisco.json`.
+
 Run 1791982399 on 14 Oct 2026, 19:53 to 19:54 ICT (12:53 to 12:54 UTC), `MODEL_PROVIDER=rules`, `--speed 3600 --skip-everyday` (no ordinary day: the Yagi fixtures have no supplier invoices). GDACS TC-1001090 salted as TC-1001090#1791982399 = `0x51dc4d0785c69363121311a6048bf01e63b55343a9f254d323f695473b94faf9`. Times are the recorded 2024 times in ICT; the warning times in `data/replays/yagi-2024.json` are still marked approximate. Amounts are in mVND, a mock bank-issued VND deposit token (crypto is not a lawful means of payment in Vietnam), with 6 decimals like mUSD.
 
 | # | Time (ICT) | Event | Action | Tx hash |
