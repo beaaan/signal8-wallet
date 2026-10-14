@@ -18,16 +18,36 @@ The agent is controlled the way a bank controls a junior treasurer. Every contro
 
 ## 3. Bank controls mapped to contract rules
 
-| Bank control | Contract rule | Attack it stops |
+This table maps selected banking and treasury control concepts to the demo.
+It distinguishes on-chain restrictions, backend checks and owner procedures.
+It is not a claim of banking regulatory compliance or production readiness.
+Each control reduces specific risks within the stated scope; it does not
+eliminate fraud or verify every business obligation.
+
+| Control | Prototype mechanism / layer | Risk mitigated | Current limitations |
+| --- | --- | --- | --- |
+| Payment and credit limits (支付及信贷限额管理) | `PlanModule` enforces per-payment, per-plan daily, overall payment and per-event credit limits. | Excessive payments or borrowing through the agent path. | The payment ceiling covers module payments, not every Safe movement. A fraudulent payment can still fit within a limit. |
+| Maker-checker / dual approval (双人复核) | On Base Sepolia, the agent may create an outside-plan payment proposal as a Safe delegate. Executing that payment requires signatures from two of the three Safe owners. | Unilateral approval of exceptional payments. | Within-plan actions are pre-authorised, not individually checked by two humans. Independent owner custody is not established in the documented demo; see known risk 19. |
+| Segregation of duties (职责分离) | Agent execution privileges are separated from owner administration privileges. | Agent privilege escalation. | Technical role separation is not a complete separation of payment, accounting and independent review functions. Deployment limitations remain in the known-risk list. |
+| Payee-change delay | Subsequent payee changes pass through the owner-controlled 24-hour timelock. | Immediate activation of an unauthorised recipient change. | The delay is a project parameter, not identity verification. Bootstrap configuration bypasses it; removal also waits, so containment may require pausing. |
+| Duplicate-payment control | The backend constructs invoice/payroll references; the module rejects reuse of a submitted reference. | Re-execution of the same referenced payment. | This is not complete invoice-balance accounting. Direct owner payments, reissued invoices and instalments require additional accounting controls; see known risk 15 and issue #16. |
+| Two-source corroboration | Storm activation pairs fresh local-weather and GDACS attestations from distinct registered relayer addresses. | Activation from a single forged source attestation. | Distinct addresses do not prove independent operators or accurate source data. This is a project-specific oracle safeguard, not a universal banking requirement. |
+| Reconciliation and exception detection | The backend compares recorded Safe/fund movements and applicable module spending counters against chain readings. | Unexplained differences within the compared scope. | It is not complete transaction or debt reconciliation. Snapshot and report-failure paths have confirmed gaps; see issue #18. An unchecked report is not verified. |
+| Emergency suspension | Safe, guardian or agent can request module pause without a timelock; only Safe can unpause. | Further agent actions through the paused module. | Confirmation depends on the network. Pause does not reverse settled payments or freeze every Safe/router path. Recovery requires owner action. |
+
+### Additional operational controls — proposed
+
+The following are recommended operational controls, not newly implemented
+features or amendments to the signed policy. Owners must approve their
+adoption and responsibilities.
+
+| Recommended control | Current status | Proposed owner procedure |
 | --- | --- | --- |
-| Limits (额度管理) | Per-payment cap, per-plan daily cap, overall daily ceiling, per-event credit cap in `PlanModule` | Draining the wallet in one go |
-| Maker-checker (双人复核) | Agent proposes as a Safe delegate; outside the plan two human owners sign | One bad decision moving large sums |
-| Separation of duties (印押证分管) | The agent key can execute typed plan actions but cannot sign Safe transactions, add payees, raise limits or edit plans | Permission escalation (the Grok wallet NFT pattern) |
-| New-payee cooling-off | Adding or changing a payee goes through the 24 h timelock | Fake "we changed our bank details" invoices |
-| Duplicate-payment check | Each invoice (per payee, number normalised so "LK 0917" = "LK-0917") or payroll period has a `ref` that executes once; the agent also never pays or re-proposes a ref it already sent to the owners | Duplicate invoices, double payroll runs |
-| Two independent sources | Storm mode needs fresh HKO and GDACS attestations from separate relayers; the attestor refuses one address for two sources, HKO counts only for Hong Kong and NCHMF only elsewhere, and the pairing happens on-chain | A fake warning or one compromised feed |
-| End-of-day reconciliation | Ledger vs chain mismatch pauses the agent | Silent drift or unnoticed theft |
-| Kill switch | Guardian key (or the agent itself, on a failed reconciliation) can pause instantly | Anything unforeseen |
+| Payee verification and change evidence | Registered addresses and a timelock do not establish the real recipient's identity. | Confirm new or changed payment details through a trusted contact channel independent of the request; retain verification and approval records. |
+| Audit trail and evidence retention | Decision logs and report anchors exist, but anchoring does not establish completeness or preserve the underlying files. | Retain original reports, logs, run metadata and receipts; restrict modification and preserve recoverable copies. |
+| Periodic limit and access review | Owners can change configuration; an automated review process is not established. | Record reviews before deployment, periodically at an owner-approved cadence and after material business or role changes. |
+| Exception review and escalation | Proposals, refusals and inflow flags exist; complete follow-through is not established. | Record an owner responsible for investigating each material exception and retain its resolution, including direct owner payments. |
+| Key custody and incident recovery | Independent owner custody and a fully tested recovery procedure are not established. | Separate owner-key custody; document emergency responsibilities and rehearse pause, investigation and authorised recovery. |
 
 ## 4. Threats and responses
 
