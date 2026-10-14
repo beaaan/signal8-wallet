@@ -1,0 +1,19 @@
+"Assumptions (blue = input, yellow = key assumption)",,,,
+,,,,
+Assumption,A: Agent today,B: Recommended,Unit,Note / source
+Starting cash,20000.0,20000.0,$,"Our assumption: ~16 buffer days, the JPMorgan Chase Institute median for small restaurants"
+Weekly customer receipts (normal),10000.0,10000.0,$/wk,From storm.ts FORECAST (Notion card)
+"Weekly fixed costs (wages, rent, utilities)",9000.0,6300.0,$/wk,"A: all 9,000 treated as fixed. B: wages ~4,500 + rent/utilities ~1,800"
+"Variable cost (food, packaging) % of receipts",0.0,0.27,%,"A: none. B: food cost ~27% of sales (assumption, typical 25-35%)"
+Weekly receipts in disrupted weeks,1000.0,1000.0,$/wk,From storm.ts FORECAST
+Storm starts in week,2.0,2.0,week #,Signal 8 raised; Ragasa replay
+Disrupted weeks,6.0,6.0,weeks,From storm.ts FORECAST
+Cash buffer floor,10000.0,10000.0,$,"From storm.ts FORECAST: never below 10,000"
+Typhoon cover payout,20000.0,20000.0,$,"Replay payout, paid same week as signal"
+Cover paid in week,2.0,2.0,week #,"Parametric: pays on the signal, no loss adjuster"
+Credit line: max draw per storm without approval,15000.0,15000.0,$,data/fixtures/loan.txt
+Credit line: total limit,50000.0,50000.0,$,data/fixtures/loan.txt
+Safety margin (weeks of fixed cost) added to draw,0.0,2.0,weeks,A: none. B: headroom because the forecast can be wrong
+Interest rate,0.08,0.08,% p.a.,Assumption; check HKD Prime. HKMC SFGS overall cap ~10% p.a.
+Arrangement fee on each draw,0.01,0.01,% of draw,Assumption
+Sweep of customer receipts to repay,0.1,0.1,%,"loan.txt: 10%, paused in a storm"

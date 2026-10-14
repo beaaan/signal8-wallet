@@ -1,0 +1,29 @@
+"Summary: does 20,000 cover + 15,000 credit keep Mrs Chan above the 10,000 floor?",,,
+,,,
+Metric,A: Agent today,B: Recommended,Reading
+Lowest cash WITHOUT wallet,-27000,-12420,Negative = shop cannot pay staff/suppliers
+Weeks below zero WITHOUT wallet,10,9,
+Credit draw at Signal 8,15000,15000,"Capped at 15,000 without owner approval"
+Unfunded gap vs buffer,2000,0,> 0 means the replay numbers are NOT enough
+Lowest cash WITH wallet,7619.230769,21000,Should be >= buffer floor
+Weeks below buffer WITH wallet,7,0,
+Interest + fees over 13 weeks,380.7692308,380.7692308,Cost of the emergency credit
+Loan still owed at week 13,9000,9000,Repaid by the 10% sweep after the storm
+Cash at week 13 WITH wallet,7619.230769,22199.23077,
+,,,
+,,,
+Chart data (Scenario B): shop cash through Ragasa,,,
+Week,Without Signal 8 Wallet,With Signal 8 Wallet,Buffer floor
+1.0,21000,21000,10000
+2.0,15430,50280,10000
+3.0,9860,44686.92308,10000
+4.0,4290,39093.84615,10000
+5.0,-1280,33500.76923,10000
+6.0,-6850,27907.69231,10000
+7.0,-12420,22314.61538,10000
+8.0,-11420,22291.53846,10000
+9.0,-10420,22270,10000
+10.0,-9420,22250,10000
+11.0,-8420,22231.53846,10000
+12.0,-7420,22214.61538,10000
+13.0,-6420,22199.23077,10000

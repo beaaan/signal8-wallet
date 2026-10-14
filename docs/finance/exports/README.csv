@@ -1,0 +1,21 @@
+"Signal 8 Wallet: 13-week cash-flow forecast, Mrs Chan's dim sum shop through Typhoon Ragasa"
+Card: 'Cash-flow forecast for the Ragasa storm' (FinTechathon 2026). Units: MockUSD (treated as USD).
+""
+How to use
+1. Change only BLUE cells on the Inputs sheet (yellow = key assumptions to defend). Everything else is formula.
+2. Scenario A = the agent's current FORECAST assumptions (agent/src/loops/storm.ts) as written on the Notion card.
+"3. Scenario B = recommended: splits costs into fixed (wages, rent) and variable (food), and adds a safety margin to the credit draw."
+"4. Forecast_A / Forecast_B: week-by-week cash, without the wallet and with it (cover payout + credit draw + 10% sweep)."
+5. Summary: side-by-side results and the chart for the deck.
+""
+Credit draw rule modelled (what the agent should do at Signal 8):
+"draw = MIN(cap, MAX(0, buffer - (lowest projected cash without wallet + cover payout)) + safety margin weeks x weekly fixed cost)"
+Interest is paid weekly in cash; the 10% sweep of customer payments repays principal and is paused during storm weeks.
+""
+Sources for benchmark numbers
+"Cash buffer: JPMorgan Chase Institute, 'Cash is King: Flows, Balances, and Buffer Days' (2016): median small business 27 buffer days, median small restaurant 16 days."
+  NOTE: the pitch outline credits the 27-day figure to the NY Fed. The source is the JPMorgan Chase Institute.
+"Starting cash 20,000 = 15.6 days of 9,000/week outflows, i.e. roughly the median restaurant buffer (16 days). This is OUR assumption: replace with the value in storm.ts if it differs."
+"Signal 8+ frequency ~1.4 per year (51 events 1980-2016), average duration ~13 hours: Swiss Re Corporate Solutions, Insur8 product page."
+Food cost 27% of sales in Scenario B: typical full-service restaurant range is roughly 25-35%; flagged as an assumption to confirm.
+Interest 8% p.a.: assumption for an unsecured SME revolving line in HKD (HKMC SFGS caps overall rate at ~10% p.a.). Check current HKD Prime before the pitch.
