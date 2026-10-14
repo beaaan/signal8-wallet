@@ -39,4 +39,6 @@ source ../.env   # SAFE_ADDRESS, DEPLOYER_PRIVATE_KEY, AGENT_ADDRESS, GUARDIAN_A
 forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
 ```
 
+`--verify` needs `BASESCAN_API_KEY`. Without one, `script/verify-keyless.sh` verifies every contract in the broadcast file on [Sourcify](https://sourcify.dev) and on [Blockscout](https://base-sepolia.blockscout.com), neither of which needs a key; the 10 Oct deployment is verified there (all nine contracts an exact match on Sourcify). Rerun it after a redeploy; Blockscout rate-limits, so rerun for any "Too many requests".
+
 Optional: `REGION` (must match the params file's `region`), `MULTISEND_CALL_ONLY` (default: the canonical Safe v1.4.1 address), `NCHMF_RELAYER_ADDRESS`, `TIME_UNIT`, `ATTESTOR_CHAIN_ID`. The script refuses params whose plan hashes disagree and relayer addresses that repeat. On a local fork of Base Sepolia (chain id 84532 but a rehearsal) set `NETWORK=anvil-fork`, so the real `deployments/base-sepolia.json` is not overwritten.
