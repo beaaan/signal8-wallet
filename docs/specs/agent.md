@@ -155,7 +155,7 @@ Deterministic state machine; the planner only fills amounts.
 | On | Do |
 | --- | --- |
 | level 1 | read storm plan hash; notify the owner with a one-line summary |
-| level 3 (rising) | `vault_withdraw` to reach the storm buffer; pause scheduled non-urgent payments locally; `anchor PRE_STORM` (hash of photos + warning snapshot) |
+| level 3 (rising) | `vault_withdraw` to reach the storm buffer; pause scheduled non-urgent payments locally; `anchor PRE_STORM` (hash of the warning snapshot plus the hashes of any photos the owner supplies; none in the replays, and the drafts say so) |
 | storm starts (attestor event) | `cover_claim`; re-run forecast |
 | payday while storm | `pay` each employee under the storm plan (staff are storm-plan payees); if forecast < buffer then `credit_draw` sized by forecast, capped by `creditCapPerEvent` |
 | payday, no storm | payroll goes to the owners as one Safe proposal (staff are not base-plan payees) |

@@ -109,7 +109,8 @@ export interface HeldInfo {
 export interface StormRecord {
   stormStart?: Date;
   stormEnd?: Date;
-  preStorm?: { hash: Hex; tx?: Hex; signal: string; at: Date };
+  /** `files`: the photo and stock-record hashes the record commits to (empty in the replays). */
+  preStorm?: { hash: Hex; tx?: Hex; signal: string; at: Date; files: string[] };
   cover?: { tx?: Hex; payout?: bigint; eventId?: Hex };
   credit?: { amount: bigint; tx?: Hex };
   payrollPaidInStorm: boolean;
@@ -219,7 +220,7 @@ export class StormLoop {
     const evidence = { kind: "PRE_STORM", signal: code, sourceTime: sourceTime.toISOString(), runId: this.d.runId ?? null, photos: [] as string[] };
     const hash = keccak256(stringToBytes(canonicalJson(evidence)));
     const r = await this.d.sink.run({ type: "anchor", kind: "PRE_STORM", hash }, input);
-    this.record.preStorm = { hash, tx: r.tx, signal: code, at: sourceTime };
+    this.record.preStorm = { hash, tx: r.tx, signal: code, at: sourceTime, files: evidence.photos };
   }
 
   async onPayday(): Promise<void> {

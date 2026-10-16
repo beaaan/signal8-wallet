@@ -34,9 +34,12 @@ export interface DraftContext {
   chainId: number;
   stormStart?: Date; // official time the storm trigger fired (Signal 8 / risk level 4)
   stormEnd: Date; // official time it ended (Signal 3 or below)
+  /** When the drafts are written (default: now). Never backdated: a historical replay is labelled as one instead. */
+  generatedAt?: Date;
   safe: Hex;
   cover?: { contract: Hex; eventId?: Hex; tx?: Hex; payout?: bigint };
-  preStorm?: { hash: Hex; tx?: Hex; signal?: string; at?: Date };
+  /** `files`: hashes of the owner's photos and stock records the PRE_STORM record commits to (none in the replays). */
+  preStorm?: { hash: Hex; tx?: Hex; signal?: string; at?: Date; files?: string[] };
   credit?: { amount: bigint; tx?: Hex; outstanding?: bigint };
   payroll: { period: string; payday: string; total: bigint; staff: number; paidInStorm: boolean };
   held: HeldPayment[];
@@ -60,6 +63,8 @@ export interface Draft {
 
 const CLAIM_WINDOW_DAYS = 30;
 const SWEEP_PERCENT = 10;
+/** Circular 53/2024/TT-NHNN: banks restructure repayment terms until 31 Dec 2025. */
+export const CIRCULAR53_LAST_DAY = "2025-12-31";
 
 export const isVietnam = (region: string) => region.startsWith("VN");
 
@@ -90,29 +95,79 @@ function nextMonth(ymd: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** The day the drafts are prepared, in the business's time zone. */
+const preparedOn = (c: DraftContext) => day(c.generatedAt ?? new Date(), c.timeZone);
+
+/** The demo claim deadline (fictional terms, not a real policy) and whether it had passed when the drafts were prepared. */
+export function claimDeadline(c: DraftContext): { date: string; days: number; passed: boolean } {
+  const days = c.terms?.claimWindowDays ?? CLAIM_WINDOW_DAYS;
+  const date = addDays(day(c.stormEnd, c.timeZone), days);
+  return { date, days, passed: date < preparedOn(c) };
+}
+
+/** Whether the Circular 53/2024 restructuring window had closed when the drafts were prepared. */
+export const circular53Closed = (c: DraftContext) => CIRCULAR53_LAST_DAY < preparedOn(c);
+
+/** What the PRE_STORM hash actually covers. It never claims photos or stock records the record does not commit to. */
+function evidenceNote(c: DraftContext, lang: "en" | "zh-Hant" | "vi"): string {
+  const files = c.preStorm?.files?.length ?? 0;
+  const text = {
+    en: {
+      none: "No pre-storm evidence was recorded for this event.",
+      snapshot:
+        "The pre-storm hash covers only the storm warning the agent recorded (signal, time and run id). No photos or stock records were supplied, so it does not cover any. Attach photos and receipts separately; this hash does not prove them.",
+      files: `The pre-storm hash covers the storm warning the agent recorded and the ${files} file hash(es) in that record. Anyone holding those files can recompute it and compare it with the anchored value.`,
+      unanchored: " It was not anchored on a chain.",
+    },
+    "zh-Hant": {
+      none: "本次事件沒有風暴前證據紀錄。",
+      snapshot: "風暴前證據雜湊只對應助理記錄的颱風警告（信號、時間及執行編號）。由於沒有提供相片或存貨紀錄，雜湊並不包括這些資料。如有相片及收據，請另行附上；此雜湊不能證明它們。",
+      files: `風暴前證據雜湊對應助理記錄的颱風警告，以及該紀錄所列的 ${files} 個檔案雜湊。持有這些檔案的人可重新計算雜湊並與鏈上紀錄比對。`,
+      unanchored: "此雜湊未有上鏈。",
+    },
+    vi: {
+      none: "Chưa có bằng chứng trước bão hoặc giao dịch ghi nhận được xác minh trong bản nháp này.",
+      snapshot:
+        "Mã băm PRE_STORM chỉ ghi nhận cảnh báo bão do trợ lý lưu (cấp tín hiệu, thời điểm, mã lần chạy). Chưa có ảnh hay sổ sách hàng tồn kho nào được cung cấp, nên mã băm không bao gồm các tài liệu đó; ảnh và chứng từ (nếu có) phải nộp riêng.",
+      files: `Mã băm PRE_STORM ghi nhận cảnh báo bão do trợ lý lưu và ${files} mã băm tệp trong bản ghi đó; người có các tệp này có thể tính lại mã băm để đối chiếu.`,
+      unanchored: " Mã băm này chưa được ghi lên chuỗi khối.",
+    },
+  }[lang];
+  if (!c.preStorm) return text.none;
+  return (files ? text.files : text.snapshot) + (c.preStorm.tx ? "" : text.unanchored);
+}
+
 const DRAFT_NOTE = "_Draft prepared by the Signal 8 Wallet agent. Check every figure, sign and send it yourself; the agent never sends it._";
 
 export function claimLetterEn(c: DraftContext): Draft {
   const tz = c.timeZone;
-  const window = c.terms?.claimWindowDays ?? CLAIM_WINDOW_DAYS;
+  const deadline = claimDeadline(c);
+  const prepared = preparedOn(c);
   const lines = [
     `# Insurance claim: ${c.eventName}`,
     "",
     DRAFT_NOTE,
     "",
+    ...(deadline.passed
+      ? [`> **Historical replay.** ${c.eventName} ended on ${day(c.stormEnd, tz)}. The demo claim deadline (${deadline.date}) had already passed when this draft was prepared on ${prepared}. Do not send it as a current claim.`, ""]
+      : []),
     `To: the Insurer, typhoon cover (parametric)`,
     `From: ${c.business}`,
-    `Date: ${day(new Date(), tz)}`,
+    `Prepared on: ${prepared}`,
     `Re: ${c.eventName}, ${c.stormStart ? `${stamp(c.stormStart, tz)} to ` : "ended "}${stamp(c.stormEnd, tz)}`,
     "",
     "Dear Sir or Madam,",
     "",
-    `We write to confirm the parametric benefit already paid under our typhoon cover for ${c.eventName}, and to claim for the losses the benefit does not cover.`,
+    c.cover?.payout !== undefined
+      ? `We write to confirm the parametric benefit recorded under our typhoon cover for ${c.eventName}.`
+      : `We write about our typhoon cover for ${c.eventName}.`,
+    "Whether the policy covers any loss beyond the parametric benefit depends on its terms, which the owner confirms before sending.",
     "",
     "## Facts on record",
     "",
     `| Item | Value |`,
     `| --- | --- |`,
+    `| Policy number | (owner to confirm) |`,
     `| Insured account (Safe) | \`${c.safe}\` |`,
     `| Cover contract | ${c.cover ? `\`${c.cover.contract}\`` : "(not claimed)"} |`,
     `| Cover event id | ${c.cover?.eventId ? `\`${c.cover.eventId}\`` : "(not recorded)"} |`,
@@ -123,15 +178,16 @@ export function claimLetterEn(c: DraftContext): Draft {
     `| Evidence taken at | ${c.preStorm?.at ? `${stamp(c.preStorm.at, tz)}${c.preStorm.signal ? `, signal ${c.preStorm.signal}` : ""}` : "(none)"} |`,
     `| Network | ${c.network} (chain id ${c.chainId}) |`,
     "",
-    "The pre-storm evidence hash commits to our premises photos and stock records taken before the storm arrived. We can provide the original files; anyone can recompute the hash and compare it with the anchored value.",
+    evidenceNote(c, "en"),
     "",
-    "## Losses claimed beyond the parametric benefit",
+    "## Other losses (only if the policy covers them)",
     "",
     "| Loss | Amount | Evidence |",
     "| --- | --- | --- |",
-    "| (stock spoiled, repairs, lost trading days) | (owner to fill) | (photos, receipts) |",
+    "| (owner confirms cover first: stock spoiled, repairs, lost trading days) | (owner to fill) | (photos, receipts supplied by the owner) |",
     "",
-    `We understand claims must be lodged within ${window} days of the event (by ${addDays(day(c.stormEnd, tz), window)}). Please confirm receipt and the documents you need.`,
+    `The claim deadline is set by the policy; the owner confirms it before sending. This draft uses a demo default of ${deadline.days} days after the event (${deadline.date})${deadline.passed ? `, which had passed by ${prepared}` : ""}.`,
+    "Please confirm receipt and the documents you need.",
     "",
     "Yours faithfully,",
     "",
@@ -144,23 +200,27 @@ export function claimLetterEn(c: DraftContext): Draft {
 
 export function claimLetterZhHant(c: DraftContext): Draft {
   const tz = c.timeZone;
-  const window = c.terms?.claimWindowDays ?? CLAIM_WINDOW_DAYS;
+  const deadline = claimDeadline(c);
+  const prepared = preparedOn(c);
   const lines = [
     `# 保險索償：${c.eventName}`,
     "",
     "_此信由 Signal 8 Wallet 助理草擬。請核對所有數字，由東主簽署及寄出；助理不會代為寄出。_",
     "",
+    ...(deadline.passed ? [`> **歷史重播。** ${c.eventName} 已於 ${day(c.stormEnd, tz)} 結束；本稿於 ${prepared} 擬備時，示範索償期限（${deadline.date}）已過。請勿作為現時索償寄出。`, ""] : []),
     `致：保險公司（颱風參數保險）`,
     `寄件人：${c.business}`,
-    `日期：${day(new Date(), tz)}`,
+    `擬稿日期：${prepared}`,
     `事由：${c.eventName}，${c.stormStart ? `${stamp(c.stormStart, tz)} 至 ` : ""}${stamp(c.stormEnd, tz)}`,
     "",
     "敬啟者：",
     "",
-    `本店確認已收到 ${c.eventName} 的颱風參數保險賠款，並就賠款未涵蓋的損失提出索償。`,
+    c.cover?.payout !== undefined ? `本店就 ${c.eventName} 的颱風參數保險，確認已記錄的參數賠款。` : `本店就 ${c.eventName} 的颱風參數保險致函。`,
+    "保單是否涵蓋參數賠款以外的損失，須以保單條款為準，由東主寄出前確認。",
     "",
     "| 項目 | 內容 |",
     "| --- | --- |",
+    `| 保單編號 | （東主確認） |`,
     `| 受保帳戶（Safe） | \`${c.safe}\` |`,
     `| 保險合約 | ${c.cover ? `\`${c.cover.contract}\`` : "（未申領）"} |`,
     `| 保險事件編號 | ${c.cover?.eventId ? `\`${c.cover.eventId}\`` : "（未記錄）"} |`,
@@ -169,13 +229,14 @@ export function claimLetterZhHant(c: DraftContext): Draft {
     `| 風暴前證據雜湊（PRE_STORM） | ${c.preStorm ? `\`${c.preStorm.hash}\`` : "（無）"} |`,
     `| 證據上鏈交易 | ${explorerTx(c.chainId, c.preStorm?.tx)} |`,
     "",
-    "風暴前證據雜湊對應本店於風暴前拍攝的店舖相片及存貨紀錄，原檔可隨時提供，任何人都可重新計算雜湊並與鏈上紀錄比對。",
+    evidenceNote(c, "zh-Hant"),
     "",
-    "| 其他損失 | 金額 | 證明 |",
+    "| 其他損失（僅限保單涵蓋者） | 金額 | 證明 |",
     "| --- | --- | --- |",
-    "| （變壞存貨、維修、停業日數） | （東主填寫） | （相片、收據） |",
+    "| （東主先確認保障範圍：變壞存貨、維修、停業日數） | （東主填寫） | （東主提供的相片、收據） |",
     "",
-    `據我們理解，索償須於事件後 ${window} 日內（即 ${addDays(day(c.stormEnd, tz), window)} 或之前）提出。請確認收妥並告知所需文件。`,
+    `索償期限以保單條款為準，由東主寄出前確認。本稿採用示範預設：事件後 ${deadline.days} 日（${deadline.date}）${deadline.passed ? `，於 ${prepared} 已過` : ""}。`,
+    "請確認收妥並告知所需文件。",
     "",
     `${c.business}`,
     "（兩位東主簽署）",
@@ -217,22 +278,38 @@ export function deadlines(c: DraftContext): Deadline[] {
       action: `Repaid automatically by ${pct}% of each customer payment now the storm is over; check the loan's final repayment date.`,
     });
   }
-  const window = c.terms?.claimWindowDays ?? CLAIM_WINDOW_DAYS;
-  out.push({ date: addDays(end, window), what: "Insurance claim window closes", action: "Send the claim letter (claim-en.md) with photos and receipts." });
+  const claim = claimDeadline(c);
+  out.push({
+    date: claim.date,
+    what: `Insurance claim window closes (demo default of ${claim.days} days; the policy sets the real one)${claim.passed ? " (passed)" : ""}`,
+    action: claim.passed
+      ? "Historical: this demo deadline has passed. Check the policy's actual terms before any claim."
+      : "Confirm the deadline in the policy, then send the claim letter (claim-en.md) with the photos and receipts you hold.",
+  });
   if (isVietnam(c.region)) {
-    out.push({ date: "2025-12-31", what: "Circular 53/2024: last day for the bank to restructure repayment terms", action: "Send the restructuring request (circular53-vi.md) to the bank as early as possible." });
+    const closed = circular53Closed(c);
+    out.push({
+      date: CIRCULAR53_LAST_DAY,
+      what: `Circular 53/2024: last day for the bank to restructure repayment terms${closed ? " (closed)" : ""}`,
+      action: closed
+        ? "Historical: this relief window has closed. Do not send circular53-vi.md as a current request; ask the bank about any current programme."
+        : "Send the restructuring request (circular53-vi.md) to the bank as early as possible.",
+    });
   }
   return out.sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
 }
 
 export function deadlineList(c: DraftContext): Draft {
-  const rows = deadlines(c).map((d) => `| ${d.date || "no fixed date"} | ${d.what} | ${d.action} |`);
+  const prepared = preparedOn(c);
+  const rows = deadlines(c).map((d) => `| ${d.date ? `${d.date}${d.date < prepared ? " (past)" : ""}` : "no fixed date"} | ${d.what} | ${d.action} |`);
+  const historical = claimDeadline(c).passed;
   const body = [
     `# Deadlines after ${c.eventName}`,
     "",
     DRAFT_NOTE,
     "",
-    `Storm ended ${stamp(c.stormEnd, c.timeZone)}. Business: ${c.business}.`,
+    ...(historical ? [`> **Historical replay.** Dates marked "(past)" were before ${prepared}, when this list was prepared. Use it to read the replay, not as a current to-do list.`, ""] : []),
+    `Storm ended ${stamp(c.stormEnd, c.timeZone)}. Prepared on ${prepared}. Business: ${c.business}.`,
     "",
     "| Date | What | What to do |",
     "| --- | --- | --- |",
@@ -248,6 +325,8 @@ export function deadlineList(c: DraftContext): Draft {
  */
 export function circular53Vi(c: DraftContext): Draft {
   const tz = c.timeZone;
+  const [y, m, d] = preparedOn(c).split("-");
+  const closed = circular53Closed(c);
   const body = [
     "# Đề nghị cơ cấu lại thời hạn trả nợ theo Thông tư 53/2024/TT-NHNN",
     "",
@@ -255,10 +334,18 @@ export function circular53Vi(c: DraftContext): Draft {
     "",
     "_Draft template (Vietnamese). Conditions below are a summary of SBV Circular 53/2024/TT-NHNN; check them against the official text and with the bank before sending._",
     "",
+    ...(closed
+      ? [
+          "> **Bản minh họa lịch sử, không phải hồ sơ đề nghị nộp tại thời điểm hiện tại.** Thời hạn ngân hàng cơ cấu lại nợ theo Thông tư 53/2024/TT-NHNN đã kết thúc ngày 31/12/2025.",
+          "",
+          `_Historical preview: the Circular 53/2024 restructuring window closed on ${CIRCULAR53_LAST_DAY}, before this draft was prepared on ${preparedOn(c)}. Do not send it as a current request._`,
+          "",
+        ]
+      : []),
     "**CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM**  ",
     "**Độc lập - Tự do - Hạnh phúc**",
     "",
-    `……, ngày ${day(new Date(), tz)}`,
+    `……, ngày ${d} tháng ${m} năm ${y}`,
     "",
     "## GIẤY ĐỀ NGHỊ CƠ CẤU LẠI THỜI HẠN TRẢ NỢ",
     "",
@@ -272,25 +359,28 @@ export function circular53Vi(c: DraftContext): Draft {
     "",
     "### Thiệt hại do bão số 3 (Yagi)",
     "",
-    `Doanh nghiệp bị ảnh hưởng trực tiếp bởi ${c.eventName}${c.stormStart ? ` từ ${stamp(c.stormStart, tz)}` : ""} đến ${stamp(c.stormEnd, tz)}: nhà xưởng, máy móc, nguyên vật liệu và hàng hóa bị hư hỏng; hoạt động sản xuất kinh doanh bị gián đoạn, nguồn thu giảm nên không trả được nợ đúng hạn.`,
+    `Sự kiện: ${c.eventName}${c.stormStart ? ` từ ${stamp(c.stormStart, tz)}` : ""} đến ${stamp(c.stormEnd, tz)}.`,
+    "",
+    "Thiệt hại thực tế do chủ doanh nghiệp xác nhận và cung cấp chứng từ: ……………",
     "",
     "| Hạng mục thiệt hại | Giá trị ước tính (đồng) | Chứng từ |",
     "| --- | --- | --- |",
-    "| (nhà xưởng, máy móc, hàng tồn kho, ngày ngừng sản xuất) | ……… | (ảnh, biên bản xác nhận của chính quyền địa phương) |",
+    "| (chủ doanh nghiệp điền: nhà xưởng, máy móc, hàng tồn kho, ngày ngừng sản xuất) | ……… | (ảnh, biên bản xác nhận của chính quyền địa phương, nếu có) |",
     "",
-    `Bằng chứng trước bão đã được ghi nhận: mã băm PRE_STORM ${c.preStorm ? `\`${c.preStorm.hash}\`` : "(không có)"}${c.preStorm?.tx ? `, giao dịch ${explorerTx(c.chainId, c.preStorm.tx)}` : ""}.`,
+    ...(c.preStorm ? [`Mã băm PRE_STORM: \`${c.preStorm.hash}\`${c.preStorm.tx ? `, giao dịch ${explorerTx(c.chainId, c.preStorm.tx)}` : ""}.`, ""] : []),
+    evidenceNote(c, "vi"),
     "",
     "### Nội dung đề nghị",
     "",
-    "Căn cứ Thông tư số 53/2024/TT-NHNN của Ngân hàng Nhà nước Việt Nam, doanh nghiệp đề nghị Ngân hàng:",
+    "Căn cứ Thông tư số 53/2024/TT-NHNN của Ngân hàng Nhà nước Việt Nam, doanh nghiệp đề nghị Ngân hàng xem xét:",
     "",
-    "1. Cơ cấu lại thời hạn trả nợ đối với khoản nợ gốc và/hoặc lãi đến hạn, giữ nguyên nhóm nợ;",
-    "2. Xem xét miễn, giảm lãi và phí theo quy định nội bộ của Ngân hàng;",
-    "3. Xem xét cho vay mới để khôi phục sản xuất kinh doanh.",
+    "1. Cơ cấu lại thời hạn trả nợ đối với khoản nợ gốc và/hoặc lãi đến hạn, giữ nguyên nhóm nợ (theo Thông tư 53/2024/TT-NHNN, nếu khoản nợ đủ điều kiện);",
+    "2. Miễn, giảm lãi và phí (theo chính sách của Ngân hàng);",
+    "3. Cho vay mới để khôi phục sản xuất kinh doanh (theo chính sách của Ngân hàng).",
     "",
-    "Điều kiện cần kiểm tra lại với Ngân hàng (tóm tắt):",
+    "Điều kiện cần đối chiếu đầy đủ với văn bản Thông tư và với Ngân hàng trước khi sử dụng (tóm tắt):",
     "",
-    "- khoản nợ phát sinh trước ngày bão gây thiệt hại và nghĩa vụ trả nợ đến hạn trong thời gian được hỗ trợ;",
+    "- khoản nợ phát sinh trước ngày 07/9/2024 và nghĩa vụ trả nợ gốc và/hoặc lãi đến hạn trong khoảng thời gian Thông tư quy định;",
     "- khách hàng bị thiệt hại do bão số 3, lũ lụt, sạt lở sau bão, không trả được nợ đúng hạn;",
     "- khoản nợ không vi phạm pháp luật; ngân hàng đánh giá khách hàng có khả năng trả nợ theo thời hạn mới;",
     "- thời hạn cơ cấu lại phù hợp với mức độ thiệt hại; ngân hàng thực hiện cơ cấu lại đến hết ngày 31/12/2025.",
@@ -299,9 +389,9 @@ export function circular53Vi(c: DraftContext): Draft {
     "",
     "Doanh nghiệp cam kết thông tin trên là đúng sự thật và sử dụng vốn đúng mục đích.",
     "",
-    "**Đại diện doanh nghiệp** (ký, ghi rõ họ tên, đóng dấu)",
+    "**Đại diện doanh nghiệp** (người có thẩm quyền ký; hình thức ký, đóng dấu theo yêu cầu của Ngân hàng)",
     "",
-    "Hồ sơ kèm theo: ảnh hiện trường, xác nhận thiệt hại của UBND xã/phường, báo cáo tài chính gần nhất, kế hoạch trả nợ.",
+    "Hồ sơ kèm theo (xác nhận danh mục với Ngân hàng): ảnh hiện trường, xác nhận thiệt hại của UBND xã/phường, báo cáo tài chính gần nhất, kế hoạch trả nợ.",
     "",
   ].join("\n");
   return { file: "circular53-vi.md", title: "Circular 53/2024 restructuring request", lang: "vi", body };
