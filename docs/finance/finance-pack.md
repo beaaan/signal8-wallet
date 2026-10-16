@@ -199,7 +199,7 @@ application date. Dating it to September 2024 would predate the circular.
 Never backdate a real filing. A current application needs its applicable
 programme/bank-policy basis, not an expired relief window presented as current.
 
-The current templates have confirmed follow-up concerns:
+The templates reviewed on 14 October 2026 had these confirmed follow-up concerns:
 
 - The Yagi preview uses the current generation date while directing the owner
   to the historical Circular 53 window.
@@ -208,15 +208,17 @@ The current templates have confirmed follow-up concerns:
 - A default 30-day claim period and an additional-loss claim are not established
   by a real policy. They require owner confirmation, not a promise of entitlement.
 
-These need separate runtime/template changes. This contribution does not fix
-the generator, alter historical anchors or claim an insurer will accept a mock
-letter. Outputs must be checked for contract/policy identity, dates, amounts,
-actual evidence, recipient details and relevant terms before use.
+The generator corrections merged separately in PR #34 on 16 October 2026,
+closing issue #32. This documentation contribution does not change the generator
+or historical anchors, or claim an insurer will accept a mock letter. Outputs
+must still use accurate contract/policy identities, dates, amounts, actual
+evidence, recipient details and relevant terms.
 
-The earlier reference to translations/translation-review.md does not identify
-an existing file on the reviewed main. Native-speaker review is still required
-for applicable Vietnamese/Chinese outputs; it has not been completed by this
-research alone.
+An [AI-assisted translation review](../../translations/translation-review.md)
+is available in this contribution. As requested on 16 October 2026,
+independent native-speaker sign-off is not a completion gate for the prototype's
+Vietnamese or Chinese sample outputs. This does not claim that a human language
+review occurred, or establish legal approval or bank/insurer acceptance.
 
 Hong Kong's stablecoin issuer regime began on 1 August 2025. [S12] HKMA announced
 the first issuer licences for Anchorpoint and HSBC on 10 April 2026. [S13]

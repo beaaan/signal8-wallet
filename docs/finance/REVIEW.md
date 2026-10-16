@@ -16,6 +16,11 @@ The contribution is shared. Task assignees are recorded, but an individual
 percentage of authorship or completion is not inferred from the common file.
 No final presentation, timed read-through or native-speaker sign-off was supplied.
 
+Update, 16 October 2026: the requested review scope does not require independent
+native-speaker sign-off as a prototype completion gate. The supplied
+[translation review](../../translations/translation-review.md) is AI-assisted;
+no human review or professional legal approval is claimed.
+
 ## Findings addressed in the finance documentation
 
 | Finding | Correction |
@@ -70,9 +75,10 @@ insurance tiers or pricing; none is adopted by this contribution. Reconcile
 post-payroll cash, weekly accruals and monthly cash periods before claiming
 runtime equivalence. Tracked in [issue #31](https://github.com/beaaan/signal8-wallet/issues/31).
 
-After-storm generator dating, evidence assertions and unverified terms require
-their own fix PR and regression tests, tracked in [issue #32](https://github.com/beaaan/signal8-wallet/issues/32).
-This documentation PR does not resolve runtime findings.
+The after-storm generator findings above record the 14 October baseline.
+Their separate correction merged in [PR #34](https://github.com/beaaan/signal8-wallet/pull/34)
+on 16 October 2026, closing [issue #32](https://github.com/beaaan/signal8-wallet/issues/32).
+This documentation PR does not implement or independently re-verify that fix.
 
 The separate existing DEMO.md and TECHNICAL.md may also need a consistency pass
 for source attribution and absolute safety language. They are outside this
@@ -85,7 +91,7 @@ finance-pack correction and have not silently been changed.
 | Typhoon cover and credit line terms | Qualified comparables, mock/proposed terms and basis risk | Finance acceptance of the chosen demo terms; no actuarial quote invented |
 | Cash-flow forecast for the Ragasa storm | Reviewed workbook, chart and shortfall tests | Agreed assumptions and decision about alignment with the agent's draw model |
 | Business case and numbers for the deck | Qualified claims and pricing hypothesis | Owner acceptance and handoff to actual slides |
-| After-storm paperwork and Vietnam rules check | Legal-window research and confirmed template findings | Corrected outputs, term checks and applicable native-speaker review |
+| After-storm paperwork and Vietnam rules check | Legal-window research, AI-assisted translation review and generator correction tracked in PR #34 | Accurate supplied facts and applicable term checks; independent native-speaker sign-off is not a prototype completion gate |
 | Pitch script and story | Working script, speakers and Q&A | Team approval and a timed complete read-through under 10 minutes |
 | Pitch deck | Reviewed build outline | Actual deck, screenshots, phone-tested QR and inspected submission PDF |
 

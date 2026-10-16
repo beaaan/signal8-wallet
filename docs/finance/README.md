@@ -27,7 +27,9 @@ a final deck, a timed rehearsal or a product approval.
 - [Finance research follow-up](NONRUNTIME_FOLLOWUP.md): arithmetic forecast comparison,
   benefit/premium arithmetic, business evidence and remaining acceptance gates.
 - [Translation review](../../translations/translation-review.md): AI-assisted
-  editorial findings, not human native-speaker sign-off.
+  editorial findings. Independent native-speaker sign-off is not a prototype
+  completion gate under the requested 16 October 2026 review scope; no human
+  review is claimed.
 - [Cash-flow workbook](ragasa-cashflow.xlsx): the original five-sheet structure
   with reviewed shortfall reporting, labels, assumptions and chart.
 - `exports/*.csv`: values exported from this exact workbook, one file per sheet.

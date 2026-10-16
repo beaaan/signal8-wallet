@@ -108,9 +108,12 @@ request. The research work can be reviewed without changing payment code.
 
 - #31: owners/finance choose terms and accepted accounting periods/assumptions;
   any adopted runtime changes need a separate approved implementation.
-- #32: actual generator changes to dates, evidence assertions and unknown terms.
+- #32: generator changes to dates, evidence assertions and unknown terms merged
+  separately in PR #34 on 16 October 2026; the issue is closed.
 - Translation review is documented separately, explicitly AI-assisted rather
-  than an independent native-speaker or professional legal sign-off.
+  than an independent native-speaker or professional legal sign-off. As requested
+  on 16 October 2026, independent native-speaker sign-off is not a
+  prototype completion gate; no human language review is claimed.
 - Team rehearsal, finance sign-off, arena URL and physical-phone test cannot be
   inferred from a research document. Presentation delivery remains with its
   assigned owners and is outside this contribution.
