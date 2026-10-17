@@ -24,6 +24,12 @@ a final deck, a timed rehearsal or a product approval.
   business case, paperwork notes, pitch script, Q&A and deck outline.
 - [Review findings](REVIEW.md): scope, research qualifications, source-template
   reproduction and finance/technical follow-up.
+- [Finance research follow-up](NONRUNTIME_FOLLOWUP.md): arithmetic forecast comparison,
+  benefit/premium arithmetic, business evidence and remaining acceptance gates.
+- [Translation review](../../translations/translation-review.md): AI-assisted
+  editorial findings. Independent native-speaker sign-off is not a prototype
+  completion gate under the requested 16 October 2026 review scope; no human
+  review is claimed.
 - [Cash-flow workbook](ragasa-cashflow.xlsx): the original five-sheet structure
   with reviewed shortfall reporting, labels, assumptions and chart.
 - `exports/*.csv`: values exported from this exact workbook, one file per sheet.
@@ -59,4 +65,5 @@ Vietnamese characters; the repository contribution's prose is in English.
 | Pitch deck | Dung, Ngọc |
 
 An artifact being present does not establish that its task's acceptance criteria
-are complete. In particular, the deck outline is not a submission PDF.
+are complete. In particular, the deck outline is not a submission PDF. This
+research follow-up does not add code or author a PowerPoint/PDF deck.
