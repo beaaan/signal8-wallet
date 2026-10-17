@@ -1,29 +1,29 @@
-"Summary: does 20,000 cover + 15,000 credit keep Mrs Chan above the 10,000 floor?",,,
+Illustrative cash scenarios (mUSD demo; not runtime-equivalent),,,
 ,,,
-Metric,A: Agent today,B: Recommended,Reading
-Lowest cash WITHOUT wallet,-27000,-12420,Negative = shop cannot pay staff/suppliers
-Weeks below zero WITHOUT wallet,10,9,
-Credit draw at Signal 8,15000,15000,"Capped at 15,000 without owner approval"
-Unfunded gap vs buffer,2000,0,> 0 means the replay numbers are NOT enough
-Lowest cash WITH wallet,7619.230769,21000,Should be >= buffer floor
-Weeks below buffer WITH wallet,7,0,
-Interest + fees over 13 weeks,380.7692308,380.7692308,Cost of the emergency credit
+Metric,A: Fixed-cost reference,B: Proposed split costs,Reading
+Lowest week-end cash: no funding,-27000,-12420,Negative = shop cannot pay staff/suppliers
+Weeks below zero: no funding,10,9,
+Modelled credit draw,15000,15000,"Capped at 15,000 without owner approval"
+Remaining funding shortfall,2380.7692307692287,0,"After modelled costs, funding and sweeps; includes opening cash."
+Lowest week-end cash: with funding,7619.230769230771,21000,"Week-end only; opening cash is 20,000. Floor is a target, not a guarantee."
+Weeks below target floor: with funding,7,0,
+Modelled interest + draw fee,380.7692307692307,380.7692307692307,Excludes insurance premium and undrawn commitment fee.
 Loan still owed at week 13,9000,9000,Repaid by the 10% sweep after the storm
-Cash at week 13 WITH wallet,7619.230769,22199.23077,
+Week 13 closing cash: with funding,7619.230769230771,22199.230769230773,
 ,,,
 ,,,
-Chart data (Scenario B): shop cash through Ragasa,,,
-Week,Without Signal 8 Wallet,With Signal 8 Wallet,Buffer floor
-1.0,21000,21000,10000
-2.0,15430,50280,10000
-3.0,9860,44686.92308,10000
-4.0,4290,39093.84615,10000
-5.0,-1280,33500.76923,10000
-6.0,-6850,27907.69231,10000
-7.0,-12420,22314.61538,10000
-8.0,-11420,22291.53846,10000
-9.0,-10420,22270,10000
-10.0,-9420,22250,10000
-11.0,-8420,22231.53846,10000
-12.0,-7420,22214.61538,10000
-13.0,-6420,22199.23077,10000
+"Chart data: illustrative scenario B, not an AI-only benefit estimate",,,
+Week,No emergency funding,Simulated cover + credit,Target cash floor
+1,21000,21000,10000
+2,15430,50280,10000
+3,9860,44686.92307692308,10000
+4,4290,39093.846153846156,10000
+5,-1280,33500.769230769234,10000
+6,-6850,27907.692307692312,10000
+7,-12420,22314.61538461539,10000
+8,-11420,22291.53846153847,10000
+9,-10420,22270.000000000007,10000
+10,-9420,22250.000000000007,10000
+11,-8420,22231.53846153847,10000
+12,-7420,22214.61538461539,10000
+13,-6420,22199.230769230773,10000
