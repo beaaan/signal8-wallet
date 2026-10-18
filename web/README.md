@@ -30,7 +30,7 @@ Put these in `web/.env.local` (see `.env.example`) or in the shell. The website 
 | --- | --- | --- |
 | `NETWORK` | `anvil` | Selects `../contracts/deployments/<NETWORK>.json` |
 | `RPC_URL` | `http://127.0.0.1:8545` | RPC when `NETWORK` is not `base-sepolia` |
-| `BASE_SEPOLIA_RPC` | `https://sepolia.base.org` | RPC when `NETWORK=base-sepolia` |
+| `BASE_SEPOLIA_RPC` | `https://base-sepolia-rpc.publicnode.com` | RPC when `NETWORK=base-sepolia`. `https://sepolia.base.org` caps `eth_getLogs` at 200 blocks, so the activity feed fails on it |
 | `AGENT_API_URL` | `http://127.0.0.1:8787` | Agent HTTP API (`agent: npm run serve`) |
 | `ARENA_AGENT_API_URL` | `AGENT_API_URL` | Agent the arena posts to and reads the board from, e.g. one on an anvil fork |
 | `TRUST_PROXY` | unset | `1` only behind a reverse proxy that appends the client address to `X-Forwarded-For` |
@@ -56,6 +56,12 @@ For Base Sepolia, run `NETWORK=base-sepolia BASE_SEPOLIA_RPC=… npm run dev`. T
 
 To let judges' phones reach the arena, run `npm run build && npm start -- -H 0.0.0.0` and set `PUBLIC_ARENA_URL` to the laptop's LAN address.
 
+## Deploy
+
+**Everything, arena included:** [`deploy/box`](../deploy/box/README.md) runs the website, the arena's agent and chain, and a read-only agent in one container on any server. Use this for the public arena URL.
+
+**Website only, on Vercel:** import the repo, set the project's Root Directory to `web` (leave "Include files outside the root directory" on: the site reads `../contracts/deployments` and `../data/fixtures/plans`, which `next.config.ts` lists for tracing), and set `NETWORK=base-sepolia`. The dashboard and plan book then work from the chain alone. Without `AGENT_API_URL` the status dot shows "No agent", and without `ARENA_AGENT_API_URL` the arena shows "Arena closed": point both at agents reachable from Vercel, and set `TRUST_PROXY=1` (Vercel appends the client address to `X-Forwarded-For`).
+
 ## Scripts
 
 - `npm run dev`, `npm run build`, `npm start`
@@ -68,4 +74,4 @@ There is no lint script yet. `next lint` is deprecated in Next 15.5 and needs in
 
 - The arena runs on a local test chain (an Anvil fork), never the demo Safe. A believable invoice from a registered supplier would really be paid. The agent refuses arena input (HTTP 403) unless its `NETWORK` is `anvil`.
 - The website caps the body at 64 KB and the text at 2,000 characters, and rate-limits in memory: 20 submissions per minute in total, and 5 per minute per client. A route handler cannot see the socket address, so without `TRUST_PROXY=1` everyone shares one client key and no IP is sent to the agent; with it, the last `X-Forwarded-For` hop is used and forwarded. Friendly messages for the agent's 403, 413 and 429, "not connected" (503) when it is down, and "Still deciding, watch the board" (202) when it does not answer within 60 s or answers 202 itself.
-- Before demo day, check that the host loads from where we present. Many `*.vercel.app`-style hosts are blocked in mainland China. The fallback is the presenter's laptop on a phone hotspot.
+- Before demo day, check that the host loads from where we present. Vercel says `*.vercel.app` can be blocked or throttled in mainland China and has no servers there; a custom domain helps but is not a guarantee. The box on a Hong Kong server is the safer public URL (`deploy/box/README.md`), and the presenter's laptop on a phone hotspot is the last fallback.

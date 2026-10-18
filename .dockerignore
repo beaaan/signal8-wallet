@@ -1,0 +1,17 @@
+# Keep keys and local state out of the image (deploy/box/Dockerfile builds from the repo root).
+.git
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+**/node_modules
+**/.next
+agent/logs
+agent/state
+contracts/out
+contracts/cache
+contracts/lib
+contracts/broadcast
+contracts/deployments/anvil*.json
+.claude

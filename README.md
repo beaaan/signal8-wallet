@@ -250,6 +250,7 @@ The extractor and planner use the Anthropic API when `MODEL_API_KEY` is set (`MO
 | Plan book format and hashing | [docs/specs/plans.md](docs/specs/plans.md) |
 | Security self-assessment | [docs/SECURITY.md](docs/SECURITY.md) |
 | Demo script and demo-day checklist | [docs/DEMO.md](docs/DEMO.md) |
+| Public deployment (website + arena in one container) | [deploy/box/README.md](deploy/box/README.md) |
 | Execution evidence (transaction hashes) | [docs/EVIDENCE.md](docs/EVIDENCE.md) |
 | Questions for the organizers | [docs/ORGANIZER_QUESTIONS.md](docs/ORGANIZER_QUESTIONS.md) |
 | How we work (branches, PRs, done) | [CONTRIBUTING.md](CONTRIBUTING.md) |
@@ -263,6 +264,7 @@ web/         Next.js: dashboard, plan book page, attack arena (read only; holds 
 data/        Replay timelines (Ragasa, Yagi) and demo fixtures (plan book, invoices, payroll, purchase orders)
 redteam/     Attack and benign cases, results
 docs/        Plan, specs, security self-assessment, demo, evidence
+deploy/      One-container public demo: website, arena agent and chain, read-only agent
 ```
 
 ## Ground rules
