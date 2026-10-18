@@ -5,7 +5,8 @@ const network = (process.env.NETWORK || "anvil").trim();
 
 function rpcUrl(): string {
   if (network === "base-sepolia") {
-    return process.env.BASE_SEPOLIA_RPC || process.env.RPC_URL || "https://sepolia.base.org";
+    // Not https://sepolia.base.org: it caps eth_getLogs at 200 blocks, so the activity feed (5,000-block reads) fails.
+    return process.env.BASE_SEPOLIA_RPC || process.env.RPC_URL || "https://base-sepolia-rpc.publicnode.com";
   }
   return process.env.RPC_URL || "http://127.0.0.1:8545";
 }

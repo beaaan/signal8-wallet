@@ -1,0 +1,33 @@
+# The public demo on one server: Caddy (HTTPS, real client addresses) in front of the box.
+#   cd deploy/box && SITE_ADDRESS=demo.example.com docker compose up -d --build
+# Without SITE_ADDRESS Caddy serves plain HTTP on port 80 (fine for a bare IP address in a QR code).
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: deploy/box/Dockerfile
+    image: signal8-box
+    restart: unless-stopped
+    environment:
+      TRUST_PROXY: "1" # Caddy appends the client address to X-Forwarded-For
+      PUBLIC_ARENA_URL: ${PUBLIC_ARENA_URL:-}
+      BASE_SEPOLIA_RPC: ${BASE_SEPOLIA_RPC:-https://base-sepolia-rpc.publicnode.com}
+      # Model for the arena agent (optional; without it the agent uses the rule-based extractor)
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-}
+      MODEL_BASE_URL: ${MODEL_BASE_URL:-}
+      MODEL_NAME: ${MODEL_NAME:-}
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+volumes:
+  caddy_data:

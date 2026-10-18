@@ -1,0 +1,5 @@
+# A domain name gets HTTPS from Let's Encrypt automatically; ":80" serves plain HTTP on any address.
+{$SITE_ADDRESS}
+
+encode gzip
+reverse_proxy app:3000
