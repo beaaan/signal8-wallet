@@ -106,8 +106,9 @@ request. The research work can be reviewed without changing payment code.
 
 ## Remaining ownership and runtime work
 
-- #31: owners/finance choose terms and accepted accounting periods/assumptions;
-  any adopted runtime changes need a separate approved implementation.
+- #31: decided on 19 October 2026 in [DECISION.md](DECISION.md). The implemented
+  model and the 20,000 benefit are kept; no proposal is adopted. Any later
+  runtime change needs a separate approved implementation.
 - #32: generator changes to dates, evidence assertions and unknown terms merged
   separately in PR #34 on 16 October 2026; the issue is closed.
 - Translation review is documented separately, explicitly AI-assisted rather

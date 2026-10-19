@@ -328,7 +328,7 @@ The forecast is deliberately simple:
 - after a Signal 8 storm, 6 disrupted weeks at 1,000 a week in;
 - a 10,000 buffer.
 
-The contract's credit cap always wins over the forecast.
+The contract's credit cap always wins over the forecast. The buffer is therefore a target, not a guarantee: when the cap binds, the projected low can stay below it, and the agent does not borrow more. The finance team's cash workbook is an illustration on different assumptions; [docs/finance/DECISION.md](../finance/DECISION.md) maps it to this forecast.
 
 **Everyday loop** (`loops/everyday.ts`):
 1. Match customer payments arriving through `PaymentRouter` to open receivables.

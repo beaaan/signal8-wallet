@@ -83,4 +83,6 @@ saving. All five sheet previews were rendered for visual review.
 Native Excel/Google Sheets interactive recalculation has not been verified in
 this contribution. Saved-value CSV checking is not a calculation engine.
 Runtime, signed policy/book/hash, contracts, deployment and historical evidence
-are unchanged. Product/model decisions are tracked in [issue #31](https://github.com/beaaan/signal8-wallet/issues/31).
+are unchanged. Product/model decisions are tracked in [issue #31](https://github.com/beaaan/signal8-wallet/issues/31),
+decided on 19 October 2026 in [DECISION.md](DECISION.md): the runtime is kept and
+this workbook stays an illustration.

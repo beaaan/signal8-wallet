@@ -24,6 +24,8 @@ a final deck, a timed rehearsal or a product approval.
   business case, paperwork notes, pitch script, Q&A and deck outline.
 - [Review findings](REVIEW.md): scope, research qualifications, source-template
   reproduction and finance/technical follow-up.
+- [Decision on the finance model](DECISION.md): keeps the implemented model
+  (19 October 2026, closes issue #31) and maps the workbook to the runtime.
 - [Finance research follow-up](NONRUNTIME_FOLLOWUP.md): arithmetic forecast comparison,
   benefit/premium arithmetic, business evidence and remaining acceptance gates.
 - [Translation review](../../translations/translation-review.md): AI-assisted
