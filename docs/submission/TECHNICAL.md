@@ -2,7 +2,7 @@
 
 FinTechathon 2026, International Track, Topic F (Agent Wallet).
 
-> **Draft, 14 Oct 2026.** To be finalised on 19 Oct, after the red-team cases are frozen (17 Oct) and the feature freeze (18 Oct). Numbers marked "14 Oct" may change with the final runs. Code: <https://github.com/beaaan/signal8-wallet>.
+> **Final, 19 Oct 2026.** The numbers come from the runs of 14 Oct, which are the final runs: no execution or red-team run changed after the 17 Oct case freeze and the 18 Oct feature freeze. Code: <https://github.com/beaaan/signal8-wallet>. Deck, video and live demo: [submission index](README.md).
 
 ## Contents
 
