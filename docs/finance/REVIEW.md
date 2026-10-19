@@ -75,6 +75,10 @@ insurance tiers or pricing; none is adopted by this contribution. Reconcile
 post-payroll cash, weekly accruals and monthly cash periods before claiming
 runtime equivalence. Tracked in [issue #31](https://github.com/beaaan/signal8-wallet/issues/31).
 
+Update, 19 October 2026: decided in [DECISION.md](DECISION.md). The implemented
+model is kept, none of the proposals is adopted, and the workbook is mapped to
+the runtime there. The DEMO/TECHNICAL consistency pass is recorded there too.
+
 The after-storm generator findings above record the 14 October baseline.
 Their separate correction merged in [PR #34](https://github.com/beaaan/signal8-wallet/pull/34)
 on 16 October 2026, closing [issue #32](https://github.com/beaaan/signal8-wallet/issues/32).
